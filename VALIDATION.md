@@ -1,0 +1,73 @@
+# v3 真實網站模式驗證
+
+日期：2026-09-20。環境：Windows 11、Chromium（Claude 桌面內建瀏覽器）、`npm run dev` 加 `labsite.local.json` 指向 `sung-lab-website` 的本機 clone。下方保留 v2 與初版紀錄。
+
+## 自動化
+
+- `npm test`：33 項通過。新增 12 項涵蓋 round-trip（CRLF、DOCTYPE、自閉合 SVG、無值屬性）、區塊搬移／刪除／複製（含分隔線與註解橫幅）、欄位擷取與設定、head 同步、`SITE` 原地替換、路徑安全、`deepEqual`、字串歷史。
+- `npm run build`：成功產生自足 HTML（約 1.5 MB，gzip 約 330 KB）。
+
+## 全站 round-trip
+
+在瀏覽器內用 `parsePage` → `serializePage` 處理兩個實驗室網站的每一頁（sung 24 頁本機、ycho 18 頁由 GitHub Pages 讀取），未做任何修改直接序列化：
+
+| 網站 | 頁數 | 與原檔逐字元相同 |
+| --- | --- | --- |
+| sung-lab-website | 24 | 24 |
+| ycho-lab-website | 18 | 18 |
+
+過程中修掉的差異來源：`&` 未跳脫的屬性值（字型 URL、英文描述）、多行 `<img … onerror>` 標籤、文字內的 `&quot;`、`</body>` 之後的尾端空白、`<html>` 與 `<head>` 間的換行。
+
+## 實際操作（sung-lab-website 本機 clone）
+
+- 開啟專案：偵測到 24 個頁面，首頁預覽顯示網站自己的 header、跑馬燈（來自 Google 試算表）、主視覺插圖（blob URL）。
+- 修改主視覺膠囊文字加上「（測試）」：預覽即時更新，側欄與頁面選單出現未保存標記。
+- 拖拉「主持人」區塊到最後：清單順序與預覽同步；復原後回到原順序。修正過一個 StrictMode 下重複觸發搬移的問題。
+- 點預覽中的主標題高亮片段：左側自動切到該欄位並聚焦；捲動只發生在預覽與欄位面板，不會捲動整個工作台。
+- 保存此頁後 `git diff`：`index.html` 只有 1 行文字修改與 1 個區塊搬移（57 行搬移，含註解橫幅），換行維持 CRLF（379 個 CRLF、0 個裸 LF）。
+- 網站資料分頁改「標語」並寫回：`js/data.js` 的 diff 只有 1 行，CRLF 保留。
+- 切換到 `en/index.html`：`../css`、`../assets`、`../js` 正確解析，英文 header 與插圖正常。
+- 開發伺服器橋接拒絕跳出資料夾的路徑（`normalizePath` 測試）。
+
+## 範例模式
+
+- 歷史與髒污判斷改用 `deepEqual`；21 項既有測試不變。
+- 草稿改存 IndexedDB：首次載入時資料庫 `labsite-studio` 建立；保存後重新載入可讀回（見下方操作紀錄）。
+- 舊 localStorage 紀錄的自動讀入以單元測試覆蓋（`readSavedRecord`），未在瀏覽器手動驗證。
+
+## 尚未驗證／限制
+
+- 「選擇本機資料夾」使用 File System Access API，需在 Chrome／Edge 由使用者手動操作，未在自動化環境驗證（介面與開發伺服器來源相同）。
+- 圖片更換的檔案選擇對話框未自動化；寫入路徑與 `src` 改寫邏輯與保存共用同一條通道。
+- 未驗證 Firefox／Safari；線上唯讀模式依賴 GitHub Pages 的 CORS 標頭。
+- 沒有 GitHub 提交／推送／Pages 發布。
+
+---
+
+# v2 架構調整驗證
+
+日期：2026-09-19。
+
+- `npm test`：21 項測試通過，涵蓋 v1/v2 匯入與往返、格式拒絕、純讀取轉換、固定快照、衝突、復原分組、主題與內容檢查。
+- `npm run build`：成功產生自足 HTML。
+- 瀏覽器直接讀取原有 v1 本機紀錄，名稱、標題與 v3 歷史仍可見；未要求重新建站。
+- 複製主視覺並修改副本標題，原主視覺文字未被更動；兩個操作可復原。
+- 選擇「圓潤」，實際預覽元素的 border-radius 為 22px。
+- 匯入不支援版本的 JSON，顯示錯誤且「確認取代草稿」不可用。
+- 匯入 v1 JSON，摘要顯示 1 頁、4 區塊、7 個內容項目、0 圖片；確認後顯示未保存，復原後研究室名稱回到原值。
+- 在同一欄位連續輸入 ABC，按一次復原即回到原名稱。
+- 390px 手機主題面板沒有水平溢位；已目視檢查。
+- 保存轉換後文件，再開正式建置，能看到本機草稿 v4；console 沒有 error 或 warn。
+
+---
+
+# 初版驗證紀錄
+
+日期：2026-09-19。範圍：本機前端，不含真實身分、雲端保存或部署。
+
+- `npm test`：5 項核心模型測試通過。`npm run build` 通過。安裝時 npm audit：0 vulnerabilities。
+- 工作台與編輯器正常呈現；修改標題並保存，重新載入後可讀到保存的文字。
+- 主視覺版型切換、區塊排序、版本恢復、多分頁衝突、發布演練、集合搜尋空狀態皆已檢查。
+- 在 1440 × 1000 桌面與 390 × 844 手機尺寸檢查；當次 console 未回報 error 或 warn。
+
+設計來源：Taste Skill repository snapshot `e79ca9ec7e071eb3a3b623c4fb752e853fc3ed58`。

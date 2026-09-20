@@ -1,0 +1,9 @@
+name = "labsite-oauth"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+
+[vars]
+# Public OAuth App client ID (the secret is set with `wrangler secret put GITHUB_CLIENT_SECRET`).
+GITHUB_CLIENT_ID = ""
+# Comma-separated origins allowed to call /exchange.
+ALLOWED_ORIGINS = "https://bobyu89.github.io,http://127.0.0.1:4180,http://localhost:4180"
