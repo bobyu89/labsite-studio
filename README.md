@@ -2,8 +2,11 @@
 
 研究室網站工作台。v3 的重點是**真實網站模式**：直接開啟 `sung-lab-website`、`ycho-lab-website` 這類靜態網站的原始檔，用拖拉與表單修改內容，寫回原檔；設計、腳本與其餘原始碼一字不改。範例模式（虛構的「知行研究室」）仍保留，並改用 IndexedDB 保存草稿。
 
+**線上版**：<https://bobyu89.github.io/labsite-studio/>（推到 `main` 會由 GitHub Actions 自動建置部署）。
+
 ## 開啟方式
 
+- **線上版 + GitHub 直接編輯**（建議）：打開上面的網址 → 「從 GitHub 直接編輯」→ 用 GitHub 登入（或貼上 token）→ 選擇儲存庫 → 開啟並編輯。每次「保存此頁」就是一個 commit，網站的 GitHub Pages 一兩分鐘後自動更新，不需要本機 clone 或 git。登入按鈕需要先部署一次 OAuth 服務，步驟見 [`worker/README.md`](worker/README.md)；在那之前可用 fine-grained token（只需 `Contents: Read and write` 權限、限定兩個網站 repo）。
 - **快速檢視**：直接用瀏覽器開啟 `dist/index.html`。真實網站模式在 Chrome／Edge 可用「選擇資料夾」；其他瀏覽器只能用線上唯讀模式。
 - **開發模式**（建議）：
   1. `npm ci`
@@ -15,7 +18,7 @@
 
 | 功能 | 行為 |
 | --- | --- |
-| 開啟來源 | 本機資料夾（File System Access API，Chrome／Edge）、開發伺服器指定的資料夾（任何瀏覽器）、GitHub Pages 網址（唯讀，可下載修改後的頁面） |
+| 開啟來源 | **GitHub 儲存庫**（API 讀寫，每次保存一個 commit；未登入可唯讀）、本機資料夾（File System Access API，Chrome／Edge）、開發伺服器指定的資料夾（任何瀏覽器）、GitHub Pages 網址（唯讀，可下載修改後的頁面） |
 | 頁面 | 根目錄與 `en/` 下所有 `.html`，中文與英文分組；在預覽裡點導覽連結會切換到對應頁面 |
 | 區塊 | `<body>` 直屬的 `<section>`：拖拉或按鈕排序、複製、刪除；分隔線與前置註解跟著區塊移動 |
 | 欄位 | 選定區塊內每一段文字（含 `<span>` 高亮片段）、連結網址、圖片 `src`／`alt`；點預覽中的元素即跳到對應欄位 |
@@ -28,7 +31,9 @@
 
 寫回的檔案只在你改過的地方與原檔不同：換行格式（CRLF／LF）、多行標籤、`&` 未跳脫的屬性、自閉合的 SVG、無值屬性等都會還原。兩個實驗室網站共 42 頁經驗證，未修改直接寫回時與原檔逐字元相同。
 
-尚未實作：GitHub 提交與推送、發布、多人協作、新增全新區塊類型、修改導覽列與頁尾（在 `js/components.js`）、非 `<section>` 結構的頁面。
+GitHub 模式的注意事項：token 只存在瀏覽器的 localStorage；保存前會用檔案的 sha 檢查遠端是否已被別人改過，衝突時不覆寫並提示重新開啟。圖片上傳同樣以 commit 寫入 `assets/`。
+
+尚未實作：多人協作、新增全新區塊類型、修改導覽列與頁尾（在 `js/components.js`）、非 `<section>` 結構的頁面、私有儲存庫（OAuth 只要求 `public_repo`）。
 
 ## 範例模式（沿用 v2）
 
@@ -53,7 +58,10 @@
 ## 程式結構
 
 - `src/site/page.js`：真實頁面模型。解析、區塊操作、欄位擷取、寫回時還原原始格式。
-- `src/site/source.js`：三種來源（資料夾、開發伺服器、網址）的共同介面與路徑解析。
+- `src/site/source.js`：來源的共同介面與路徑解析（資料夾、開發伺服器、網址）。
+- `src/site/github.js`：GitHub API 來源（trees／contents，sha 快取）、OAuth 登入的瀏覽器端、token 儲存。
+- `worker/`：Cloudflare Worker，只做 OAuth 的 code→token 交換；`public/labsite.config.json` 填 client ID 與 Worker 網址。
+- `.github/workflows/pages.yml`：測試、建置並部署到 GitHub Pages。
 - `src/site/preview.js`：組出可執行的預覽文件，並注入點選回報的橋接腳本。
 - `src/site/siteData.js`：`SITE` 設定的讀取與原地替換。
 - `src/hooks/useProject.js`：專案狀態、每頁歷史、保存、圖片寫入。
@@ -63,7 +71,7 @@
 
 ## 驗證
 
-`npm test`：33 項測試（範例模式 21 項、真實網站 12 項），使用 linkedom 提供 DOM。`npm run build` 產出單一 HTML。實際瀏覽器操作與 42 頁 round-trip 結果見 `VALIDATION.md`。
+`npm test`：38 項測試（範例模式 21 項、真實網站 12 項、GitHub 來源與 OAuth 5 項），使用 linkedom 提供 DOM。`npm run build` 產出單一 HTML。實際瀏覽器操作與 42 頁 round-trip 結果見 `VALIDATION.md`。
 
 範例「知行研究室」為虛構示範內容。平台沒有保存任何 GitHub 憑證，也不會把草稿或網站內容傳到外部服務；預覽中的最新消息與照片是網站自己的腳本向 Google 試算表／Drive 讀取的。
 
