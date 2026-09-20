@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createHistory, historyReducer } from "../domain/history.js";
 import { dbGet, dbPut, dbDelete, STORES } from "../domain/db.js";
 import {
@@ -14,6 +14,8 @@ import {
   addItem,
   removeItem,
   moveItem,
+  pairOf,
+  structureSignature,
 } from "../site/page.js";
 import { readSiteFields, patchSiteField } from "../site/siteData.js";
 import { directorySource, detectDevSource, urlSource, normalizePath } from "../site/source.js";
@@ -301,41 +303,113 @@ export function useProject(notify) {
 
   /* ----------------------------------------------------------- editing */
   const state = current ? drafts[current] : null;
-  function dispatch(action) {
-    if (!current) return;
-    setDrafts((d) => ({ ...d, [current]: historyReducer(d[current], action) }));
+  function dispatch(action, path = current) {
+    if (!path) return;
+    setDrafts((d) => (d[path] ? { ...d, [path]: historyReducer(d[path], action) } : d));
   }
-  function edit(mutate, group) {
-    dispatch({
-      type: "change",
-      update: (html) => editHtml(html, mutate),
-      group,
-      at: Date.now(),
-    });
+  function edit(mutate, group, path = current) {
+    dispatch(
+      {
+        type: "change",
+        update: (html) => editHtml(html, mutate),
+        group,
+        at: Date.now(),
+      },
+      path,
+    );
   }
   const section = (doc, i) => sectionElements(doc)[i];
+
+  /* ---------------------------------------------------- language pairs */
+  // zh ↔ en/ pages are hand-written copies. Structural edits (sections and
+  // items) are mirrored to the paired page while both still share the same
+  // structure; text is translated in the 對照 panel.
+  const [mirror, setMirror] = useState(true);
+  const pair = project && current ? pairOf(current, project.pages) : null;
+  const draftsRef = useRef(drafts);
+  draftsRef.current = drafts;
+  // Loads a page into drafts without switching to it. Resolves to its HTML.
+  async function ensureLoaded(path) {
+    const known = draftsRef.current[path];
+    if (known) return known.present;
+    try {
+      const html = await project.source.readText(path);
+      parsePage(html);
+      setOriginals((o) => ({ ...o, [path]: html }));
+      setDrafts((d) => (d[path] ? d : { ...d, [path]: createHistory(html) }));
+      return html;
+    } catch (e) {
+      setError("無法讀取 " + path + "：" + e.message);
+      return null;
+    }
+  }
+  const signature = (html) => structureSignature(parsePage(html).doc);
+  async function structural(mutate) {
+    const before = state?.present;
+    edit(mutate);
+    if (!mirror || !pair || !before) return;
+    const pairHtml = await ensureLoaded(pair);
+    if (pairHtml === null) return;
+    if (signature(before) !== signature(pairHtml)) {
+      notify("另一語言頁（" + pair + "）結構不同，這次變更沒有同步過去。");
+      return;
+    }
+    dispatch({ type: "change", update: (html) => editHtml(html, mutate), at: Date.now() }, pair);
+  }
   const api = {
-    setText: (i, path, value) =>
-      edit((doc) => setText(section(doc, i), path, value), `text:${current}:${i}:${path.join(".")}`),
-    setAttr: (i, path, name, value) =>
-      edit((doc) => setAttribute(section(doc, i), path, name, value), `attr:${current}:${i}:${path.join(".")}:${name}`),
-    setHead: (patch) => edit((doc) => writeHead(doc, patch), `head:${current}:${Object.keys(patch)[0]}`),
+    setText: (i, path, value, page = current) =>
+      edit((doc) => setText(section(doc, i), path, value), `text:${page}:${i}:${path.join(".")}`, page),
+    setAttr: (i, path, name, value, page = current) =>
+      edit((doc) => setAttribute(section(doc, i), path, name, value), `attr:${page}:${i}:${path.join(".")}:${name}`, page),
+    setHead: (patch, page = current) => edit((doc) => writeHead(doc, patch), `head:${page}:${Object.keys(patch)[0]}`, page),
     move: (from, to) => {
-      edit((doc) => moveSection(doc, from, to));
+      structural((doc) => moveSection(doc, from, to));
       setSelected(to);
     },
     remove: (i) => {
-      edit((doc) => removeSection(doc, i));
+      structural((doc) => removeSection(doc, i));
       setSelected(Math.max(0, i - 1));
     },
     duplicate: (i) => {
-      edit((doc) => duplicateSection(doc, i));
+      structural((doc) => duplicateSection(doc, i));
       setSelected(i + 1);
     },
-    addItem: (i, containerPath, after) => edit((doc) => addItem(section(doc, i), containerPath, after)),
-    removeItem: (i, containerPath, index) => edit((doc) => removeItem(section(doc, i), containerPath, index)),
-    moveItem: (i, containerPath, from, to) => edit((doc) => moveItem(section(doc, i), containerPath, from, to)),
+    addItem: (i, containerPath, after) => structural((doc) => addItem(section(doc, i), containerPath, after)),
+    removeItem: (i, containerPath, index) => structural((doc) => removeItem(section(doc, i), containerPath, index)),
+    moveItem: (i, containerPath, from, to) => structural((doc) => moveItem(section(doc, i), containerPath, from, to)),
   };
+  // Structure status for every loaded zh/en pair, recomputed from drafts.
+  const pairStatus = useMemo(() => {
+    if (!project) return {};
+    const out = {};
+    for (const path of project.pages) {
+      if (path.startsWith("en/")) continue;
+      const other = pairOf(path, project.pages);
+      if (!other || !drafts[path] || !drafts[other]) continue;
+      const same = signature(drafts[path].present) === signature(drafts[other].present);
+      out[path] = same ? "same" : "diff";
+      out[other] = out[path];
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project, drafts]);
+  async function checkPairs() {
+    if (!project) return;
+    setBusy(true);
+    try {
+      for (const path of project.pages) {
+        const other = pairOf(path, project.pages);
+        if (other && !path.startsWith("en/")) {
+          await ensureLoaded(path);
+          await ensureLoaded(other);
+        }
+      }
+      notify("已載入所有中英文配對頁，選單中會標示結構不同的頁面。");
+    } finally {
+      setBusy(false);
+    }
+  }
+  const ensurePair = () => (pair ? ensureLoaded(pair) : Promise.resolve(null));
   async function replaceImage(i, path, file) {
     const source = project?.source;
     if (!source?.writable) {
@@ -421,6 +495,13 @@ export function useProject(notify) {
     pages: project?.pages ?? [],
     current,
     html: state?.present ?? null,
+    pair,
+    pairHtml: pair ? (drafts[pair]?.present ?? null) : null,
+    pairStatus,
+    mirror,
+    setMirror,
+    ensurePair,
+    checkPairs,
     original: current ? originals[current] : null,
     dirty: !!current && state?.present !== originals[current],
     dirtyPages,

@@ -24,6 +24,7 @@
 | 欄位 | 選定區塊內每一段文字（含 `<span>` 高亮片段）、連結網址、圖片 `src`／`alt`；點預覽中的元素即跳到對應欄位 |
 | 項目清單（v3.1） | 自動偵測「同一容器下 tag 與 class 相同的重複元素」：成員卡、研究領域卡、文獻 `<li>`、表格列、膠囊標籤、條列 `<li>`。可新增（複製鄰近項目）、刪除、拖拉排序；巢狀清單（卡片裡的學經歷條列、標籤）一樣可編輯；`1. 2. 3.` 這類編號會自動重排 |
 | 圖片 | 更換圖片會寫入網站的 `assets/`，並把 `src` 改為相對路徑（英文頁自動加 `../`） |
+| 中英對照（v3.2） | 每頁自動配對 `x.html` ↔ `en/x.html`，一鍵切換語言；「中英對照」分頁把同一區塊的中文與英文欄位逐一並排，直接翻譯。新增／刪除／排序區塊或項目時，只要兩頁結構相同就自動同步到另一語言頁（新項目先帶原文）；結構不同的頁面在選單標 ⚠ 並停止同步，可用「檢查全部頁面的結構」一次載入所有配對頁 |
 | 頁面資訊 | `<title>` 與 description，同步更新 og／twitter 標籤 |
 | 網站資料 | `js/data.js` 的 `SITE` 字串欄位（名稱、標語、主持人、聯絡方式），逐值原地替換 |
 | 預覽 | 執行網站自己的 CSS 與腳本（header、footer、最新消息、照片都是真的），跳過純裝飾動畫 |
@@ -66,13 +67,13 @@ GitHub 模式的注意事項：token 只存在瀏覽器的 localStorage；保存
 - `src/site/preview.js`：組出可執行的預覽文件，並注入點選回報的橋接腳本。
 - `src/site/siteData.js`：`SITE` 設定的讀取與原地替換。
 - `src/hooks/useProject.js`：專案狀態、每頁歷史、保存、圖片寫入。
-- `src/views/Project.jsx`、`src/components/SectionList.jsx`、`FieldInspector.jsx`、`SitePreview.jsx`、`SiteDataPanel.jsx`、`ProjectOpen.jsx`：真實網站介面。
+- `src/views/Project.jsx`、`src/components/SectionList.jsx`、`FieldInspector.jsx`（含項目清單）、`PairPanel.jsx`（中英對照）、`SitePreview.jsx`、`SiteDataPanel.jsx`、`ProjectOpen.jsx`：真實網站介面；`src/hooks/useDragReorder.js` 為共用拖拉邏輯。
 - `vite.config.js`：開發伺服器的 `/__labsite/` 讀寫橋接（只在 `vite dev` 存在，不進建置）。
 - `src/domain/`、`src/views/`（其餘）、`src/model.js`、`src/Site.jsx`：範例模式，同 v2。
 
 ## 驗證
 
-`npm test`：38 項測試（範例模式 21 項、真實網站 12 項、GitHub 來源與 OAuth 5 項），使用 linkedom 提供 DOM。`npm run build` 產出單一 HTML。實際瀏覽器操作與 42 頁 round-trip 結果見 `VALIDATION.md`。
+`npm test`：43 項測試（範例模式 21 項、真實網站 17 項、GitHub 來源與 OAuth 5 項），使用 linkedom 提供 DOM。`npm run build` 產出單一 HTML。實際瀏覽器操作與 42 頁 round-trip 結果見 `VALIDATION.md`。
 
 範例「知行研究室」為虛構示範內容。平台沒有保存任何 GitHub 憑證，也不會把草稿或網站內容傳到外部服務；預覽中的最新消息與照片是網站自己的腳本向 Google 試算表／Drive 讀取的。
 

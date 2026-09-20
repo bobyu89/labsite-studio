@@ -151,3 +151,24 @@ test("new member cards drop duplicated ids and keep nested lists editable", () =
   assert.equal(items.length, 3);
   assert.equal(describeItem(s, items[2].path).lists[0].items.length, 1);
 });
+
+test("zh/en pages pair up and structure signatures track structural edits", async () => {
+  const { pairOf, structureSignature } = await import("../src/site/page.js");
+  const pages = ["index.html", "members.html", "en/index.html", "en/members.html", "awards.html"];
+  assert.equal(pairOf("members.html", pages), "en/members.html");
+  assert.equal(pairOf("en/index.html", pages), "index.html");
+  assert.equal(pairOf("awards.html", pages), null);
+  const sig = (html) => structureSignature(parsePage(html).doc);
+  const en = PAGE.replace("游明勳", "Ming-Hsun Yu").replace("研究團隊", "Team");
+  assert.equal(sig(PAGE), sig(en));
+  const added = editHtml(PAGE, (doc) => {
+    const s = sectionElements(doc)[0];
+    return addItem(s, describeNode(s).lists[0].path);
+  });
+  assert.notEqual(sig(added), sig(en));
+  const enAdded = editHtml(en, (doc) => {
+    const s = sectionElements(doc)[0];
+    return addItem(s, describeNode(s).lists[0].path);
+  });
+  assert.equal(sig(added), sig(enAdded));
+});

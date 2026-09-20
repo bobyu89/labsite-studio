@@ -579,6 +579,22 @@ export function moveItem(section, containerPath, from, to) {
   return true;
 }
 
+/* --------------------------------------------------------- language pairs */
+// zh page ↔ en/ page. Structure signatures let the editor tell whether the
+// two still line up (same sections, same fields in the same order).
+export function pairOf(path, pages) {
+  const other = path.startsWith("en/") ? path.slice(3) : "en/" + path;
+  return pages.includes(other) ? other : null;
+}
+export function structureSignature(doc) {
+  return sectionElements(doc)
+    .map((s) => collectFields(s).map((f) => f.kind[0]).join(""))
+    .join("|");
+}
+export function sectionSignature(section) {
+  return collectFields(section).map((f) => f.kind[0]).join("");
+}
+
 /* ---------------------------------------------------------------- page head */
 export function readHead(doc) {
   const q = (sel) => doc.head.querySelector(sel);

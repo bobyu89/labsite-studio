@@ -15,6 +15,7 @@ import SectionList from "../components/SectionList";
 import FieldInspector from "../components/FieldInspector";
 import SitePreview from "../components/SitePreview";
 import SiteDataPanel from "../components/SiteDataPanel";
+import PairPanel from "../components/PairPanel";
 import { parsePage, listSections, readHead } from "../site/page.js";
 import { pageLabel } from "../hooks/useProject";
 
@@ -69,6 +70,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
     <option key={path} value={path}>
       {pageLabel(path)}
       {p.dirtyPages.includes(path) ? " ●" : ""}
+      {p.pairStatus[path] === "diff" ? " ⚠" : ""}
       {"　" + path}
     </option>
   );
@@ -97,6 +99,17 @@ export default function Project({ p, device, setDevice, setConfirm }) {
           </p>
         </div>
         <div className="button-row">
+          {p.pair && (
+            <Button
+              variant="ghost"
+              className="lang-switch-btn"
+              disabled={p.busy}
+              onClick={() => switchPage(p.pair)}
+              title={"切換到 " + p.pair}
+            >
+              {p.current.startsWith("en/") ? "中文版" : "English"}
+            </Button>
+          )}
           <label className="page-picker">
             <span>頁面</span>
             <select value={p.current || ""} onChange={(e) => switchPage(e.target.value)} disabled={p.busy}>
@@ -148,17 +161,19 @@ export default function Project({ p, device, setDevice, setConfirm }) {
           <button onClick={() => p.setError(null)}>關閉</button>
         </div>
       )}
-      <div className="editor-layout project">
+      <div className={"editor-layout project" + (tab === "pair" ? " wide-inspector" : "")}>
         <aside className="inspector">
           <div className="inspector-tabs">
             {[
               ["blocks", "頁面區塊"],
               ["head", "頁面資訊"],
+              ["pair", "中英對照"],
               ["site", "網站資料"],
             ].map(([id, label]) => (
               <button key={id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}>
                 {label}
                 {id === "site" && p.siteDirty && <span className="unsaved-dot" aria-label="未保存" />}
+                {id === "pair" && p.pairStatus[p.current] === "diff" && <span className="unsaved-dot" aria-label="結構不同" />}
               </button>
             ))}
           </div>
@@ -173,6 +188,29 @@ export default function Project({ p, device, setDevice, setConfirm }) {
                 busy={p.busy}
               />
             </div>
+          ) : tab === "pair" ? (
+            <>
+              <SectionList
+                sections={sections}
+                selected={selected}
+                onSelect={(i) => {
+                  p.setSelected(i);
+                  p.setFocus(null);
+                }}
+                onMove={p.move}
+                onDuplicate={p.duplicate}
+                onRemove={(i) =>
+                  setConfirm({
+                    title: "刪除「" + sections[i].title + "」？",
+                    description: "會從這一頁移除整個區塊與相鄰分隔線；可用復原找回。",
+                    action: () => p.remove(i),
+                  })
+                }
+              />
+              <div className="inspector-body">
+                <PairPanel p={p} selected={selected} />
+              </div>
+            </>
           ) : tab === "head" ? (
             <div className="inspector-body">
               {head && (
