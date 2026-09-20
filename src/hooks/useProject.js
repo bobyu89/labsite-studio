@@ -11,6 +11,9 @@ import {
   setText,
   setAttribute,
   writeHead,
+  addItem,
+  removeItem,
+  moveItem,
 } from "../site/page.js";
 import { readSiteFields, patchSiteField } from "../site/siteData.js";
 import { directorySource, detectDevSource, urlSource, normalizePath } from "../site/source.js";
@@ -329,6 +332,9 @@ export function useProject(notify) {
       edit((doc) => duplicateSection(doc, i));
       setSelected(i + 1);
     },
+    addItem: (i, containerPath, after) => edit((doc) => addItem(section(doc, i), containerPath, after)),
+    removeItem: (i, containerPath, index) => edit((doc) => removeItem(section(doc, i), containerPath, index)),
+    moveItem: (i, containerPath, from, to) => edit((doc) => moveItem(section(doc, i), containerPath, from, to)),
   };
   async function replaceImage(i, path, file) {
     const source = project?.source;

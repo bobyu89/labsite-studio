@@ -355,8 +355,9 @@ function describe(el) {
   const hint = cls ? hints.find(([k]) => cls.includes(k))?.[1] : "";
   return hint || TAG_LABELS[tag] || tag;
 }
-// Walks a section and returns editable leaves: text nodes, images and links.
-export function collectFields(section) {
+// Walks an element and returns editable leaves: text nodes, images and links.
+// Paths are relative to `section` so they stay valid after re-parsing.
+export function collectFields(root, section = root) {
   const fields = [];
   const walk = (el, context) => {
     const tag = el.tagName.toLowerCase();
@@ -409,7 +410,7 @@ export function collectFields(section) {
       }
     }
   };
-  walk(section, "");
+  walk(root, "");
   return fields;
 }
 export function setText(section, path, value) {
@@ -424,6 +425,157 @@ export function setAttribute(section, path, name, value) {
   if (!el || el.nodeType !== 1) return false;
   if (!["src", "alt", "href", "title"].includes(name)) return false;
   el.setAttribute(name, value);
+  return true;
+}
+
+/* --------------------------------------------------------------- item lists */
+// A "list" is any element whose element children (two or more, or one inside
+// a grid/list/chips container) share the same tag and class. That covers
+// member cards, research cards, publication <li>s, table rows, chips and
+// bullet lists without site-specific rules.
+const itemKey = (el) =>
+  el.tagName.toLowerCase() +
+  "|" +
+  [...el.classList]
+    .filter((c) => !/^(reveal|in)$/.test(c))
+    .sort()
+    .join(" ");
+const LIST_HINTS = [
+  ["member", "成員"],
+  ["area", "研究領域"],
+  ["focus", "重點卡片"],
+  ["pub", "文獻"],
+  ["chip", "標籤"],
+  ["project", "計畫"],
+  ["news", "消息"],
+  ["gallery", "照片"],
+  ["award", "得獎"],
+  ["block", "資訊區"],
+];
+function listLabel(container, item) {
+  const cls = (item.getAttribute("class") || "") + " " + (container.getAttribute("class") || "");
+  const hint = LIST_HINTS.find(([k]) => cls.includes(k))?.[1];
+  if (hint) return hint;
+  const tag = item.tagName.toLowerCase();
+  return tag === "tr" ? "表格列" : tag === "li" ? "條列項目" : "項目";
+}
+function isList(el) {
+  // Table cells are columns of one row, never repeatable items.
+  if (el.tagName.toLowerCase() === "tr") return false;
+  const kids = [...el.children].filter((c) => !SKIP_TAGS.has(c.tagName.toLowerCase()));
+  if (!kids.length || kids.length !== el.children.length) return false;
+  if (kids.length === 1)
+    return (
+      ["ul", "ol", "tbody"].includes(el.tagName.toLowerCase()) ||
+      /(grid|list|chips|items|cards)/.test(el.getAttribute("class") || "")
+    );
+  const key = itemKey(kids[0]);
+  return kids.every((c) => itemKey(c) === key);
+}
+const NUMBER_RE = /^\d+[.．、)]?$/;
+function numberedNode(item) {
+  const first = item.querySelector("*") || item;
+  const text = first.textContent.trim();
+  return NUMBER_RE.test(text) ? first : null;
+}
+function itemTitle(item) {
+  const h = item.querySelector("h1, h2, h3, h4, h5");
+  let text = h ? h.textContent : "";
+  if (!text.trim()) {
+    const walker = [];
+    (function collect(el) {
+      for (const n of el.childNodes) {
+        if (n.nodeType === 3 && n.nodeValue.trim() && !NUMBER_RE.test(n.nodeValue.trim())) walker.push(n.nodeValue);
+        else if (n.nodeType === 1 && !SKIP_TAGS.has(n.tagName.toLowerCase())) collect(n);
+        if (walker.join("").length > 40) return;
+      }
+    })(item);
+    text = walker.join(" ");
+  }
+  return collapse(text).slice(0, 36) || "（空白）";
+}
+export function listSummary(container, section) {
+  const items = [...container.children];
+  return {
+    path: pathOf(container, section),
+    label: listLabel(container, items[0]),
+    numbered: items.length > 0 && items.every((it) => numberedNode(it)),
+    items: items.map((it) => ({ path: pathOf(it, section), title: itemTitle(it) })),
+  };
+}
+// Describes an element as its own fields plus the lists directly inside it;
+// fields inside a list item belong to that item (see describeItem).
+export function describeNode(root, section = root) {
+  const lists = [];
+  const listContainers = new Set();
+  (function find(el) {
+    for (const child of el.children) {
+      if (SKIP_TAGS.has(child.tagName.toLowerCase())) continue;
+      if (isList(child)) {
+        lists.push(listSummary(child, section));
+        listContainers.add(child);
+      } else find(child);
+    }
+  })(root);
+  const inside = (path) =>
+    [...listContainers].some((c) => {
+      const cp = pathOf(c, section);
+      return cp.length <= path.length && cp.every((v, i) => v === path[i]);
+    });
+  const fields = collectFields(root, section).filter((f) => !inside(f.elementPath));
+  return { fields, lists };
+}
+export const describeItem = (section, itemPath) => describeNode(nodeAt(section, itemPath), section);
+
+function renumber(container) {
+  const items = [...container.children];
+  if (!items.every((it) => numberedNode(it))) return;
+  items.forEach((it, i) => {
+    const node = numberedNode(it);
+    const suffix = node.textContent.trim().match(/[.．、)]?$/)[0];
+    node.textContent = String(i + 1) + suffix;
+  });
+}
+function gapBefore(node) {
+  const prev = node.previousSibling;
+  return prev && prev.nodeType === 3 && !prev.nodeValue.trim() ? prev.nodeValue : "\n";
+}
+export function addItem(section, containerPath, afterIndex = -1) {
+  const container = nodeAt(section, containerPath);
+  if (!container || container.nodeType !== 1 || !container.children.length) return false;
+  const items = [...container.children];
+  const template = items[afterIndex >= 0 && afterIndex < items.length ? afterIndex : items.length - 1];
+  const copy = template.cloneNode(true);
+  copy.removeAttribute("id");
+  copy.querySelectorAll("[id]").forEach((n) => n.removeAttribute("id"));
+  template.after(section.ownerDocument.createTextNode(gapBefore(template)), copy);
+  renumber(container);
+  return true;
+}
+export function removeItem(section, containerPath, index) {
+  const container = nodeAt(section, containerPath);
+  const item = container?.children[index];
+  if (!item || container.children.length === 1) return false;
+  removeWithWhitespace(item);
+  renumber(container);
+  return true;
+}
+export function moveItem(section, containerPath, from, to) {
+  const container = nodeAt(section, containerPath);
+  if (!container) return false;
+  const items = [...container.children];
+  if (from === to || from < 0 || to < 0 || from >= items.length || to >= items.length) return false;
+  const doc = section.ownerDocument;
+  const slots = items.map((el) => {
+    const marker = doc.createComment("labsite-item");
+    el.replaceWith(marker);
+    return marker;
+  });
+  const order = items.slice();
+  const [moved] = order.splice(from, 1);
+  order.splice(to, 0, moved);
+  slots.forEach((marker, i) => marker.replaceWith(order[i]));
+  renumber(container);
   return true;
 }
 

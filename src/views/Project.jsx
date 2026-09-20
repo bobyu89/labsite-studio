@@ -228,6 +228,10 @@ export default function Project({ p, device, setDevice, setConfirm }) {
                   replaceImage={p.replaceImage}
                   writable={writable}
                   busy={p.busy}
+                  addItem={p.addItem}
+                  removeItem={p.removeItem}
+                  moveItem={p.moveItem}
+                  setConfirm={setConfirm}
                 />
               </div>
             </>

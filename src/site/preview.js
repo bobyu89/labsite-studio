@@ -48,7 +48,7 @@ function stamp(doc) {
       if (["script", "style", "svg", "path", "g", "defs", "stop", "rect", "circle", "lineargradient"].includes(tag)) return;
       if (el.closest("svg")) return;
       const ownsText = [...el.childNodes].some((n) => n.nodeType === 3 && n.nodeValue.trim());
-      if (ownsText || tag === "img" || tag === "a") {
+      if (ownsText || tag === "img" || tag === "a" || tag === "li" || tag === "tr" || /\bcard\b|chip/.test(el.getAttribute("class") || "")) {
         const path = pathOf(el, section);
         if (path) el.setAttribute("data-ls", "s" + i + "/" + path.join("."));
       }
