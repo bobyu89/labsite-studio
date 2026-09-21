@@ -62,7 +62,7 @@ GitHub 模式的注意事項：token 只存在瀏覽器的 localStorage；保存
 - `src/site/page.js`：真實頁面模型。解析、區塊操作、欄位擷取、寫回時還原原始格式。
 - `src/site/source.js`：來源的共同介面與路徑解析（資料夾、開發伺服器、網址）。
 - `src/site/github.js`：GitHub API 來源（trees／contents，sha 快取）、OAuth 登入的瀏覽器端、token 儲存。
-- `worker/`：Cloudflare Worker，只做 OAuth 的 code→token 交換；`public/labsite.config.json` 填 client ID 與 Worker 網址。
+- `worker/`：Cloudflare Worker，簽發並驗證 OAuth `state`，再做 code→token 交換；只接受白名單 origin，`redirect_uri` 也綁定 origin。`public/labsite.config.json` 填 client ID 與 Worker 網址。
 - `.github/workflows/pages.yml`：測試、建置並部署到 GitHub Pages。
 - `src/site/preview.js`：組出可執行的預覽文件，並注入點選回報的橋接腳本。
 - `src/site/siteData.js`：`SITE` 設定的讀取與原地替換。

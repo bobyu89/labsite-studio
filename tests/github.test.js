@@ -6,6 +6,7 @@ import {
   parseRepo,
   authorizeUrl,
   finishLogin,
+  startLogin,
   loginAvailable,
   redirectUri,
 } from "../src/site/github.js";
@@ -108,16 +109,40 @@ test("repo strings and OAuth helpers", async () => {
   assert.equal(url.searchParams.get("client_id"), "cid");
   assert.equal(url.searchParams.get("redirect_uri"), "https://bobyu89.github.io/labsite-studio/");
   assert.equal(url.searchParams.get("scope"), "public_repo");
-  // Callback: state must match, then the worker exchanges the code.
-  const storage = new Map([["labsite-oauth-state", "st"]]);
+  // Start: the worker issues the state, we store it and send the user to GitHub.
+  const storage = new Map();
   const store = { getItem: (k) => storage.get(k) ?? null, setItem: (k, v) => storage.set(k, v), removeItem: (k) => storage.delete(k) };
+  const assigned = [];
+  const startLoc = { ...loc, assign: (u) => assigned.push(u) };
+  const fs = fakeFetch([["/state", { json: { state: "st" } }]]);
+  await startLogin(cfg, { storage: store, loc: startLoc, fetchImpl: fs });
+  assert.equal(fs.calls[0].url, "https://w.example/state");
+  assert.equal(fs.calls[0].method, "POST");
+  assert.equal(storage.get("labsite-oauth-state"), "st");
+  assert.equal(new URL(assigned[0]).searchParams.get("state"), "st");
+  // An old worker without /state must fail loudly instead of sending a stateless login.
+  await assert.rejects(
+    () => startLogin(cfg, { storage: store, loc: startLoc, fetchImpl: fakeFetch([]) }),
+    /版本過舊/,
+  );
+  await assert.rejects(
+    () => startLogin(cfg, { storage: store, loc: startLoc, fetchImpl: fakeFetch([["/state", { status: 403, json: { error: "origin not allowed" } }]]) }),
+    /origin not allowed/,
+  );
+  // Callback: state must match, then the worker exchanges code + state.
   const replaced = [];
   const history = { replaceState: (_, __, u) => replaced.push(u) };
   const f = fakeFetch([["/exchange", { json: { access_token: "gho_x" } }]]);
   const cb = { ...loc, search: "?code=abc&state=st" };
   assert.equal(await finishLogin(cfg, { storage: store, loc: cb, fetchImpl: f, history }), "gho_x");
   assert.deepEqual(replaced, ["/labsite-studio/index.html"]);
-  assert.equal(JSON.parse(f.calls[0].body).code, "abc");
+  assert.deepEqual(JSON.parse(f.calls[0].body), {
+    code: "abc",
+    state: "st",
+    redirect_uri: "https://bobyu89.github.io/labsite-studio/",
+  });
+  assert.equal(storage.has("labsite-oauth-state"), false);
+  storage.set("labsite-oauth-state", "st");
   await assert.rejects(
     () => finishLogin(cfg, { storage: store, loc: { ...loc, search: "?code=abc&state=bad" }, fetchImpl: f, history }),
     /狀態不符/,

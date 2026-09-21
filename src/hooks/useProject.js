@@ -247,12 +247,17 @@ export function useProject(notify) {
   const openUrl = (base) => openSource(urlSource(base));
 
   /* ------------------------------------------------------------ GitHub */
-  const loginGithub = () => {
+  const loginGithub = async () => {
     if (!loginAvailable(gh.config)) {
       setGh((g) => ({ ...g, error: "尚未設定 GitHub 登入服務，請先完成 worker 與 labsite.config.json。" }));
       return;
     }
-    startLogin(gh.config);
+    setGh((g) => ({ ...g, error: null }));
+    try {
+      await startLogin(gh.config);
+    } catch (e) {
+      setGh((g) => ({ ...g, error: e.message }));
+    }
   };
   async function setGithubToken(token) {
     const t = String(token || "").trim();

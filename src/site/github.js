@@ -173,14 +173,30 @@ export function authorizeUrl(config, state, loc = location) {
   });
   return "https://github.com/login/oauth/authorize?" + q;
 }
-export function startLogin(config, storage = sessionStorage, loc = location) {
-  const state = Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) =>
-    b.toString(16).padStart(2, "0"),
-  ).join("");
-  storage.setItem(STATE_KEY, state);
-  loc.assign(authorizeUrl(config, state, loc));
+// The worker issues the OAuth `state`: a signed nonce bound to this origin
+// that expires after a few minutes. We keep a copy in sessionStorage to
+// compare on return (browser-side CSRF check), and send it back to the worker
+// with the code so it can verify the signature too.
+export async function startLogin(config, { storage = sessionStorage, loc = location, fetchImpl = fetch } = {}) {
+  if (!loginAvailable(config)) throw new Error("尚未設定 OAuth 服務。");
+  let res;
+  try {
+    res = await fetchImpl(config.workerUrl + "/state", { method: "POST" });
+  } catch {
+    throw new Error("無法連線到登入服務，請稍後再試。");
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || typeof data.state !== "string" || !data.state)
+    throw new Error(
+      res.status === 404
+        ? "登入服務版本過舊，請重新部署 worker。"
+        : "無法開始登入：" + (data.error || res.status),
+    );
+  storage.setItem(STATE_KEY, data.state);
+  loc.assign(authorizeUrl(config, data.state, loc));
 }
-// Called once on load: exchanges ?code for a token via the worker, then cleans the URL.
+// Called once on load: checks ?state against the stored copy, then hands code +
+// state to the worker (which re-verifies the state) for a token, and cleans the URL.
 export async function finishLogin(config, { storage = sessionStorage, loc = location, fetchImpl = fetch, history = window.history } = {}) {
   const params = new URLSearchParams(loc.search);
   const code = params.get("code"),
@@ -197,7 +213,7 @@ export async function finishLogin(config, { storage = sessionStorage, loc = loca
   const res = await fetchImpl(config.workerUrl + "/exchange", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ code, redirect_uri: redirectUri(loc) }),
+    body: JSON.stringify({ code, state, redirect_uri: redirectUri(loc) }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || !data.access_token) throw new Error("GitHub 登入失敗：" + (data.error || res.status));
