@@ -4,7 +4,7 @@ compatibility_date = "2025-09-01"
 
 [vars]
 # Public OAuth App client ID (the secret is set with `wrangler secret put GITHUB_CLIENT_SECRET`).
-GITHUB_CLIENT_ID = ""
+GITHUB_CLIENT_ID = "Ov23liOGMkBApz6eP2Xy"
 # Comma-separated origins allowed to call /state and /exchange (exact match,
 # case- and trailing-slash-insensitive, no wildcards).
 # Secrets (set with `wrangler secret put`): GITHUB_CLIENT_SECRET (required),
