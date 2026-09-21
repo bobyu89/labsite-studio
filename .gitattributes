@@ -1,0 +1,2 @@
+# Keep the external corpus exactly as downloaded (no line-ending conversion).
+tests/fixtures/** -text
