@@ -1,7 +1,9 @@
 // Site sources: where a real website's files come from and where edits go.
 // Every source exposes the same small interface so the editor stays agnostic.
 //   { kind, name, writable, readText(path), readBlob(path), writeText(path, text),
-//     writeBlob(path, blob), listPages() }
+//     writeBlob(path, blob), writeFiles(files, message), listPages() }
+// writeFiles takes [{ path, text }] / [{ path, blob }] and saves them as one
+// unit (one commit on GitHub; plain sequential writes elsewhere).
 // Paths are POSIX-style, relative to the site root, never starting with "/".
 
 export function normalizePath(path) {
@@ -29,6 +31,36 @@ export function resolveFrom(pagePath, ref) {
   }
 }
 export const isPagePath = (p) => /^(?:[^/]+\/)?[^/]+\.html$/.test(p);
+
+// Default writeFiles for sources without atomic multi-file writes.
+export const sequentialWriter = (writeText, writeBlob) => async (files) => {
+  for (const f of files) {
+    if (f.text !== undefined) await writeText(f.path, f.text);
+    else await writeBlob(f.path, f.blob);
+  }
+  return null;
+};
+
+// Lays not-yet-saved files over a source for previewing: `staged` maps a site
+// path to a Blob (an image the user picked) or a string. Everything else falls
+// through to the real source; writes are not affected.
+export function stagedSource(source, staged) {
+  if (!staged || !Object.keys(staged).length) return source;
+  const get = (path) => staged[normalizePath(path)];
+  return {
+    ...source,
+    async readText(path) {
+      const v = get(path);
+      if (v === undefined) return source.readText(path);
+      return typeof v === "string" ? v : v.text();
+    },
+    async readBlob(path) {
+      const v = get(path);
+      if (v === undefined) return source.readBlob(path);
+      return typeof v === "string" ? new Blob([v]) : v;
+    },
+  };
+}
 
 /* ------------------------------------------------------- directory handle */
 export function directorySource(handle) {
@@ -58,6 +90,7 @@ export function directorySource(handle) {
     },
     writeText: write,
     writeBlob: write,
+    writeFiles: sequentialWriter(write, write),
     async listPages() {
       const pages = [];
       for await (const [name, entry] of handle.entries()) {
@@ -101,6 +134,7 @@ export function devSource(info) {
     readBlob: async (path) => (await get(path)).blob(),
     writeText: put,
     writeBlob: put,
+    writeFiles: sequentialWriter(put, put),
     async listPages() {
       const res = await fetch("/__labsite/list", { cache: "no-store" });
       return res.ok ? res.json() : [];
@@ -128,6 +162,9 @@ export function urlSource(base) {
       throw new Error("網址來源無法寫入，請下載修改後的檔案。");
     },
     async writeBlob() {
+      throw new Error("網址來源無法寫入，請下載修改後的檔案。");
+    },
+    async writeFiles() {
       throw new Error("網址來源無法寫入，請下載修改後的檔案。");
     },
     async listPages() {

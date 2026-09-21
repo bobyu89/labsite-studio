@@ -96,6 +96,85 @@ test("conflicting writes and missing tokens surface clear errors", async () => {
   assert.equal(githubSource({ owner: "o", repo: "r", branch: "master", token: "" }).writable, false);
 });
 
+// The Git Data API sequence for one multi-file commit, scripted as fetch replies.
+function gitDataRoutes({ headSha = "h1", remote = {}, refStatus = 200 } = {}) {
+  return [
+    ["/git/ref/heads/master", { json: { object: { sha: headSha } } }],
+    [`/git/commits/${headSha}`, { json: { tree: { sha: "t0" } } }],
+    ["/git/trees/t0?recursive=1", { json: { tree: Object.entries(remote).map(([path, sha]) => ({ path, type: "blob", sha })) } }],
+    ["/git/blobs", (init) => ({ json: { sha: "b-" + JSON.parse(init.body).content.length } })],
+    ["/git/trees", { json: { sha: "t1" } }],
+    ["/git/commits", { json: { sha: "c-new" } }],
+    ["/git/refs/heads/master", refStatus === 200 ? { json: { object: { sha: "c-new" } } } : { status: refStatus, json: { message: "not a fast forward" } }],
+  ];
+}
+
+test("writeFiles: one commit for pages and images, in the right order", async () => {
+  const f = fakeFetch(gitDataRoutes({ remote: { "index.html": "s1", "js/data.js": "s3" } }));
+  const s = githubSource({ owner: "o", repo: "r", branch: "master", token: "t", fetchImpl: f });
+  const png = new Blob([new Uint8Array([137, 80, 78, 71])], { type: "image/png" });
+  const sha = await s.writeFiles(
+    [
+      { path: "index.html", text: "<p>hi</p>" },
+      { path: "./assets/pi.png", blob: png },
+      { path: "js/data.js", text: "const SITE = {}" },
+    ],
+    "LabSite：更新 3 個檔案",
+  );
+  assert.equal(sha, "c-new");
+  const steps = f.calls.map((c) => c.method + " " + c.url.replace(/^.*\/repos\/o\/r\//, ""));
+  assert.deepEqual(steps, [
+    "GET git/ref/heads/master",
+    "GET git/commits/h1",
+    "GET git/trees/t0?recursive=1",
+    "POST git/blobs",
+    "POST git/blobs",
+    "POST git/blobs",
+    "POST git/trees",
+    "POST git/commits",
+    "PATCH git/refs/heads/master",
+  ]);
+  const blobs = f.calls.filter((c) => c.url.endsWith("/git/blobs")).map((c) => JSON.parse(c.body));
+  assert.equal(blobs[0].encoding, "base64");
+  assert.equal(blobs[0].content, textToBase64("<p>hi</p>"));
+  assert.equal(blobs[1].content, "iVBORw==");
+  const tree = JSON.parse(f.calls[6].body);
+  assert.equal(tree.base_tree, "t0");
+  assert.deepEqual(
+    tree.tree.map((e) => [e.path, e.mode, e.type]),
+    [["index.html", "100644", "blob"], ["assets/pi.png", "100644", "blob"], ["js/data.js", "100644", "blob"]],
+  );
+  const commit = JSON.parse(f.calls[7].body);
+  assert.deepEqual(commit, { message: "LabSite：更新 3 個檔案", tree: "t1", parents: ["h1"] });
+  const ref = JSON.parse(f.calls[8].body);
+  assert.deepEqual(ref, { sha: "c-new" }); // no force: GitHub refuses non-fast-forward moves
+  assert.equal(await s.writeFiles([], "x"), null);
+});
+
+test("writeFiles: a page changed remotely since open is refused before anything is uploaded", async () => {
+  const f = fakeFetch([
+    [/git\/trees\/master\?recursive=1/, { json: { tree: [{ path: "index.html", type: "blob", sha: "s1" }] } }],
+    ...gitDataRoutes({ remote: { "index.html": "s1-changed" } }),
+  ]);
+  const s = githubSource({ owner: "o", repo: "r", branch: "master", token: "t", fetchImpl: f });
+  await s.listPages(); // remembers index.html@s1
+  await assert.rejects(
+    () => s.writeFiles([{ path: "index.html", text: "x" }, { path: "assets/new.png", blob: new Blob(["z"]) }], "m"),
+    /index\.html.*已被其他人更新/,
+  );
+  assert.ok(!f.calls.some((c) => c.url.endsWith("/git/blobs")), "no blob was uploaded");
+  // A file we never saw (new asset) is never a conflict.
+  const g = fakeFetch(gitDataRoutes({ remote: { "index.html": "s1-changed" } }));
+  const s2 = githubSource({ owner: "o", repo: "r", branch: "master", token: "t", fetchImpl: g });
+  assert.equal(await s2.writeFiles([{ path: "assets/new.png", blob: new Blob(["z"]) }], "m"), "c-new");
+});
+
+test("writeFiles: a commit that lands in between makes the ref update fail loudly", async () => {
+  const f = fakeFetch(gitDataRoutes({ refStatus: 422 }));
+  const s = githubSource({ owner: "o", repo: "r", branch: "master", token: "t", fetchImpl: f });
+  await assert.rejects(() => s.writeFiles([{ path: "index.html", text: "x" }], "m"), /更新分支失敗.*已被其他人更新/);
+});
+
 test("repo strings and OAuth helpers", async () => {
   assert.deepEqual(parseRepo("https://github.com/bobyu89/sung-lab-website/"), { owner: "bobyu89", repo: "sung-lab-website" });
   assert.deepEqual(parseRepo("bobyu89/ycho-lab-website.git"), { owner: "bobyu89", repo: "ycho-lab-website" });

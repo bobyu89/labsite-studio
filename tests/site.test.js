@@ -18,7 +18,7 @@ const {
   editHtml,
 } = await import("../src/site/page.js");
 const { readSiteFields, patchSiteField } = await import("../src/site/siteData.js");
-const { normalizePath, resolveFrom, isPagePath } = await import("../src/site/source.js");
+const { normalizePath, resolveFrom, isPagePath, sequentialWriter, stagedSource } = await import("../src/site/source.js");
 const { deepEqual } = await import("../src/domain/equal.js");
 const { createHistory, historyReducer } = await import("../src/domain/history.js");
 
@@ -244,6 +244,32 @@ test("SITE string fields are read and patched in place without touching the rest
   assert.equal(readSiteFields(out).fields[2].value, 'A "B"\nC');
   assert.throws(() => patchSiteField(DATA, "SHEET_ID", "x"));
   assert.equal(readSiteFields("nothing here").ok, false);
+});
+
+test("sequentialWriter writes each file in order; stagedSource overlays unsaved files for previews", async () => {
+  const log = [];
+  const write = sequentialWriter(
+    async (p, t) => log.push(["text", p, t]),
+    async (p, b) => log.push(["blob", p, await b.text()]),
+  );
+  assert.equal(await write([{ path: "a.html", text: "A" }, { path: "assets/x.png", blob: new Blob(["PNG"]) }]), null);
+  assert.deepEqual(log, [["text", "a.html", "A"], ["blob", "assets/x.png", "PNG"]]);
+
+  const real = {
+    kind: "x",
+    readText: async (p) => "real:" + p,
+    readBlob: async (p) => new Blob(["real:" + p]),
+    writeText: async () => "written",
+  };
+  assert.equal(stagedSource(real, {}), real, "nothing staged: same object, no rebuilds");
+  const s = stagedSource(real, { "assets/new.png": new Blob(["staged"]), "css/main.css": "body{}" });
+  assert.equal(await (await s.readBlob("./assets/new.png")).text(), "staged");
+  assert.equal(await s.readText("css/main.css"), "body{}");
+  assert.equal(await (await s.readBlob("css/main.css")).text(), "body{}");
+  assert.equal(await s.readText("index.html"), "real:index.html");
+  assert.equal(await (await s.readBlob("assets/old.png")).text(), "real:assets/old.png");
+  assert.equal(await s.writeText("x", "y"), "written", "writes pass through untouched");
+  assert.equal(s.kind, "x");
 });
 
 test("paths stay inside the site and resolve relative to the page", () => {

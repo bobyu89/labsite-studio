@@ -91,6 +91,61 @@ export function githubSource({ owner, repo, branch, token, fetchImpl = fetch }) 
     if (data.content?.sha) shas.set(key, data.content.sha);
     return data.commit?.sha || null;
   }
+  // One commit for several files, through the Git Data API:
+  //   head ref → base commit → base tree → (conflict check) → blobs → tree → commit → ref
+  // The branch ref is moved without force, so a commit that landed in between
+  // is refused by GitHub instead of being overwritten. Before uploading
+  // anything we also compare every file's blob sha against the sha we saw when
+  // the project was opened, so a page someone else changed is reported by name.
+  const git = async (method, path, body, what) => {
+    const res = await fetchImpl(`${base}/git/${path}`, {
+      method,
+      headers: headers(body ? { "Content-Type": "application/json" } : {}),
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    });
+    if (!res.ok) await fail(res, what);
+    return res.json();
+  };
+  async function writeFiles(files, message) {
+    if (!files.length) return null;
+    const entries = [];
+    for (const f of files) {
+      const key = normalizePath(f.path);
+      const content =
+        f.text !== undefined ? textToBase64(f.text) : toBase64(new Uint8Array(await f.blob.arrayBuffer()));
+      entries.push({ key, content });
+    }
+    const ref = encodeURIComponent(branch);
+    const head = (await git("GET", `ref/heads/${ref}`, null, "讀取分支失敗")).object.sha;
+    const baseTree = (await git("GET", `commits/${head}`, null, "讀取分支失敗")).tree.sha;
+    const remote = new Map(
+      ((await git("GET", `trees/${baseTree}?recursive=1`, null, "讀取檔案清單失敗")).tree || [])
+        .filter((e) => e.type === "blob")
+        .map((e) => [e.path, e.sha]),
+    );
+    for (const e of entries) {
+      const known = shas.get(e.key);
+      if (known && remote.get(e.key) !== known)
+        throw new Error(`寫入 ${e.key} 失敗（409）遠端檔案已被其他人更新，請重新開啟頁面後再改。`);
+    }
+    for (const e of entries)
+      e.sha = (await git("POST", "blobs", { content: e.content, encoding: "base64" }, "上傳 " + e.key + " 失敗")).sha;
+    const tree = await git(
+      "POST",
+      "trees",
+      { base_tree: baseTree, tree: entries.map((e) => ({ path: e.key, mode: "100644", type: "blob", sha: e.sha })) },
+      "建立檔案樹失敗",
+    );
+    const commit = await git(
+      "POST",
+      "commits",
+      { message: message || `LabSite：更新 ${entries.length} 個檔案`, tree: tree.sha, parents: [head] },
+      "建立 commit 失敗",
+    );
+    await git("PATCH", `refs/heads/${ref}`, { sha: commit.sha }, "更新分支失敗");
+    for (const e of entries) shas.set(e.key, e.sha);
+    return commit.sha;
+  }
   return {
     kind: "github",
     name: `${owner}/${repo}@${branch}`,
@@ -108,6 +163,7 @@ export function githubSource({ owner, repo, branch, token, fetchImpl = fetch }) 
     async writeBlob(path, blob) {
       return put(path, toBase64(new Uint8Array(await blob.arrayBuffer())));
     },
+    writeFiles,
     async listPages() {
       const res = await fetchImpl(
         `${base}/git/trees/${encodeURIComponent(branch)}?recursive=1`,

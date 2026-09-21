@@ -18,7 +18,7 @@ import {
   structureSignature,
 } from "../site/page.js";
 import { readSiteFields, patchSiteField } from "../site/siteData.js";
-import { directorySource, detectDevSource, urlSource, normalizePath } from "../site/source.js";
+import { directorySource, detectDevSource, urlSource, normalizePath, stagedSource } from "../site/source.js";
 import { createPreviewCache, invalidatePreviewCache } from "../site/preview.js";
 import {
   githubSource,
@@ -91,6 +91,9 @@ export function useProject(notify) {
   const [selected, setSelected] = useState(0);
   const [focus, setFocus] = useState(null);
   const [siteData, setSiteData] = useState(null);
+  // Images picked but not yet saved: site path → { file, page }. They are
+  // written in the same commit as the page that references them.
+  const [staged, setStaged] = useState({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [remembered, setRemembered] = useState(null);
@@ -205,6 +208,7 @@ export function useProject(notify) {
       scrolls.current = {};
       setDrafts({});
       setOriginals({});
+      setStaged({});
       setSiteData(data);
       setProject({ source, pages });
       if (source.kind === "directory")
@@ -301,6 +305,7 @@ export function useProject(notify) {
     setProject(null);
     setDrafts({});
     setOriginals({});
+    setStaged({});
     setCurrent(null);
     setSiteData(null);
     setError(null);
@@ -431,33 +436,71 @@ export function useProject(notify) {
     }
     const safe = file.name.replace(/[\\/:*?"<>|]+/g, "-").trim();
     const target = normalizePath("assets/" + safe);
-    setBusy(true);
-    try {
-      await source.writeBlob(target, file);
-      invalidatePreviewCache(cache.current, target);
-      const rel = current.startsWith("en/") ? "../" + target : target;
-      api.setAttr(i, path, "src", rel);
-      notify("圖片已寫入 " + target + "，記得保存頁面。");
-    } catch (e) {
-      setError("圖片寫入失敗：" + e.message);
-    } finally {
-      setBusy(false);
-    }
+    invalidatePreviewCache(cache.current, target);
+    setStaged((st) => ({ ...st, [target]: { file, page: current } }));
+    const rel = current.startsWith("en/") ? "../" + target : target;
+    api.setAttr(i, path, "src", rel);
+    notify("圖片已放入 " + target + "，保存頁面時會一起寫入。");
   }
+  // What the preview reads: the real source with staged images laid over it.
+  const previewSource = useMemo(
+    () =>
+      project
+        ? stagedSource(project.source, Object.fromEntries(Object.entries(staged).map(([k, v]) => [k, v.file])))
+        : null,
+    [project, staged],
+  );
 
   /* ------------------------------------------------------------ saving */
-  async function savePage(path = current) {
-    const html = drafts[path]?.present;
-    if (!project || html === undefined) return false;
+  // Every save is one unit: the pages named, the images staged for them and
+  // (optionally) js/data.js, written together — a single commit on GitHub.
+  async function commitFiles({ pages = [], site = false }) {
+    if (!project) return false;
     if (!project.source.writable) {
       setError("網址來源無法寫回，請用「下載此頁」取得修改後的檔案。");
       return false;
     }
+    const files = [];
+    const assets = [];
+    for (const path of pages) {
+      const html = drafts[path]?.present;
+      if (html === undefined) continue;
+      files.push({ path, text: html });
+      for (const [target, st] of Object.entries(staged))
+        if (st.page === path) {
+          files.push({ path: target, blob: st.file });
+          assets.push(target);
+        }
+    }
+    if (site && siteData) files.push({ path: SITE_DATA, text: siteData.text });
+    if (!files.length) return false;
+    const names = files.map((f) => f.path);
+    const message =
+      names.length === 1 ? `LabSite：更新 ${names[0]}` : `LabSite：更新 ${names.length} 個檔案（${names.join("、")}）`;
     setBusy(true);
     try {
-      await project.source.writeText(path, html);
-      setOriginals((o) => ({ ...o, [path]: html }));
-      notify("已寫回 " + path + "。請用 git 檢視變更後再提交。");
+      const commit = await project.source.writeFiles(files, message);
+      setOriginals((o) => {
+        const next = { ...o };
+        for (const path of pages) if (drafts[path]) next[path] = drafts[path].present;
+        return next;
+      });
+      if (assets.length)
+        setStaged((st) => {
+          const next = { ...st };
+          for (const t of assets) delete next[t];
+          return next;
+        });
+      if (site && siteData) {
+        invalidatePreviewCache(cache.current, SITE_DATA);
+        setSiteData((sd) => ({ ...sd, original: sd.text }));
+      }
+      const what = names.length === 1 ? names[0] : names.length + " 個檔案";
+      notify(
+        project.source.kind === "github"
+          ? `已提交 ${what} 到 GitHub（commit ${String(commit || "").slice(0, 7)}），網站一兩分鐘後更新。`
+          : `已寫回 ${what}。請用 git 檢視變更後再提交。`,
+      );
       return true;
     } catch (e) {
       setError("寫入失敗：" + e.message);
@@ -466,33 +509,19 @@ export function useProject(notify) {
       setBusy(false);
     }
   }
-  async function saveAll() {
-    for (const p of dirtyPages) if (!(await savePage(p))) return;
-    if (siteDirty) await saveSiteData();
-  }
+  const savePage = (path = current) => commitFiles({ pages: [path] });
+  const saveAll = () => commitFiles({ pages: dirtyPages, site: siteDirty });
   function setSiteField(key, value) {
     setSiteData((s) => {
       const text = patchSiteField(s.text, key, value);
       return { ...s, text, fields: readSiteFields(text).fields };
     });
   }
-  async function saveSiteData() {
-    if (!siteData || !project?.source.writable) return;
-    setBusy(true);
-    try {
-      await project.source.writeText(SITE_DATA, siteData.text);
-      invalidatePreviewCache(cache.current, SITE_DATA);
-      setSiteData((s) => ({ ...s, original: s.text }));
-      notify("已寫回 js/data.js。");
-    } catch (e) {
-      setError("寫入失敗：" + e.message);
-    } finally {
-      setBusy(false);
-    }
-  }
+  const saveSiteData = () => commitFiles({ site: true });
   function revertPage(path = current) {
     if (!path || !originals[path]) return;
     setDrafts((d) => ({ ...d, [path]: createHistory(originals[path]) }));
+    setStaged((st) => Object.fromEntries(Object.entries(st).filter(([, v]) => v.page !== path)));
   }
 
   return {
@@ -524,6 +553,8 @@ export function useProject(notify) {
     setFocus,
     cache: cache.current,
     scrolls: scrolls.current,
+    previewSource,
+    stagedCount: Object.keys(staged).length,
     openDirectory,
     reopenRemembered,
     forgetRemembered,

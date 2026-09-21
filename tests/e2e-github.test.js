@@ -86,3 +86,35 @@ test("GitHub source: read, edit, commit, detect a stale write, restore", { skip,
     assert.equal(await open().readText(PAGE), original);
   }
 });
+
+test("GitHub source: writeFiles lands a page and an image in one commit and refuses stale trees", { skip, timeout: 120_000 }, async () => {
+  const { owner, repo } = parseRepo(REPO);
+  const branch = process.env.LABSITE_E2E_BRANCH || (await defaultBranch(owner, repo, TOKEN));
+  const open = () => githubSource({ owner, repo, branch, token: TOKEN });
+  const IMG = "assets/labsite-e2e.png";
+  const png = new Blob([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])], { type: "image/png" });
+
+  const a = open();
+  const pages = await a.listPages();
+  const original = pages.includes(PAGE) ? await a.readText(PAGE) : null;
+  const stamp = "E2E writeFiles " + new Date().toISOString();
+  const page = (original || FIXTURE).replace(/<h2>[^<]*<\/h2>/, "<h2>" + stamp + "</h2>");
+  try {
+    const sha = await a.writeFiles([{ path: PAGE, text: page }, { path: IMG, blob: png }], "LabSite e2e：一個 commit 兩個檔案");
+    assert.match(sha, /^[0-9a-f]{40}$/);
+    const b = open();
+    assert.equal(await b.readText(PAGE), page);
+    assert.equal((await b.readBlob(IMG)).size, 8);
+    // A source that opened before this commit must not be able to overwrite it.
+    const stale = open();
+    await stale.listPages();
+    await open().writeFiles([{ path: PAGE, text: page.replace(stamp, stamp + " (2)") }], "LabSite e2e：中途的另一次提交");
+    await assert.rejects(() => stale.writeFiles([{ path: PAGE, text: page.replace(stamp, stamp + " (stale)") }], "m"), /已被其他人更新/);
+    assert.equal(await open().readText(PAGE), page.replace(stamp, stamp + " (2)"));
+  } finally {
+    const d = open();
+    await d.listPages();
+    await d.writeFiles([{ path: PAGE, text: original || FIXTURE }], "LabSite e2e：還原");
+    assert.equal(await open().readText(PAGE), original || FIXTURE);
+  }
+});

@@ -89,13 +89,19 @@ export default function Project({ p, device, setDevice, setConfirm }) {
                 ? "本機資料夾"
                 : p.project.source.kind === "dev"
                   ? "開發伺服器"
-                  : "線上唯讀"}
+                  : p.project.source.kind === "github"
+                    ? writable
+                      ? "GitHub"
+                      : "GitHub 唯讀"
+                    : "線上唯讀"}
             </Badge>
           </h1>
           <p>
-            {writable
-              ? "保存會直接改寫原始檔；用 git 檢視變更後再提交與推送。"
-              : "此來源無法寫回，可下載修改後的頁面。"}
+            {!writable
+              ? "此來源無法寫回，可下載修改後的頁面。"
+              : p.project.source.kind === "github"
+                ? "每次保存是一個 commit（含這一頁換的圖片）；網站的 GitHub Pages 一兩分鐘後自動更新。"
+                : "保存會直接改寫原始檔；用 git 檢視變更後再提交與推送。"}
           </p>
         </div>
         <div className="button-row">
@@ -287,7 +293,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
         <SitePreview
           html={p.html}
           pagePath={p.current}
-          source={p.project.source}
+          source={p.previewSource}
           cache={p.cache}
           scrolls={p.scrolls}
           pages={p.pages}
