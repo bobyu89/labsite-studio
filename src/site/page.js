@@ -93,7 +93,13 @@ export function serializePage({ doc, meta }) {
   );
   if (meta.headGap)
     out = out.replace(/^(<html[^>]*>)<head/, (_, open) => open + meta.headGap + "<head");
-  out = out.replace(SVG_LEAF, "<$1$2/>").replace(SVG_SPACED, "<$1$2/>");
+  // Browsers write SVG leaves as <path …></path> (linkedom as <path … />);
+  // use the self-closing form only where the original file did.
+  const leaf = (tag, attrs) =>
+    !meta.selfClosing || meta.selfClosing.has("<" + tag + attrs + "/>")
+      ? "<" + tag + attrs + "/>"
+      : "<" + tag + attrs + "></" + tag + ">";
+  out = out.replace(SVG_LEAF, (_, tag, attrs) => leaf(tag, attrs)).replace(SVG_SPACED, (_, tag, attrs) => leaf(tag, attrs));
   out = restoreOriginals(out, meta);
   out = meta.doctype + "\n" + out;
   return meta.eol === "\r\n" ? out.replace(/\n/g, "\r\n") : out;
@@ -112,6 +118,7 @@ const SVG_TAGS =
   "rect|stop|path|circle|line|polyline|polygon|ellipse|use|image|animate";
 const SVG_LEAF = new RegExp("<(" + SVG_TAGS + ")((?:\\s[^<>]*)?)></\\1>", "g");
 const SVG_SPACED = new RegExp("<(" + SVG_TAGS + ")((?:\\s[^<>]*?)?)\\s/>", "g");
+const SVG_SELF_CLOSED = new RegExp("<(" + SVG_TAGS + ")((?:\\s[^<>]*?)?)\\s*/>", "g");
 const TAG_RE = /<[a-zA-Z][^<>]*>/g;
 const ATTR_RE = /([^\s"'<>\/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g;
 const NAMED = {
@@ -153,15 +160,53 @@ const escapeText = (v) =>
     .replace(/ /g, "&nbsp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
+// The HTML parser lowercases tag and attribute names, then restores the
+// camelCase of known SVG names (the spec's "adjust SVG attributes/tag names"
+// tables); browsers serialise with those adjusted names, so the canonical
+// form has to predict them or a file written as viewbox="…" would come back
+// as viewBox="…" on every save.
+const caseMap = (names) => new Map(names.map((n) => [n.toLowerCase(), n]));
+const SVG_TAG_CASE = caseMap([
+  "altGlyph", "altGlyphDef", "altGlyphItem", "animateColor", "animateMotion", "animateTransform",
+  "clipPath", "feBlend", "feColorMatrix", "feComponentTransfer", "feComposite", "feConvolveMatrix",
+  "feDiffuseLighting", "feDisplacementMap", "feDistantLight", "feDropShadow", "feFlood", "feFuncA",
+  "feFuncB", "feFuncG", "feFuncR", "feGaussianBlur", "feImage", "feMerge", "feMergeNode",
+  "feMorphology", "feOffset", "fePointLight", "feSpecularLighting", "feSpotLight", "feTile",
+  "feTurbulence", "foreignObject", "glyphRef", "linearGradient", "radialGradient", "textPath",
+]);
+const SVG_ATTR_CASE = caseMap([
+  "attributeName", "attributeType", "baseFrequency", "baseProfile", "calcMode", "clipPathUnits",
+  "diffuseConstant", "edgeMode", "filterUnits", "glyphRef", "gradientTransform", "gradientUnits",
+  "kernelMatrix", "kernelUnitLength", "keyPoints", "keySplines", "keyTimes", "lengthAdjust",
+  "limitingConeAngle", "markerHeight", "markerUnits", "markerWidth", "maskContentUnits", "maskUnits",
+  "numOctaves", "pathLength", "patternContentUnits", "patternTransform", "patternUnits", "pointsAtX",
+  "pointsAtY", "pointsAtZ", "preserveAlpha", "preserveAspectRatio", "primitiveUnits", "refX", "refY",
+  "repeatCount", "repeatDur", "requiredExtensions", "requiredFeatures", "specularConstant",
+  "specularExponent", "spreadMethod", "startOffset", "stdDeviation", "stitchTiles", "surfaceScale",
+  "systemLanguage", "tableValues", "targetX", "targetY", "textLength", "viewBox", "viewTarget",
+  "xChannelSelector", "yChannelSelector", "zoomAndPan",
+]);
+// Elements that only exist in SVG (names shared with HTML, like title/style/a, are left out).
+const SVG_ELEMENTS = new Set([
+  "svg", "g", "defs", "symbol", "use", "image", "path", "rect", "circle", "ellipse", "line", "polyline",
+  "polygon", "text", "tspan", "textPath", "marker", "pattern", "clipPath", "mask", "linearGradient",
+  "radialGradient", "stop", "filter", "animate", "animateMotion", "animateTransform", "set", "desc",
+  "metadata", "switch", "foreignObject", "view", ...SVG_TAG_CASE.values(),
+]);
 function canonicalTag(tag) {
   const m = tag.match(/^<([a-zA-Z][^\s\/>]*)([\s\S]*?)(\/?)>$/);
   if (!m) return null;
+  const lower = m[1].toLowerCase();
+  const name = SVG_TAG_CASE.get(lower) || lower;
+  const svg = SVG_ELEMENTS.has(name);
   const attrs = [];
   for (const a of m[2].matchAll(ATTR_RE)) {
     const value = a[2] ?? a[3] ?? a[4] ?? "";
-    attrs.push(" " + a[1] + '="' + escapeAttr(decodeEntities(value)) + '"');
+    const attrLower = a[1].toLowerCase();
+    const attrName = (svg && SVG_ATTR_CASE.get(attrLower)) || attrLower;
+    attrs.push(" " + attrName + '="' + escapeAttr(decodeEntities(value)) + '"');
   }
-  return "<" + m[1] + attrs.join("") + m[3] + ">";
+  return "<" + name + attrs.join("") + m[3] + ">";
 }
 function collectOriginals(text) {
   const tags = new Map();
@@ -169,13 +214,22 @@ function collectOriginals(text) {
     const canon = canonicalTag(tag);
     if (canon && canon !== tag && !tags.has(canon)) tags.set(canon, tag);
   }
+  // Which SVG leaves the file writes as <path …/> rather than <path …></path>,
+  // keyed by the canonical open tag the browser will produce for them.
+  const selfClosing = new Set();
+  for (const m of text.matchAll(SVG_SELF_CLOSED)) {
+    const canon = canonicalTag("<" + m[1] + m[2] + "/>");
+    if (canon) selfClosing.add(canon);
+  }
+  // Text runs whose browser form differs from the file: entities, and raw
+  // non-breaking spaces (which browsers write back as &nbsp;).
   const texts = new Map();
-  for (const m of text.matchAll(/>([^<]*&[^<]*)</g)) {
+  for (const m of text.matchAll(/>([^<]*[& ][^<]*)</g)) {
     const run = m[1];
     const canon = escapeText(decodeEntities(run));
     if (canon !== run && !texts.has(canon)) texts.set(canon, run);
   }
-  return { tags, texts };
+  return { tags, texts, selfClosing };
 }
 function restoreOriginals(out, meta) {
   if (meta.tags?.size)

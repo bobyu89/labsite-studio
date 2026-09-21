@@ -37,6 +37,20 @@ GitHub 模式的注意事項：token 只存在瀏覽器的 localStorage；保存
 
 尚未實作：多人協作、新增全新區塊類型、修改導覽列與頁尾（在 `js/components.js`）、非 `<section>` 結構的頁面、私有儲存庫（OAuth 只要求 `public_repo`）。
 
+網站要長什麼樣子才能被編輯（區塊、欄位、清單的判斷規則，以及存檔時哪些寫法會被原樣保留）見 [`docs/markup-convention.md`](docs/markup-convention.md)。
+
+## 和其他工具的差別
+
+| | LabSite Studio | Decap／Sveltia／Pages CMS | Silex／GrapesJS 類頁面建構器 | CloudCannon／Sitecake |
+|---|---|---|---|---|
+| 編輯對象 | **現成的靜態 HTML 原檔** | Markdown／YAML／JSON 內容檔，交給 SSG 產生 HTML | 建構器自己的專案格式，匯出時重寫整份 HTML | HTML，但要先加 `data-editable`／`sc-content` 之類的標記 |
+| 需要設定檔或 schema | 不需要，靠結構判斷 | 需要（collections、fields） | 不需要，但網站得從建構器裡做 | 需要在 HTML 加標記與設定 |
+| 存檔後的 git diff | 只有改到的節點；換行、引號、實體、SVG 寫法全部原樣 | 內容檔的 diff | 整頁重寫 | 依產品 |
+| 後端 | 純前端 + 一支只換 token 的 Worker | 純前端 + OAuth proxy（Pages CMS 有資料庫） | 需伺服器 | 商業服務／PHP |
+| 適合 | 已經有一個手寫或模板產生的靜態網站，想讓不會 git 的人改內容 | 新網站，內容與版型分離 | 從零開始視覺化建站 | 願意改造 HTML、可付費 |
+
+一句話：**不需要 SSG、不需要 schema、直接開現成的 HTML 改內容，存回去的 git diff 只有你改的那幾行。**
+
 ## 範例模式（沿用 v2）
 
 | 功能 | 行為 |
@@ -73,7 +87,7 @@ GitHub 模式的注意事項：token 只存在瀏覽器的 localStorage；保存
 
 ## 驗證
 
-`npm test`：43 項測試（範例模式 21 項、真實網站 17 項、GitHub 來源與 OAuth 5 項），使用 linkedom 提供 DOM。`npm run build` 產出單一 HTML。實際瀏覽器操作與 42 頁 round-trip 結果見 `VALIDATION.md`。
+`npm test`：64 項測試（範例模式 21 項、真實網站 18 項、外部語料 13 項、GitHub 來源與 OAuth 5 項、Worker 7 項），使用 linkedom 提供 DOM（`tests/dom.js` 補上與瀏覽器一致的跳脫）。`npm run test:e2e` 對真實 repo 跑 GitHub 提交流程（需設 `LABSITE_E2E_TOKEN` 與 `LABSITE_E2E_REPO`，否則略過）。`npm run build` 產出單一 HTML。實際瀏覽器操作、兩個實驗室網站 42 頁與 Greene Lab 模板 6 頁在 Chromium 的 round-trip 結果見 `VALIDATION.md`。
 
 範例「知行研究室」為虛構示範內容。平台沒有保存任何 GitHub 憑證，也不會把草稿或網站內容傳到外部服務；預覽中的最新消息與照片是網站自己的腳本向 Google 試算表／Drive 讀取的。
 

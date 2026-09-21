@@ -1,3 +1,49 @@
+# v3.3 安全與序列化保真驗證
+
+日期：2026-09-21。Node 24、Chromium（Claude 內建瀏覽器）。
+
+## 自動化
+
+- `npm test`：64 項通過（v3.2 為 43 項）。新增：
+  - `tests/worker.test.js`（7 組）：origin 白名單（忽略大小寫與結尾斜線、不接受子網域偽裝）、`/state` 簽發、`state` 簽章／過期／跨 origin／竄改的拒絕、`redirect_uri` 綁定 origin、每個守門都在聯絡 GitHub 之前觸發。
+  - `tests/external.test.js`（13 組）：Greene Lab「Lab Website Template」6 頁的逐字元 round-trip、無變更存檔恆等，以及零區塊頁面不拋例外。
+  - `tests/site.test.js` 新增一組回歸測試：明確閉合的 SVG 葉節點、原檔直接寫入的 U+00A0、屬性值裡的 `&amp;`，round-trip 與局部編輯皆正確。
+- 測試用 DOM 改為共用 `tests/dom.js`：linkedom 加上與瀏覽器一致的屬性值與文字節點跳脫（`&amp;`、`&nbsp;`、`&quot;`），否則含這些字元的頁面在瀏覽器裡正確、在測試裡卻會誤判。
+
+## 這一版修掉的序列化 bug
+
+外部語料一跑就抓到三個既有實驗室網站沒踩到、但其他網站一定會踩到的問題，全部發生在「沒改任何東西直接存檔」：
+
+| 問題 | 症狀 | 修法 |
+|---|---|---|
+| SVG 葉節點被強制改成自閉合 | 原檔 `<circle …></circle>` 存檔後變 `<circle …/>` | 解析時記錄原檔哪些葉節點真的用 `/>`，只還原那些 |
+| 原檔直接寫 U+00A0 的文字沒被記錄 | 存檔後變成 `&nbsp;` | 文字段落的原樣記錄改為同時涵蓋 `&` 與 U+00A0 |
+| 沒有預測 HTML parser 對 SVG 名稱的大小寫修正 | 原檔 `viewbox="…"` 存檔後變 `viewBox="…"`（只在真實瀏覽器發生，linkedom 模擬不到） | `canonicalTag` 把屬性名轉小寫，並對 SVG 元素套用規範的「adjust SVG attributes／tag names」表 |
+
+## 真實瀏覽器全站 round-trip
+
+在 Chromium 內以開發伺服器載入編輯器，動態 import `src/site/page.js`，對每一頁執行 `roundTrip` 與無變更的 `editHtml`，比對是否與原檔逐字元相同：
+
+| 語料 | 頁數 | 結果 |
+|---|---|---|
+| sung-lab-website（GitHub Pages 線上檔） | 24 | 24／24 相同 |
+| ycho-lab-website（GitHub Pages 線上檔） | 18 | 18／18 相同 |
+| Greene Lab Lab Website Template（Jekyll 產物） | 6 | 6／6 相同；區塊數 0（`<section>` 包在 `<main>` 內），編輯器顯示提示而非空白 |
+
+## OAuth 安全
+
+- Worker 新增 `POST /state`，簽發 HMAC-SHA256 簽章、綁定 origin、600 秒過期的 state；`POST /exchange` 必須帶 state 並通過簽章、過期、origin 與 `redirect_uri` 檢查。以單元測試驗證，未在線上 Worker 實測（需先 `wrangler deploy`）。
+- 前端登入流程改為先向 Worker 取 state 再跳轉 GitHub；舊版 Worker 會顯示「登入服務版本過舊」。
+
+## 尚未驗證／限制
+
+- 「選擇本機資料夾」與圖片更換對話框仍需手動操作。
+- 未在 Firefox／Safari 實測；程式已對不支援 File System Access API 的瀏覽器停用「選擇資料夾」並顯示提示。
+- GitHub 提交流程的端到端測試已寫好（`tests/e2e-github.test.js`：讀取、改欄位、commit、fresh source 讀回、過期 sha 的寫入被拒、還原），但需要一個拋棄式 repo 與 token（`LABSITE_E2E_TOKEN`、`LABSITE_E2E_REPO`），本次未實際執行；`npm test` 在沒有這兩個變數時自動略過。`.github/workflows/e2e.yml` 提供手動與每週排程執行。
+- 區塊辨識仍限 `<body>` 直屬 `<section>`；Jekyll 類模板需要另一種區塊定位策略才能編輯。
+
+---
+
 # v3.2 中英對照驗證
 
 日期：2026-09-20。環境同 v3.1。

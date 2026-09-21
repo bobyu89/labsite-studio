@@ -60,7 +60,7 @@ test("state: signed for one origin, expires after the TTL, rejects tampering", a
   assert.equal(await verifyState(env, "http://localhost:4180", state, now), "state signature mismatch");
   assert.equal(await verifyState({ ...env, GITHUB_CLIENT_SECRET: "other" }, SITE, state, now), "state signature mismatch");
   const [ts, nonce, sig] = state.split(".");
-  assert.equal(await verifyState(env, SITE, `${ts}.${nonce}.${sig.slice(0, -1)}A`, now), "state signature mismatch");
+  assert.equal(await verifyState(env, SITE, `${ts}.${nonce}.${sig.slice(0, -1)}${sig.endsWith("A") ? "B" : "A"}`, now), "state signature mismatch");
   assert.equal(await verifyState(env, SITE, `${Number(ts) + 60}.${nonce}.${sig}`, now), "state signature mismatch");
   assert.equal(await verifyState(env, SITE, "nope", now), "malformed state");
   assert.equal(await verifyState(env, SITE, undefined, now), "missing state");

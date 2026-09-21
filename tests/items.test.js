@@ -1,7 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { DOMParser } from "linkedom";
-globalThis.DOMParser = DOMParser;
+import "./dom.js";
 const { parsePage, sectionElements, describeNode, describeItem, addItem, removeItem, moveItem, editHtml, nodeAt } =
   await import("../src/site/page.js");
 

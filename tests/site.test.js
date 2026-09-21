@@ -1,7 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { DOMParser } from "linkedom";
-globalThis.DOMParser = DOMParser;
+import "./dom.js";
 const {
   parsePage,
   serializePage,
@@ -70,6 +69,28 @@ test("round trip preserves CRLF, doctype, void svg leaves and valueless attribut
   assert.equal(roundTrip(FIXTURE), FIXTURE);
   const lf = FIXTURE.replace(/\r\n/g, "\n");
   assert.equal(roundTrip(lf), lf);
+});
+
+test("round trip keeps explicit-closed svg leaves, raw non-breaking spaces and & in attributes", () => {
+  // Sites we did not write (Jekyll templates and the like) do all three.
+  const page = [
+    "<!DOCTYPE html>",
+    "<html><head>",
+    '<link href="https://fonts.example/css?family=A&amp;family=B" rel="stylesheet">',
+    "</head><body>",
+    "<section>",
+    '<svg><circle cx="0" r="3"></circle><path d="M1 2"/><rect x="1" /></svg>',
+    "<p>© 2026 | Built with <a href=\"?a=1&amp;b=2\">Tom &amp; Jerry</a></p>",
+    "</section>",
+    "</body></html>",
+    "",
+  ].join("\n");
+  assert.equal(roundTrip(page), page);
+  // And an edit inside that section still only changes what was edited.
+  const edited = editHtml(page, (doc) => {
+    doc.querySelector("a").textContent = "Tom";
+  });
+  assert.equal(edited, page.replace("Tom &amp; Jerry", "Tom"));
 });
 
 test("sections are listed with headings and kinds", () => {

@@ -1,0 +1,25 @@
+name: GitHub source end-to-end
+
+# Runs the real-repository test in tests/e2e-github.test.js. Needs two
+# repository secrets: LABSITE_E2E_TOKEN (fine-grained token, Contents:
+# read/write on the fixture repo only) and LABSITE_E2E_REPO (owner/name of a
+# throwaway repo). Without them the test is skipped and the job still passes.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 1 * * 1" # Mondays 09:00 Taipei
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run test:e2e
+        env:
+          LABSITE_E2E_TOKEN: ${{ secrets.LABSITE_E2E_TOKEN }}
+          LABSITE_E2E_REPO: ${{ secrets.LABSITE_E2E_REPO }}

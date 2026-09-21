@@ -234,6 +234,15 @@ export default function Project({ p, device, setDevice, setConfirm }) {
                 <strong>{pageLabel(p.current)}</strong>
                 <span>{p.current}{p.dirty ? " · 未保存" : ""}</span>
               </div>
+              {sections.length === 0 && (
+                <div className="message" role="status">
+                  <WarningCircle size={20} />
+                  <span>
+                    這一頁沒有可編輯的區塊。LabSite 只辨識 <code>&lt;body&gt;</code> 直屬的 <code>&lt;section&gt;</code>
+                    ；包在 <code>&lt;main&gt;</code> 或 <code>&lt;div&gt;</code> 裡的區塊目前不會列出。頁面標題與描述仍可在「頁面資訊」修改。
+                  </span>
+                </div>
+              )}
               <SectionList
                 sections={sections}
                 selected={selected}
