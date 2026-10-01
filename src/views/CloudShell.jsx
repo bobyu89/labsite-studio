@@ -15,11 +15,78 @@ import {
   GithubLogo,
   Plus,
   Trash,
+  LinkSimple,
+  Copy,
 } from "@phosphor-icons/react";
 import { Field } from "../components/ui";
 import Project from "./Project";
 
 const fmt = (t) => (t ? new Intl.DateTimeFormat("zh-TW", { dateStyle: "medium", timeStyle: "short" }).format(t) : "");
+
+// Makes a one-time sign-in link for an email and shows it ready to copy.
+function InviteLink({ p, email, label = "登入連結" }) {
+  const [link, setLink] = useState(null);
+  const [error, setError] = useState(null);
+  const [copied, setCopied] = useState(false);
+  const make = async () => {
+    setError(null);
+    setCopied(false);
+    try {
+      setLink(await p.cloudCalls.createInvite(email));
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(link.url);
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
+  };
+  return (
+    <div className="invite-link">
+      <Button size="1" variant="soft" onClick={make} disabled={!email}>
+        <LinkSimple size={14} /> {link ? "重新產生" : label}
+      </Button>
+      {link && (
+        <>
+          <div className="invite-row">
+            <input readOnly value={link.url} onFocus={(e) => e.target.select()} aria-label={"給 " + link.email + " 的登入連結"} />
+            <Button size="1" onClick={copy}>
+              <Copy size={14} /> {copied ? "已複製" : "複製"}
+            </Button>
+          </div>
+          <span className="small-note">
+            把連結傳給 {link.email}。只能用一次，{fmt(link.expiresAt)} 前有效；登入後 30 天內不用再登入。
+          </span>
+        </>
+      )}
+      {error && <span className="error-text small-note">{error}</span>}
+    </div>
+  );
+}
+
+function InviteCard({ p }) {
+  const [email, setEmail] = useState("");
+  return (
+    <section className="open-card">
+      <LinkSimple size={28} />
+      <h3>產生登入連結</h3>
+      <p>給任何一個 Email 一條一次性的登入連結，例如你自己在另一台電腦登入時用。要讓老師編輯網站，請在網站卡片的「成員」把他加入。</p>
+      <input
+        className="invite-email"
+        type="email"
+        placeholder="Email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        aria-label="要產生登入連結的 Email"
+      />
+      <InviteLink p={p} email={email.trim()} label="產生連結" />
+    </section>
+  );
+}
 
 function Members({ p, site }) {
   const [members, setMembers] = useState(null);
@@ -54,15 +121,18 @@ function Members({ p, site }) {
       <ul>
         {members?.map((m) => (
           <li key={m.email}>
-            <span>{m.email}</span>
-            <button
-              className="icon-link"
-              aria-label={"移除 " + m.email}
-              disabled={busy}
-              onClick={() => run(() => p.cloudCalls.removeMember(site.id, m.email))}
-            >
-              <Trash size={15} />
-            </button>
+            <div className="member-row">
+              <span>{m.email}</span>
+              <button
+                className="icon-link"
+                aria-label={"移除 " + m.email}
+                disabled={busy}
+                onClick={() => run(() => p.cloudCalls.removeMember(site.id, m.email))}
+              >
+                <Trash size={15} />
+              </button>
+            </div>
+            {p.cloud.me.via !== "access" && <InviteLink p={p} email={m.email} />}
           </li>
         ))}
       </ul>
@@ -212,6 +282,7 @@ function CloudHome({ p }) {
           <SiteCard key={s.id} p={p} site={s} admin={me.admin} />
         ))}
         {me.admin && <ImportCard p={p} />}
+        {me.admin && me.via !== "access" && <InviteCard p={p} />}
       </div>
     </>
   );
@@ -254,17 +325,38 @@ export default function CloudShell({ p, notice, setNotice, device, setDevice }) 
                 管理者
               </Badge>
             )}
-            <a className="icon-link" href="/cdn-cgi/access/logout" aria-label="登出" title="登出">
+            <button
+              className="icon-link"
+              aria-label="登出"
+              title="登出"
+              onClick={async () => {
+                if (me.via === "access") return void (location.href = "/cdn-cgi/access/logout");
+                try {
+                  await p.cloudCalls.logout();
+                } finally {
+                  location.reload();
+                }
+              }}
+            >
               <SignOut size={19} />
-            </a>
+            </button>
           </div>
         )}
       </header>
       <main id="main" tabIndex={-1} className={"main-content " + (p.project ? "editor-main" : "")}>
         {signedOut ? (
-          <div className="message error" role="alert">
-            <WarningCircle size={20} />
-            <span>{p.cloud.error} 請重新整理頁面；如果一直看到這個訊息，代表登入服務還沒設定好，請聯絡管理者。</span>
+          <div className="signed-out">
+            <h1>請用登入連結開啟</h1>
+            <p>
+              LabSite 不用密碼。請打開管理者傳給你的登入連結，登入後 30 天內都不用再登入。
+              連結只能用一次；用過或過期了，請向管理者索取新的。
+            </p>
+            {p.cloud.error && p.cloud.error !== "請先登入。" && (
+              <div className="message error" role="alert">
+                <WarningCircle size={20} />
+                <span>{p.cloud.error}</span>
+              </div>
+            )}
           </div>
         ) : p.project ? (
           <Project p={p} device={device} setDevice={setDevice} setConfirm={setConfirm} />

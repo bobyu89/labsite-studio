@@ -7,6 +7,7 @@
 // is signed in. DEV_AUTH=on (local .dev.vars only) signs everyone in as
 // DEV_USER_EMAIL, and only for requests to localhost.
 import { dec, enc, base64UrlToBytes } from "./bytes.js";
+import { COOKIE, sessionUser, readCookie } from "./sessions.js";
 
 let certCache = { team: null, at: 0, keys: new Map() };
 const CERT_TTL = 60 * 60 * 1000;
@@ -56,26 +57,31 @@ export async function verifyAccessJwt(token, { team, aud, now = Date.now(), fetc
   return payload;
 }
 
-function cookie(request, name) {
-  const m = (request.headers.get("Cookie") || "").match(new RegExp("(?:^|;\\s*)" + name + "=([^;]+)"));
-  return m ? m[1] : null;
-}
 
 const isLocal = (request) => /^(localhost|127\.0\.0\.1|\[::1\])$/.test(new URL(request.url).hostname);
 
+// → { email, via: "dev" | "access" | "session" } or null.
 export async function currentUser(request, env, fetchImpl = fetch) {
   if (env.DEV_AUTH === "on" && env.DEV_USER_EMAIL && isLocal(request))
-    return { email: String(request.headers.get("X-Dev-Email") || env.DEV_USER_EMAIL).toLowerCase() };
+    return { email: String(request.headers.get("X-Dev-Email") || env.DEV_USER_EMAIL).toLowerCase(), via: "dev" };
   // Accept the team domain as shown in the dashboard ("https://x.cloudflareaccess.com") or bare.
   const team = String(env.ACCESS_TEAM_DOMAIN || "").trim().replace(/^https?:\/\//, "").replace(/\/+$/, "");
   const aud = String(env.ACCESS_AUD || "").trim();
-  if (!team || !aud) return null;
-  const token = request.headers.get("Cf-Access-Jwt-Assertion") || cookie(request, "CF_Authorization");
-  if (!token) return null;
-  try {
-    const payload = await verifyAccessJwt(token, { team, aud, fetchImpl });
-    return { email: String(payload.email).toLowerCase() };
-  } catch {
-    return null;
+  if (team && aud) {
+    const token = request.headers.get("Cf-Access-Jwt-Assertion") || readCookie(request, "CF_Authorization");
+    if (token) {
+      try {
+        const payload = await verifyAccessJwt(token, { team, aud, fetchImpl });
+        return { email: String(payload.email).toLowerCase(), via: "access" };
+      } catch {
+        /* fall through to the invite-link session */
+      }
+    }
   }
+  const session = readCookie(request, COOKIE);
+  if (session && env.DB) {
+    const user = await sessionUser(env, session);
+    if (user) return { email: user.email, via: "session" };
+  }
+  return null;
 }

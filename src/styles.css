@@ -2930,3 +2930,53 @@ h3 {
     grid-template-columns: 1fr;
   }
 }
+
+.invite-link {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+  width: 100%;
+  margin: 2px 0 8px;
+}
+.invite-row {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+}
+.invite-row input,
+.invite-email {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  border: 1px solid #d6dfda;
+  border-radius: 7px;
+  padding: 6px 10px;
+  font-size: 12px;
+  background: #f8faf9;
+}
+.invite-email {
+  font-size: 13px;
+  background: #fff;
+}
+.cloud-members li {
+  display: block;
+}
+.member-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.signed-out {
+  max-width: 520px;
+  margin: 12vh auto 0;
+  text-align: center;
+}
+.signed-out h1 {
+  font-size: 24px;
+  margin: 0 0 12px;
+}
+.signed-out p {
+  color: var(--muted);
+  line-height: 1.9;
+}

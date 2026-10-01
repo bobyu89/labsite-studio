@@ -2,6 +2,7 @@
 // Cloudflare Access. Bindings: DB (D1), BLOBS (R2), ASSETS (editor build).
 import { Hono } from "hono";
 import { currentUser } from "./auth.js";
+import { COOKIE, SESSION_TTL, createInvite, redeemInvite, endSession, sessionCookie, readCookie } from "./sessions.js";
 import { fromBase64, enc } from "./bytes.js";
 import { contentType } from "./mime.js";
 import { zip } from "./zip.js";
@@ -13,7 +14,7 @@ import {
   sitesFor,
   getSite,
   resolveRef,
-  getBlobObject,
+  blobStream,
   getBlob,
   commitChanges,
   restoreCommit,
@@ -86,6 +87,21 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
       if (origin && origin !== new URL(c.req.url).origin)
         return c.json({ error: "拒絕來自其他網頁的修改請求。" }, 403);
     }
+    c.header("Cache-Control", "no-store");
+    await next();
+  });
+
+  // The one route that works signed out: trade a one-time invite link for a session.
+  app.post("/api/login", async (c) => {
+    const body = await c.req.json().catch(() => ({}));
+    const r = await redeemInvite(c.env, body.invite);
+    if (!r) return c.json({ error: "這個登入連結無效、已經用過或已過期，請向管理者索取新的連結。" }, 401);
+    const secure = new URL(c.req.url).protocol === "https:";
+    c.header("Set-Cookie", sessionCookie(r.session, { maxAge: Math.floor(SESSION_TTL / 1000), secure }));
+    return c.json({ email: r.email });
+  });
+
+  app.use("/api/*", async (c, next) => {
     const user = await currentUser(c.req.raw, c.env, fetchImpl);
     if (!user) return c.json({ error: "請先登入。" }, 401);
     user.admin = isAdmin(c.env, user.email);
@@ -113,7 +129,23 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
   app.get("/api/me", async (c) => {
     const user = c.get("user");
     const sites = await sitesFor(c.env, user.email);
-    return c.json({ email: user.email, admin: user.admin, sites: sites.map((s) => siteView(c.env, s)) });
+    return c.json({ email: user.email, admin: user.admin, via: user.via, sites: sites.map((s) => siteView(c.env, s)) });
+  });
+
+  app.post("/api/logout", async (c) => {
+    await endSession(c.env, readCookie(c.req.raw, COOKIE));
+    const secure = new URL(c.req.url).protocol === "https:";
+    c.header("Set-Cookie", sessionCookie("", { maxAge: 0, secure }));
+    return c.json({ via: c.get("user").via });
+  });
+
+  app.post("/api/invites", requireAdmin, async (c) => {
+    const body = await c.req.json().catch(() => ({}));
+    const email = String(body.email || "").trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new RepoError(400, "Email 格式不正確：" + (body.email || ""));
+    const { token, expiresAt } = await createInvite(c.env, email, c.get("user").email);
+    const url = new URL(c.req.url).origin + "/?invite=" + token;
+    return c.json({ email, url, expiresAt });
   });
 
   /* --------------------------------------------------------- sites */
@@ -164,9 +196,9 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
     if (!entry) return c.json({ error: "找不到檔案：" + path }, 404);
     const etag = `"${entry.hash}"`;
     if (c.req.header("If-None-Match") === etag) return c.body(null, 304);
-    const obj = await getBlobObject(c.env, entry.hash);
-    if (!obj) return c.json({ error: "檔案內容遺失：" + path }, 500);
-    return new Response(obj.body, {
+    const body = await blobStream(c.env, entry.hash);
+    if (!body) return c.json({ error: "檔案內容遺失：" + path }, 500);
+    return new Response(body, {
       headers: {
         "Content-Type": contentType(path),
         ETag: etag,

@@ -11,9 +11,13 @@ database_name = "labsite"
 database_id = "3507f8d6-0e99-4b6c-9b27-a43e1b3fa83e"
 migrations_dir = "migrations"
 
-[[r2_buckets]]
-binding = "BLOBS"
-bucket_name = "labsite-blobs"
+# File contents are stored in D1 (base64 chunks) while R2 is not enabled on
+# the account. To move them to R2 later: enable R2, create the bucket, and
+# uncomment this binding in BOTH wrangler files (new uploads go to R2; copy
+# existing blobs over first).
+# [[r2_buckets]]
+# binding = "BLOBS"
+# bucket_name = "labsite-blobs"
 
 [vars]
 # With a custom domain, set e.g. "labs.example.tw" and route *.labs.example.tw

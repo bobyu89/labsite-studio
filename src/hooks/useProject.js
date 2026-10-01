@@ -20,7 +20,7 @@ import {
 import { readSiteFields, patchSiteField } from "../site/siteData.js";
 import { directorySource, detectDevSource, urlSource, normalizePath, stagedSource } from "../site/source.js";
 import { createPreviewCache, invalidatePreviewCache } from "../site/preview.js";
-import { detectCloud, cloudApi, cloudSource } from "../site/cloud.js";
+import { detectCloud, cloudApi, cloudSource, redeemInviteFromUrl } from "../site/cloud.js";
 import { pageLabel, saveMessage } from "../site/labels.js";
 export { pageLabel, saveMessage };
 import {
@@ -99,7 +99,11 @@ export function useProject(notify) {
   const openGithubRef = useRef(null);
 
   useEffect(() => {
-    detectCloud().then((c) => setCloud({ me: null, error: null, ...c }));
+    (async () => {
+      const invite = await redeemInviteFromUrl();
+      const c = await detectCloud();
+      setCloud({ me: null, ...c, error: invite && !invite.ok ? invite.error : c.error || null });
+    })();
     detectDevSource().then((s) => s && setDevInfo(s));
     if (typeof indexedDB !== "undefined")
       dbGet(STORES.projects, LAST)

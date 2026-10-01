@@ -2,7 +2,7 @@
 // D1 and R2 with the editor but has no write code at all.
 //   <slug>.<SITE_DOMAIN>/path   when SITE_DOMAIN is set and matches the host
 //   <host>/<slug>/path          otherwise (e.g. on workers.dev)
-import { getSite, loadTree, getCommit, getBlobObject } from "./repo.js";
+import { getSite, loadTree, getCommit, blobStream } from "./repo.js";
 import { contentType, isHtml } from "./mime.js";
 
 const notFound = (text = "找不到這個頁面。") =>
@@ -68,9 +68,9 @@ export async function serve(request, env) {
     "X-Content-Type-Options": "nosniff",
   };
   if (status === 200 && request.headers.get("If-None-Match") === etag) return new Response(null, { status: 304, headers });
-  const obj = await getBlobObject(env, entry.hash);
-  if (!obj) return new Response("內容遺失", { status: 500 });
-  return new Response(request.method === "HEAD" ? null : obj.body, { status, headers });
+  const body = request.method === "HEAD" ? null : await blobStream(env, entry.hash);
+  if (request.method !== "HEAD" && !body) return new Response("內容遺失", { status: 500 });
+  return new Response(body, { status, headers });
 }
 
 export default { fetch: serve };

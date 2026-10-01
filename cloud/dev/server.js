@@ -1,7 +1,10 @@
 // Local LabSite Cloud without workerd: runs the real worker code on Node.
 //   http://127.0.0.1:8787  editor (../dist) + /api   — signed in as DEV_USER_EMAIL
 //   http://127.0.0.1:8788  public sites (published versions)
-// Data lives in cloud/.wrangler/node-dev/ (SQLite file + blob folder).
+// Data lives in cloud/.wrangler/node-dev/ (one SQLite file, files included).
+// Like production: no R2 (file contents go to D1). Flags:
+//   --invite-only   ignore DEV_AUTH; sign in only with invite links
+//   --r2            keep file contents in a folder acting as R2
 //
 //   npm run build            (in labsite-studio/, to refresh ../dist)
 //   npm --prefix cloud run dev:node
@@ -10,6 +13,7 @@ import { readFileSync, existsSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join, normalize } from "node:path";
 import { sqliteD1, dirR2 } from "./bindings.js";
+const flags = new Set(process.argv.slice(2));
 import { createApp } from "../src/api.js";
 import { serve } from "../src/sites.js";
 import { contentType } from "../src/mime.js";
@@ -48,8 +52,9 @@ const env = {
   DEV_AUTH: "on",
   DEV_USER_EMAIL: "bobyu89@gmail.com",
   ...devVars(),
+  ...(flags.has("--invite-only") ? { DEV_AUTH: "off" } : {}),
   DB: sqliteD1(join(state, "labsite.sqlite")),
-  BLOBS: dirR2(join(state, "blobs")),
+  ...(flags.has("--r2") ? { BLOBS: dirR2(join(state, "blobs")) } : {}),
   ASSETS,
 };
 const app = createApp();
@@ -79,4 +84,8 @@ function listen(port, handler) {
 
 listen(8787, (request) => app.fetch(request, env));
 listen(8788, (request) => serve(request, env));
-console.log(`[labsite-cloud] signed in as ${env.DEV_USER_EMAIL}; data in ${state}`);
+console.log(
+  env.DEV_AUTH === "on"
+    ? `[labsite-cloud] signed in as ${env.DEV_USER_EMAIL}; data in ${state}`
+    : `[labsite-cloud] invite links only (node scripts/invite.js <email> --local); data in ${state}`,
+);

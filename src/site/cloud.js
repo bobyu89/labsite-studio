@@ -45,6 +45,8 @@ export function cloudApi(fetchImpl = (...a) => fetch(...a)) {
   const site = (id) => "/sites/" + encodeURIComponent(id);
   return {
     me: () => call("GET", "/me"),
+    logout: () => call("POST", "/logout", {}),
+    createInvite: (email) => call("POST", "/invites", { email }),
     importSite: (body) => call("POST", "/sites", body),
     site: (id) => call("GET", site(id)),
     history: (id, limit = 50) => call("GET", site(id) + "/history?limit=" + limit),
@@ -56,6 +58,23 @@ export function cloudApi(fetchImpl = (...a) => fetch(...a)) {
     exportUrl: (id, ref = "draft") => "/api" + site(id) + "/export?ref=" + ref,
     fetchImpl,
   };
+}
+
+// Opens a one-time invite link (?invite=… in the address bar): trades it for a
+// session cookie and removes it from the URL so it is not left in history.
+export async function redeemInviteFromUrl(loc = location, hist = history, fetchImpl = (...a) => fetch(...a)) {
+  const params = new URLSearchParams(loc.search);
+  const invite = params.get("invite");
+  if (!invite) return null;
+  params.delete("invite");
+  const rest = params.toString();
+  hist.replaceState(null, "", loc.pathname + (rest ? "?" + rest : "") + (loc.hash || ""));
+  try {
+    const data = await request(fetchImpl, "POST", "/api/login", { invite });
+    return { ok: true, email: data.email };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
 }
 
 // Is this page served by LabSite Cloud, and who is signed in?

@@ -9,6 +9,7 @@
 // move is a compare-and-swap (UPDATE … WHERE draft_commit IS <head we read>),
 // retried when another save slipped in between.
 import { enc, sha256Hex, randomId } from "./bytes.js";
+import { blobStore } from "./blobs.js";
 
 export class RepoError extends Error {
   constructor(status, message, extra = {}) {
@@ -43,20 +44,15 @@ export function cleanSlug(slug) {
 }
 
 /* -------------------------------------------------------------- blobs */
-const blobKey = (hash) => "b/" + hash;
-
 export async function putBlob(env, bytes) {
   const hash = await sha256Hex(bytes);
-  if (!(await env.BLOBS.head(blobKey(hash)))) await env.BLOBS.put(blobKey(hash), bytes);
+  const store = blobStore(env);
+  if (!(await store.has(hash))) await store.put(hash, bytes);
   return { hash, size: bytes.byteLength };
 }
 
-export async function getBlob(env, hash) {
-  const obj = await env.BLOBS.get(blobKey(hash));
-  return obj ? new Uint8Array(await obj.arrayBuffer()) : null;
-}
-
-export const getBlobObject = (env, hash) => env.BLOBS.get(blobKey(hash));
+export const getBlob = (env, hash) => blobStore(env).get(hash);
+export const blobStream = (env, hash) => blobStore(env).stream(hash);
 
 /* -------------------------------------------------------------- trees */
 // Trees are immutable, so a per-isolate cache is always correct.

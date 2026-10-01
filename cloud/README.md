@@ -1,17 +1,17 @@
 # LabSite Cloud
 
-讓老師不需要 GitHub 帳號，就能用 Email 驗證碼登入、編輯自己的實驗室網站、保存版本、自己發布。整套跑在 Cloudflare 上。
+讓老師不需要 GitHub 帳號，就能用登入連結進來、編輯自己的實驗室網站、保存版本、自己發布。整套跑在 Cloudflare 上。
 
 ## 架構
 
 ```
 老師的瀏覽器
-   │  Email 一次性驗證碼（Cloudflare Access）
+   │  一次性邀請連結 → 30 天登入（之後可改用 Cloudflare Access 的 Email 驗證碼）
    ▼
 labsite-studio-cloud  (Worker：編輯器 + /api)
    │        │
-   │        ├── D1  labsite        版本紀錄：sites / trees / commits / members / events
-   │        └── R2  labsite-blobs  檔案內容，以 SHA-256 為名，同內容只存一份
+   │        └── D1  labsite   版本紀錄、成員、登入，以及檔案內容
+   │                          （以 SHA-256 為名分塊存放，同內容只存一份；之後可改放 R2）
    │
    └── 發布後自動備份一份 commit 回 GitHub（選用）
 
@@ -29,7 +29,10 @@ labsite-studio-cloud  (Worker：編輯器 + /api)
 |---|---|
 | `src/repo.js` | 版本庫核心：blob、tree、commit、草稿指標的 compare-and-swap、發布、還原、成員 |
 | `src/api.js` | 編輯器用的 API（Hono），每個請求先驗證登入、再檢查是否為該網站成員 |
-| `src/auth.js` | 驗證 Cloudflare Access 簽發的 JWT；沒設定 Access 時一律拒絕 |
+| `src/auth.js` | 判斷登入者：Cloudflare Access 的 JWT（有設定時）或邀請連結換來的登入 cookie |
+| `src/sessions.js` | 邀請連結與登入狀態，只存 SHA-256 |
+| `src/blobs.js` | 檔案內容存放：有 R2 綁定用 R2，否則存 D1 分塊 |
+| `scripts/invite.js` | 從指令列產生第一位管理者的登入連結 |
 | `src/sites.js` | 公開網站：依網址找到網站，回應已發布版本的檔案 |
 | `src/github.js` | 從 GitHub 匯入（一次下載 tarball）與發布後備份 |
 | `migrations/` | D1 資料表 |
@@ -60,45 +63,34 @@ SITE_URL_TEMPLATE=http://127.0.0.1:8788/{slug}/
 
 ## 部署
 
-已完成：D1 資料庫 `labsite`（APAC，id 寫在兩個 `wrangler.*.toml`）與資料表。
+目前上線中：
 
-### 1. 啟用 R2（儀表板，一次）
+| | 網址 |
+|---|---|
+| 編輯器 | <https://labsite-studio-cloud.shiftguard-navicare.workers.dev> |
+| 公開網站 | `https://labsite-sites.shiftguard-navicare.workers.dev/<代稱>/` |
 
-Cloudflare 儀表板 → **R2 Object Storage** → 啟用。免費額度每月 10 GB 儲存、流量不收費；啟用時可能要求綁定付款方式，用量在免費額度內不會扣款。啟用後：
+整套只需要 wrangler 指令，不需要到儀表板設定。檔案內容存在 D1（以 base64 分塊），登入用一次性邀請連結。
 
-```bash
-cd cloud
-npx wrangler r2 bucket create labsite-blobs
-```
-
-### 2. 部署兩個 Worker
+### 更新程式
 
 ```bash
-npm --prefix cloud run deploy
+npm --prefix cloud run deploy                   # 建置編輯器並部署兩個 Worker
+npm --prefix cloud run migrate:remote           # 有新的 migrations/*.sql 時
 ```
 
-會先建置編輯器，再部署 `labsite-studio-cloud` 與 `labsite-sites`。此時 API 會拒絕所有人（Access 還沒設定），這是預期的安全預設。
+### 登入：邀請連結
 
-### 3. 設定 Cloudflare Access（老師的 Email 登入）
+- 第一位管理者用指令產生連結：`npm --prefix cloud run invite -- 你的Email`。
+- 之後管理者在編輯器裡產生：網站卡片的「成員」每位老師旁有「登入連結」，或用「產生登入連結」卡片給任意 Email。
+- 連結只能用一次、14 天內有效；登入後 30 天內不用再登入。資料庫只存連結與登入狀態的 SHA-256。
+- 管理者名單在 `wrangler.api.toml` 的 `ADMIN_EMAILS`。
 
-1. 儀表板 → **Workers & Pages** → `labsite-studio-cloud` → **Settings** → **Domains & Routes**，在 `workers.dev` 那一列按 **Enable Cloudflare Access**。第一次使用會請你建立 Zero Trust 團隊名稱並選 **Free** 方案（50 位使用者內免費）。
-2. 跳出的視窗會顯示兩個值，抄下來：**POLICY_AUD**（應用程式的 AUD tag）與 **TEAM_DOMAIN**（`https://<團隊名>.cloudflareaccess.com`）。
-3. 按 **Manage Cloudflare Access** 進入這個 Access 應用程式：
-   - **Policies**：Action 選 **Allow**，Include 選 **Emails**，填入你和每位試用老師的 Email。
-   - **Login methods**：確認 **One-time PIN** 有勾（Email 驗證碼）。
-4. 把兩個值填進 `wrangler.api.toml`：`ACCESS_AUD` 填 POLICY_AUD，`ACCESS_TEAM_DOMAIN` 填 TEAM_DOMAIN（含不含 `https://` 都可以），再部署一次：
+### 匯入網站、加入老師
 
-```bash
-npx --prefix cloud wrangler deploy -c cloud/wrangler.api.toml
-```
+管理者登入後，在「從 GitHub 匯入網站」輸入 `bobyu89/sung-lab-website` 等。在網站卡片的「成員」加入老師 Email，再按「登入連結」把連結傳給老師。
 
-### 4. 匯入網站、加入老師
-
-用管理者 Email（`ADMIN_EMAILS`）登入編輯器網址，在「從 GitHub 匯入網站」輸入 `bobyu89/sung-lab-website` 等。每個網站卡片的「成員」可以加入老師 Email。
-
-> 老師的 Email 要出現在兩個地方：Access 的 Allow 名單（能不能登入）與網站成員（能改哪個網站）。
-
-### 5.（選用）發布後自動備份到 GitHub
+### （選用）發布後自動備份到 GitHub
 
 建立一個 fine-grained token，只授權要備份的儲存庫、權限 **Contents: Read and write**：
 
@@ -108,22 +100,30 @@ npx --prefix cloud wrangler secret put GITHUB_BACKUP_TOKEN -c cloud/wrangler.api
 
 沒有設定時備份會顯示「未設定備份 token」，不影響發布。單次發布超過 40 個檔案變更時不自動備份（免費方案每個請求最多 50 個對外連線），請改用「下載整站」。
 
-### 6.（之後）自訂網域
+### （選用）改用 R2 存檔案
+
+網站變多、圖片變大時再做：在儀表板啟用 R2，`npx wrangler r2 bucket create labsite-blobs`，把兩個 `wrangler.*.toml` 裡註解掉的 `r2_buckets` 打開。新上傳的檔案會進 R2；舊檔案要先複製過去。
+
+### （選用）改用 Cloudflare Access 的 Email 驗證碼
+
+老師人數變多、想要更強的登入時：Workers & Pages → `labsite-studio-cloud` → Settings → Domains & Routes → `workers.dev` 那一列按 **Enable Cloudflare Access**，在允許名單填 Email，把視窗中的 POLICY_AUD 與 TEAM_DOMAIN 填進 `wrangler.api.toml` 的 `ACCESS_AUD`、`ACCESS_TEAM_DOMAIN` 再部署。邀請連結仍可同時使用。
+
+### （之後）自訂網域
 
 買了網域並加到 Cloudflare 後：
 
-- 編輯器：給 `labsite-studio-cloud` 加一個自訂網域（例如 `studio.你的網域`），Access 應用程式改綁這個網域。
+- 編輯器：給 `labsite-studio-cloud` 加一個自訂網域（例如 `studio.你的網域`）。
 - 公開網站：`wrangler.sites.toml` 設 `SITE_DOMAIN = "你的網域"`，加路由 `*.你的網域/*`，每個實驗室就是 `<代稱>.你的網域`。
-- `wrangler.api.toml` 的 `SITE_URL_TEMPLATE` 改成 `https://{slug}.你的網域/`。
+- `wrangler.api.toml` 的 `SITE_URL_TEMPLATE` 改成 `https://{slug}.你的網域/`；`scripts/invite.js` 的預設網址也一起改。
 
 ## 費用（試用規模）
 
 | 項目 | 免費額度 | 兩個網站的用量 |
 |---|---|---|
 | Workers | 每天 10 萬次請求 | 遠低於 |
-| D1 | 5 GB | 數 MB |
-| R2 | 10 GB、流量免費 | 約 3 MB 加歷史版本 |
-| Access | 50 位使用者 | 試用老師人數 |
+| D1 儲存 | 5 GB | 兩站約 3 MB，加上歷史版本 |
+| D1 寫入 | 每天 10 萬列 | 匯入一個網站約 110 列，一次保存約 5 列 |
+| D1 讀取 | 每天 500 萬列 | 每個公開頁面約 4 列 |
 
 ## 備份與還原
 

@@ -256,19 +256,19 @@ test("currentUser fails closed and dev sign-in only works on localhost", async (
   const env = { ACCESS_TEAM_DOMAIN: TEAM, ACCESS_AUD: AUD };
   const token = await sign({ aud: AUD, iss: "https://" + TEAM, email: "T@Lab.tw", exp: Date.now() / 1000 + 600 });
   const req = (url, headers = {}) => new Request(url, { headers });
-  assert.deepEqual(await currentUser(req("https://studio.x/api/me", { "Cf-Access-Jwt-Assertion": token }), env, certs), { email: "t@lab.tw" });
-  assert.deepEqual(await currentUser(req("https://studio.x/api/me", { Cookie: "a=1; CF_Authorization=" + token }), env, certs), { email: "t@lab.tw" });
+  assert.deepEqual(await currentUser(req("https://studio.x/api/me", { "Cf-Access-Jwt-Assertion": token }), env, certs), { email: "t@lab.tw", via: "access" });
+  assert.deepEqual(await currentUser(req("https://studio.x/api/me", { Cookie: "a=1; CF_Authorization=" + token }), env, certs), { email: "t@lab.tw", via: "access" });
   assert.deepEqual(
     await currentUser(req("https://studio.x/api/me", { "Cf-Access-Jwt-Assertion": token }), { ...env, ACCESS_TEAM_DOMAIN: "https://" + TEAM + "/" }, certs),
-    { email: "t@lab.tw" },
+    { email: "t@lab.tw", via: "access" },
     "team domain pasted with https:// from the dashboard",
   );
   assert.equal(await currentUser(req("https://studio.x/api/me"), env, certs), null, "no token");
   assert.equal(await currentUser(req("https://studio.x/api/me", { "Cf-Access-Jwt-Assertion": token }), {}, certs), null, "Access not configured");
   assert.equal(await currentUser(req("https://studio.x/api/me", { "Cf-Access-Authenticated-User-Email": "admin@lab.tw" }), env, certs), null, "plain email header is not trusted");
   const dev = { DEV_AUTH: "on", DEV_USER_EMAIL: "Dev@Lab.tw" };
-  assert.deepEqual(await currentUser(req("http://127.0.0.1:8787/api/me"), dev), { email: "dev@lab.tw" });
-  assert.deepEqual(await currentUser(req("http://localhost:8787/api/me", { "X-Dev-Email": "b@lab.tw" }), dev), { email: "b@lab.tw" });
+  assert.deepEqual(await currentUser(req("http://127.0.0.1:8787/api/me"), dev), { email: "dev@lab.tw", via: "dev" });
+  assert.deepEqual(await currentUser(req("http://localhost:8787/api/me", { "X-Dev-Email": "b@lab.tw" }), dev), { email: "b@lab.tw", via: "dev" });
   assert.equal(await currentUser(req("https://studio.x/api/me"), dev), null, "dev sign-in never applies off localhost");
 });
 
@@ -510,4 +510,115 @@ test("public host: routes by path or subdomain and serves only the published ver
   assert.equal(dir.headers.get("Location"), "https://x.workers.dev/sung/docs/");
   assert.equal(await (await get("/sung/docs/")).text(), "docs");
   assert.equal((await get("/" + site.id + "/")).status, 404, "sites are reachable by slug only");
+});
+
+/* ===================================================== D1-only storage */
+test("without R2, file contents live in D1 chunks and behave the same", async () => {
+  const env = fakeEnv({ BLOB_CHUNK_BYTES: "4" }); // tiny chunks to exercise reassembly
+  delete env.BLOBS;
+  const { blobStore } = await import("../cloud/src/blobs.js");
+  const store = blobStore(env);
+  assert.equal(store.kind, "d1");
+  const site = await seed(env);
+  const tree = (await resolveRef(env, site, "draft")).tree;
+  const home = tree.get("index.html");
+  const bytes = await store.get(home.hash);
+  assert.equal(dec.decode(bytes), "<h1>首頁</h1>");
+  const rows = env.DB.raw.prepare("SELECT COUNT(*) AS n FROM blob_chunks WHERE hash = ?").get(home.hash).n;
+  assert.equal(rows, Math.ceil(enc.encode("<h1>首頁</h1>").length / 4));
+  // A blob whose chunks exist but whose header row does not is invisible (half-written).
+  env.DB.raw.prepare("INSERT INTO blob_chunks (hash, idx, data) VALUES ('x', 0, 'AA==')").run();
+  assert.equal(await store.has("x"), false);
+  assert.equal(await store.get("x"), null);
+  // Dedup: writing the same content again adds nothing.
+  const before = env.DB.raw.prepare("SELECT COUNT(*) AS n FROM blob_chunks").get().n;
+  await commitChanges(env, site.id, { files: [file("copy.html", "<h1>首頁</h1>")], author: "a", message: "m" });
+  assert.equal(env.DB.raw.prepare("SELECT COUNT(*) AS n FROM blob_chunks").get().n, before);
+  // Binary round trip through the API and the public host.
+  const png = new Uint8Array(1000).map((_, i) => (i * 37) % 256);
+  await commitChanges(env, site.id, { files: [{ path: "assets/p.png", bytes: png }], author: "a", message: "img" });
+  await publish(env, site.id, null, { actor: "a" });
+  const res = await serve(new Request("https://x.workers.dev/sung/assets/p.png"), env);
+  assert.equal(res.headers.get("Content-Type"), "image/png");
+  assert.deepEqual(new Uint8Array(await res.arrayBuffer()), png);
+  const head = await serve(new Request("https://x.workers.dev/sung/assets/p.png", { method: "HEAD" }), env);
+  assert.equal(head.status, 200);
+});
+
+/* ======================================================== invite links */
+test("invite links: one use, expiry, 30-day session, logout", async () => {
+  const s = await import("../cloud/src/sessions.js");
+  const env = fakeEnv();
+  const now = T0;
+  const { token, expiresAt } = await s.createInvite(env, " Teacher@Lab.TW ", "admin@lab.tw", now);
+  assert.match(token, /^[0-9a-f]{64}$/);
+  assert.equal(expiresAt, now + s.INVITE_TTL);
+  assert.equal(env.DB.raw.prepare("SELECT COUNT(*) AS n FROM invites WHERE token_hash = ?").get(token).n, 0, "only the hash is stored");
+  const r = await s.redeemInvite(env, token, now + 1000);
+  assert.equal(r.email, "teacher@lab.tw");
+  assert.equal(await s.redeemInvite(env, token, now + 2000), null, "a link works once");
+  assert.deepEqual(await s.sessionUser(env, r.session, now + 5000), { email: "teacher@lab.tw" });
+  assert.equal(await s.sessionUser(env, r.session, now + 1000 + s.SESSION_TTL + 1), null, "sessions expire");
+  await s.endSession(env, r.session);
+  assert.equal(await s.sessionUser(env, r.session, now + 5000), null, "logout ends the session");
+  const old = await s.createInvite(env, "t2@lab.tw", "a", now);
+  assert.equal(await s.redeemInvite(env, old.token, now + s.INVITE_TTL + 1), null, "links expire");
+  for (const bad of [undefined, "", "abc", "x".repeat(64), "A".repeat(64)]) assert.equal(await s.redeemInvite(env, bad, now), null);
+  // Two clicks at the same time: exactly one session.
+  const race = await s.createInvite(env, "t3@lab.tw", "a", now);
+  const both = await Promise.all([s.redeemInvite(env, race.token, now), s.redeemInvite(env, race.token, now)]);
+  assert.equal(both.filter(Boolean).length, 1);
+});
+
+test("API sign-in by invite link: admin makes a link, teacher opens it, cookie session works", async () => {
+  const env = fakeEnv({ DEV_AUTH: "off" });
+  const sung = await seed(env);
+  await addMember(env, sung.id, "teacher@lab.tw", "admin@lab.tw");
+  const app = createApp({ fetchImpl: scriptedFetch([]) });
+  const req = (method, path, { body, cookie, origin = "https://studio.example" } = {}) =>
+    app.fetch(
+      new Request("https://studio.example" + path, {
+        method,
+        headers: {
+          ...(body ? { "Content-Type": "application/json" } : {}),
+          ...(cookie ? { Cookie: cookie } : {}),
+          ...(method !== "GET" ? { Origin: origin } : {}),
+        },
+        body: body ? JSON.stringify(body) : undefined,
+      }),
+      env,
+    );
+  assert.equal((await req("GET", "/api/me")).status, 401);
+
+  // Bootstrap the admin the way the CLI script does, then sign in.
+  const { createInvite } = await import("../cloud/src/sessions.js");
+  const boot = await createInvite(env, "admin@lab.tw", "cli");
+  const login = await req("POST", "/api/login", { body: { invite: boot.token } });
+  assert.equal(login.status, 200);
+  const setCookie = login.headers.get("Set-Cookie");
+  assert.match(setCookie, /^ls_session=[0-9a-f]{64}; Path=\/; HttpOnly; SameSite=Lax; Max-Age=2592000; Secure$/);
+  const admin = setCookie.split(";")[0];
+  const me = await (await req("GET", "/api/me", { cookie: admin })).json();
+  assert.deepEqual([me.email, me.admin, me.via], ["admin@lab.tw", true, "session"]);
+
+  // Admin makes a link for the teacher.
+  const inv = await req("POST", "/api/invites", { cookie: admin, body: { email: "Teacher@Lab.tw" } });
+  assert.equal(inv.status, 200);
+  const { url, email } = await inv.json();
+  assert.equal(email, "teacher@lab.tw");
+  assert.match(url, /^https:\/\/studio\.example\/\?invite=[0-9a-f]{64}$/);
+  const teacherLogin = await req("POST", "/api/login", { body: { invite: new URL(url).searchParams.get("invite") } });
+  const teacher = teacherLogin.headers.get("Set-Cookie").split(";")[0];
+  const tme = await (await req("GET", "/api/me", { cookie: teacher })).json();
+  assert.deepEqual([tme.email, tme.admin, tme.sites.map((x) => x.slug)], ["teacher@lab.tw", false, ["sung"]]);
+  assert.equal((await req("POST", "/api/invites", { cookie: teacher, body: { email: "x@lab.tw" } })).status, 403, "teachers cannot invite");
+
+  // Used link, cross-site login attempt, logout.
+  assert.equal((await req("POST", "/api/login", { body: { invite: new URL(url).searchParams.get("invite") } })).status, 401);
+  const other = await createInvite(env, "teacher@lab.tw", "a");
+  assert.equal((await req("POST", "/api/login", { body: { invite: other.token }, origin: "https://evil.example" })).status, 403);
+  const out = await req("POST", "/api/logout", { cookie: teacher });
+  assert.match(out.headers.get("Set-Cookie"), /^ls_session=; .*Max-Age=0/);
+  assert.equal((await req("GET", "/api/me", { cookie: teacher })).status, 401);
+  assert.equal((await req("GET", "/api/me", { cookie: "ls_session=" + "0".repeat(64) })).status, 401);
 });
