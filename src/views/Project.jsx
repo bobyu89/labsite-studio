@@ -8,6 +8,8 @@ import {
   FolderOpen,
   WarningCircle,
   X,
+  RocketLaunch,
+  ArrowSquareOut,
 } from "@phosphor-icons/react";
 import { IconButton, Field, download } from "../components/ui";
 import ProjectOpen from "../components/ProjectOpen";
@@ -16,6 +18,7 @@ import FieldInspector from "../components/FieldInspector";
 import SitePreview from "../components/SitePreview";
 import SiteDataPanel from "../components/SiteDataPanel";
 import PairPanel from "../components/PairPanel";
+import CloudHistory from "../components/CloudHistory";
 import { parsePage, listSections, readHead } from "../site/page.js";
 import { pageLabel } from "../hooks/useProject";
 
@@ -26,6 +29,26 @@ export default function Project({ p, device, setDevice, setConfirm }) {
   const head = useMemo(() => (parsed ? readHead(parsed.doc) : null), [parsed]);
   const selected = Math.min(p.selected, Math.max(0, sections.length - 1));
   const writable = !!p.project?.source.writable;
+  const isCloud = p.project?.source.kind === "cloud";
+  const unsavedCount = p.dirtyPages.length + (p.siteDirty ? 1 : 0);
+  const onPublish = () =>
+    setConfirm(
+      p.anyDirty
+        ? {
+            title: "先保存，再發布？",
+            description: `有 ${unsavedCount} 個檔案尚未保存。會先把它們存成一個版本，再把網站更新成這個版本。`,
+            confirmLabel: "保存並發布",
+            action: async () => {
+              if (await p.saveAll()) await p.publishCloud();
+            },
+          }
+        : {
+            title: "發布到網站？",
+            description: "網站會在幾秒內更新成目前最新的版本，所有人都看得到。之後仍可在「版本紀錄」還原舊版本。",
+            confirmLabel: "發布",
+            action: () => p.publishCloud(),
+          },
+    );
 
   if (!p.project)
     return (
@@ -85,7 +108,9 @@ export default function Project({ p, device, setDevice, setConfirm }) {
           <h1>
             {p.project.source.name}
             <Badge color={writable ? "teal" : "gray"} variant="soft" className="project-badge">
-              {p.project.source.kind === "directory"
+              {isCloud
+                ? "雲端"
+                : p.project.source.kind === "directory"
                 ? "本機資料夾"
                 : p.project.source.kind === "dev"
                   ? "開發伺服器"
@@ -97,7 +122,11 @@ export default function Project({ p, device, setDevice, setConfirm }) {
             </Badge>
           </h1>
           <p>
-            {!writable
+            {isCloud
+              ? p.cloudSite?.unpublished
+                ? "有已保存但尚未發布的版本。按「發布」後，網站才會更新。"
+                : "網站已是最新版本。保存會留下新版本，按「發布」後才會更新網站。"
+              : !writable
               ? "此來源無法寫回，可下載修改後的頁面。"
               : p.project.source.kind === "github"
                 ? "每次保存是一個 commit（含這一頁換的圖片）；網站的 GitHub Pages 一兩分鐘後自動更新。"
@@ -138,6 +167,22 @@ export default function Project({ p, device, setDevice, setConfirm }) {
               全部保存（{p.dirtyPages.length + (p.siteDirty ? 1 : 0)}）
             </Button>
           )}
+          {isCloud && (
+            <Button
+              color="orange"
+              onClick={onPublish}
+              disabled={p.busy || (!p.cloudSite?.unpublished && !p.anyDirty)}
+              title={!p.cloudSite?.unpublished && !p.anyDirty ? "沒有需要發布的修改" : "把網站更新成最新版本"}
+            >
+              <RocketLaunch size={18} />
+              發布
+            </Button>
+          )}
+          {isCloud && p.cloudSite?.url && (
+            <IconButton label="查看網站（新分頁）" onClick={() => window.open(p.cloudSite.url, "_blank", "noopener")}>
+              <ArrowSquareOut size={18} />
+            </IconButton>
+          )}
           <IconButton
             label="下載此頁 HTML"
             onClick={() => download(p.html, p.current.split("/").pop(), "text/html")}
@@ -175,6 +220,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
               ["head", "頁面資訊"],
               ["pair", "中英對照"],
               ["site", "網站資料"],
+              ...(isCloud ? [["history", "版本紀錄"]] : []),
             ].map(([id, label]) => (
               <button key={id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}>
                 {label}
@@ -183,7 +229,11 @@ export default function Project({ p, device, setDevice, setConfirm }) {
               </button>
             ))}
           </div>
-          {tab === "site" ? (
+          {tab === "history" && isCloud ? (
+            <div className="inspector-body">
+              <CloudHistory p={p} setConfirm={setConfirm} />
+            </div>
+          ) : tab === "site" ? (
             <div className="inspector-body">
               <SiteDataPanel
                 siteData={p.siteData}

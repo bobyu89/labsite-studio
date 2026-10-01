@@ -22,6 +22,7 @@ export default function SitePreview({
 }) {
   const frame = useRef();
   const [srcdoc, setSrcdoc] = useState("");
+  const [reloads, setReloads] = useState(0);
   const [missing, setMissing] = useState([]);
   const [stale, setStale] = useState(false);
   const latest = useRef(0);
@@ -102,9 +103,7 @@ export default function SitePreview({
           </IconButton>
           <IconButton
             label="重新載入預覽"
-            onClick={() => {
-              frame.current?.contentWindow?.location.reload();
-            }}
+            onClick={() => setReloads((n) => n + 1)}
           >
             <ArrowsClockwise size={18} />
           </IconButton>
@@ -112,12 +111,10 @@ export default function SitePreview({
         <span className="canvas-dimension">{device === "mobile" ? "390 px" : "自適應"}</span>
       </div>
       <div className={"canvas-frame " + device}>
-        <iframe
-          ref={frame}
-          title="真實網站預覽"
-          srcDoc={srcdoc}
-          sandbox="allow-scripts allow-same-origin"
-        />
+        {/* No allow-same-origin: the site's own scripts run in an isolated
+            origin, so they cannot read the editor's storage or call the
+            LabSite API with the signed-in user's session. */}
+        <iframe key={reloads} ref={frame} title="真實網站預覽" srcDoc={srcdoc} sandbox="allow-scripts" />
       </div>
       <p className="canvas-caption">
         點預覽中的文字或圖片即可在左側編輯；預覽會執行網站自己的腳本，最新消息與照片來自線上來源。

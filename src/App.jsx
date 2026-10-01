@@ -36,6 +36,7 @@ import Versions from "./views/Versions";
 import Academy from "./views/Academy";
 import Settings from "./views/Settings";
 import Project from "./views/Project";
+import CloudShell from "./views/CloudShell";
 
 import { siteDocument } from "./Site";
 
@@ -160,6 +161,10 @@ export default function App() {
       notify("圖片已加入草稿。請填寫替代文字並保存。");
     }
   }
+  // Served by LabSite Cloud: teachers get only their sites, no demo workspace.
+  if (p.cloud.status === "checking") return <div className="cloud-loading" aria-busy="true" />;
+  if (p.cloud.status === "ready" || p.cloud.status === "signed-out")
+    return <CloudShell p={p} notice={notice} setNotice={setNotice} device={device} setDevice={setDevice} />;
   return (
     <div className="app-shell" onBlurCapture={boundary}>
       <a href="#main" className="skip">

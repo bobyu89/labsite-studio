@@ -98,7 +98,13 @@ function resolveSiteDir() {
   return dir ? path.resolve(dir) : null;
 }
 
-export default defineConfig({
+// `npm run dev:cloud` (vite --mode cloud) forwards /api to a local LabSite
+// Cloud worker (`npm --prefix cloud run dev`), so the editor runs in cloud mode.
+export default defineConfig(({ mode }) => ({
   plugins: [react(), viteSingleFile(), labsiteDevSite()],
   base: "./",
-});
+  server:
+    mode === "cloud"
+      ? { proxy: { "/api": { target: "http://127.0.0.1:8787", changeOrigin: false } } }
+      : {},
+}));

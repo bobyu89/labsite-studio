@@ -304,3 +304,16 @@ test("history works on HTML strings and ignores no-op edits", () => {
   h = historyReducer(h, { type: "undo" });
   assert.equal(h.present, FIXTURE);
 });
+
+test("version messages name pages the way teachers know them", async () => {
+  const { saveMessage, pageLabel } = await import("../src/site/labels.js");
+  assert.equal(pageLabel("en/members.html"), "團隊成員");
+  assert.equal(saveMessage([{ path: "index.html" }]), "修改 首頁");
+  assert.equal(
+    saveMessage([{ path: "en/index.html" }, { path: "members.html" }, { path: "assets/a.png" }, { path: "assets/b.jpg" }]),
+    "修改 首頁（英文）、團隊成員，換 2 張圖片",
+  );
+  assert.equal(saveMessage([{ path: "js/data.js" }]), "修改 網站資料");
+  assert.equal(saveMessage([{ path: "assets/x.png" }]), "換 1 張圖片");
+  assert.equal(saveMessage([{ path: "custom.html" }]), "修改 custom");
+});

@@ -4,6 +4,8 @@
 
 **線上版**：<https://bobyu89.github.io/labsite-studio/>（推到 `main` 會由 GitHub Actions 自動建置部署）。
 
+**LabSite Cloud（v4.0）**：老師不需要 GitHub，用 Email 驗證碼登入，編輯、保存版本、自己發布；網站由 Cloudflare 提供。架構、本機開發與部署步驟見 [`cloud/README.md`](cloud/README.md)。
+
 ## 開啟方式
 
 - **線上版 + GitHub 直接編輯**（建議）：打開上面的網址 → 「從 GitHub 直接編輯」→ 用 GitHub 登入（或貼上 token）→ 選擇儲存庫 → 開啟並編輯。每次「保存此頁」就是一個 commit，網站的 GitHub Pages 一兩分鐘後自動更新，不需要本機 clone 或 git。登入按鈕需要先部署一次 OAuth 服務，步驟見 [`worker/README.md`](worker/README.md)；在那之前可用 fine-grained token（只需 `Contents: Read and write` 權限、限定兩個網站 repo）。

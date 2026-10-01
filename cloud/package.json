@@ -1,0 +1,19 @@
+{
+  "name": "labsite-cloud",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev:node": "node dev/server.js",
+    "dev": "wrangler dev -c wrangler.api.toml --port 8787 --persist-to .wrangler/state",
+    "dev:sites": "wrangler dev -c wrangler.sites.toml --port 8788 --persist-to .wrangler/state",
+    "migrate:local": "wrangler d1 migrations apply labsite --local -c wrangler.api.toml --persist-to .wrangler/state",
+    "migrate:remote": "wrangler d1 migrations apply labsite --remote -c wrangler.api.toml",
+    "deploy": "npm --prefix .. run build && wrangler deploy -c wrangler.api.toml && wrangler deploy -c wrangler.sites.toml"
+  },
+  "dependencies": {
+    "hono": "^4.9.0"
+  },
+  "devDependencies": {
+    "wrangler": "^4.145.0"
+  }
+}

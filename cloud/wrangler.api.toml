@@ -1,0 +1,36 @@
+# Editor host: the LabSite editor + /api/*. Put Cloudflare Access in front of
+# this whole hostname (see cloud/README.md); the API verifies the Access JWT
+# and refuses everything when ACCESS_TEAM_DOMAIN / ACCESS_AUD are empty.
+name = "labsite-studio-cloud"
+main = "src/api.js"
+compatibility_date = "2025-09-01"
+workers_dev = true
+preview_urls = false
+
+[assets]
+directory = "../dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "labsite"
+database_id = "3507f8d6-0e99-4b6c-9b27-a43e1b3fa83e"
+migrations_dir = "migrations"
+
+[[r2_buckets]]
+binding = "BLOBS"
+bucket_name = "labsite-blobs"
+
+[vars]
+# Comma-separated emails that can import sites and manage members.
+ADMIN_EMAILS = "bobyu89@gmail.com"
+# Public address of a site; {slug} is replaced. Matches wrangler.sites.toml.
+SITE_URL_TEMPLATE = "https://labsite-sites.shiftguard-navicare.workers.dev/{slug}/"
+# Cloudflare Access: team domain (xxx.cloudflareaccess.com) and the
+# application's AUD tag. Empty = nobody can sign in.
+ACCESS_TEAM_DOMAIN = ""
+ACCESS_AUD = ""
+# Secret (wrangler secret put): GITHUB_BACKUP_TOKEN — fine-grained token with
+# Contents read/write on the backed-up repos. Without it, backup is skipped.

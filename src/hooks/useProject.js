@@ -20,6 +20,9 @@ import {
 import { readSiteFields, patchSiteField } from "../site/siteData.js";
 import { directorySource, detectDevSource, urlSource, normalizePath, stagedSource } from "../site/source.js";
 import { createPreviewCache, invalidatePreviewCache } from "../site/preview.js";
+import { detectCloud, cloudApi, cloudSource } from "../site/cloud.js";
+import { pageLabel, saveMessage } from "../site/labels.js";
+export { pageLabel, saveMessage };
 import {
   githubSource,
   githubUser,
@@ -52,25 +55,6 @@ const local = {
   },
 };
 
-export function pageLabel(path) {
-  const file = path.split("/").pop().replace(/\.html$/, "");
-  const names = {
-    index: "首頁",
-    pi: "主持人",
-    research: "研究主題",
-    projects: "研究計畫",
-    publications: "成果發表",
-    conferences: "研討會論文",
-    awards: "得獎紀錄",
-    members: "團隊成員",
-    education: "教學資源",
-    collaboration: "合作交流",
-    resources: "開放資源",
-    gallery: "活動花絮",
-    patents: "專利",
-  };
-  return names[file] || file;
-}
 function sortPages(pages) {
   const rank = (p) => (p.startsWith("en/") ? 1 : 0);
   const order = ["index", "pi", "research", "projects", "publications", "conferences", "awards", "patents", "members", "education", "collaboration", "resources", "gallery"];
@@ -98,6 +82,10 @@ export function useProject(notify) {
   const [error, setError] = useState(null);
   const [remembered, setRemembered] = useState(null);
   const [devInfo, setDevInfo] = useState(null);
+  // LabSite Cloud: "checking" until /api/me answers; "ready" when this page is
+  // served by the cloud editor and someone is signed in; "off" elsewhere.
+  const [cloud, setCloud] = useState({ status: "checking", me: null, error: null });
+  const cloudCalls = useMemo(() => cloudApi(), []);
   const cache = useRef(createPreviewCache());
   const scrolls = useRef({});
   const [gh, setGh] = useState({
@@ -111,6 +99,7 @@ export function useProject(notify) {
   const openGithubRef = useRef(null);
 
   useEffect(() => {
+    detectCloud().then((c) => setCloud({ me: null, error: null, ...c }));
     detectDevSource().then((s) => s && setDevInfo(s));
     if (typeof indexedDB !== "undefined")
       dbGet(STORES.projects, LAST)
@@ -169,7 +158,9 @@ export function useProject(notify) {
       if (!source) return;
       setFocus(null);
       setSelected(0);
-      if (drafts[path]) {
+      // Reuse a loaded draft only for the project already open; a freshly
+      // opened source (new project, or a reload after restore) always reads.
+      if (source === project?.source && drafts[path]) {
         setCurrent(path);
         return;
       }
@@ -190,7 +181,7 @@ export function useProject(notify) {
     [project, drafts],
   );
 
-  async function openSource(source) {
+  async function openSource(source, startPage) {
     setBusy(true);
     setError(null);
     try {
@@ -213,7 +204,8 @@ export function useProject(notify) {
       setProject({ source, pages });
       if (source.kind === "directory")
         dbPut(STORES.projects, LAST, { handle: source.handle, name: source.name, at: Date.now() }).catch(() => {});
-      await openPage(pages.includes("index.html") ? "index.html" : pages[0], source);
+      const first = pages.includes(startPage) ? startPage : pages.includes("index.html") ? "index.html" : pages[0];
+      await openPage(first, source);
       notify("已開啟「" + source.name + "」，共 " + pages.length + " 個頁面。");
     } catch (e) {
       setError(e.message);
@@ -249,6 +241,56 @@ export function useProject(notify) {
   }
   const openDev = () => devInfo && openSource(devInfo);
   const openUrl = (base) => openSource(urlSource(base));
+
+  /* ------------------------------------------------------------- cloud */
+  async function refreshCloud() {
+    try {
+      const me = await cloudCalls.me();
+      setCloud({ status: "ready", me, error: null });
+      return me;
+    } catch (e) {
+      setCloud((c) => ({ ...c, error: e.message }));
+      return null;
+    }
+  }
+  const openCloud = (site) => openSource(cloudSource(site));
+  const cloudSiteId = project?.source.kind === "cloud" ? project.source.site.id : null;
+  const cloudSite = cloudSiteId ? cloud.me?.sites.find((x) => x.id === cloudSiteId) || project.source.site : null;
+  async function publishCloud(commitId) {
+    if (!cloudSiteId) return false;
+    setBusy(true);
+    try {
+      const { site } = await cloudCalls.publish(cloudSiteId, commitId);
+      await refreshCloud();
+      notify(
+        site.backup?.status === "error"
+          ? "已發布，網站幾秒內就會更新。GitHub 備份失敗：" + site.backup.error
+          : "已發布，網站幾秒內就會更新。",
+      );
+      return true;
+    } catch (e) {
+      setError("發布失敗：" + e.message);
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function restoreCloud(commitId) {
+    if (!cloudSiteId) return false;
+    setBusy(true);
+    try {
+      const r = await cloudCalls.restore(cloudSiteId, commitId);
+      await refreshCloud();
+      await openSource(cloudSource(r.site), current);
+      notify(r.noop ? "目前內容已經和這一版相同。" : "已還原成這一版（另存為新版本），按「發布」後網站才會更新。");
+      return true;
+    } catch (e) {
+      setError("還原失敗：" + e.message);
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
 
   /* ------------------------------------------------------------ GitHub */
   const loginGithub = async () => {
@@ -475,8 +517,7 @@ export function useProject(notify) {
     if (site && siteData) files.push({ path: SITE_DATA, text: siteData.text });
     if (!files.length) return false;
     const names = files.map((f) => f.path);
-    const message =
-      names.length === 1 ? `LabSite：更新 ${names[0]}` : `LabSite：更新 ${names.length} 個檔案（${names.join("、")}）`;
+    const message = saveMessage(files);
     setBusy(true);
     try {
       const commit = await project.source.writeFiles(files, message);
@@ -496,11 +537,15 @@ export function useProject(notify) {
         setSiteData((sd) => ({ ...sd, original: sd.text }));
       }
       const what = names.length === 1 ? names[0] : names.length + " 個檔案";
+      const kind = project.source.kind;
       notify(
-        project.source.kind === "github"
-          ? `已提交 ${what} 到 GitHub（commit ${String(commit || "").slice(0, 7)}），網站一兩分鐘後更新。`
-          : `已寫回 ${what}。請用 git 檢視變更後再提交。`,
+        kind === "cloud"
+          ? `已保存 ${what}（版本 ${String(commit || "").slice(0, 7)}）。按「發布」後網站才會更新。`
+          : kind === "github"
+            ? `已提交 ${what} 到 GitHub（commit ${String(commit || "").slice(0, 7)}），網站一兩分鐘後更新。`
+            : `已寫回 ${what}。請用 git 檢視變更後再提交。`,
       );
+      if (kind === "cloud") refreshCloud();
       return true;
     } catch (e) {
       setError("寫入失敗：" + e.message);
@@ -554,6 +599,13 @@ export function useProject(notify) {
     cache: cache.current,
     scrolls: scrolls.current,
     previewSource,
+    cloud,
+    cloudCalls,
+    cloudSite,
+    refreshCloud,
+    openCloud,
+    publishCloud,
+    restoreCloud,
     stagedCount: Object.keys(staged).length,
     openDirectory,
     reopenRemembered,

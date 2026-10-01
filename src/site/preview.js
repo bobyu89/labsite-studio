@@ -64,13 +64,15 @@ export async function buildPreview({ html, pagePath, source, cache, scrollY = 0 
     if (!cache.text.has(path)) cache.text.set(path, source.readText(path).catch(() => null));
     return cache.text.get(path);
   };
+  // Images become data: URLs, not blob: URLs — the preview iframe runs in an
+  // isolated (opaque) origin, which cannot load the editor's blob: URLs.
   const blobUrl = async (path) => {
     if (!cache.urls.has(path))
       cache.urls.set(
         path,
         source
           .readBlob(path)
-          .then((b) => URL.createObjectURL(b))
+          .then((b) => toDataUrl(b, path))
           .catch(() => null),
       );
     return cache.urls.get(path);
@@ -127,14 +129,28 @@ export async function buildPreview({ html, pagePath, source, cache, scrollY = 0 
     missing: [...new Set(missing)],
   };
 }
+const IMAGE_TYPES = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+  webp: "image/webp",
+  avif: "image/avif",
+  svg: "image/svg+xml",
+  ico: "image/x-icon",
+};
+export async function toDataUrl(blob, path) {
+  const ext = String(path).split(".").pop().toLowerCase();
+  const type = IMAGE_TYPES[ext] || (/^image\//.test(blob.type) ? blob.type : "application/octet-stream");
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return "data:" + type + ";base64," + btoa(bin);
+}
 export function createPreviewCache() {
   return { text: new Map(), urls: new Map() };
 }
 export function invalidatePreviewCache(cache, path) {
   cache.text.delete(path);
-  const url = cache.urls.get(path);
-  if (url) {
-    url.then((u) => u && URL.revokeObjectURL(u));
-    cache.urls.delete(path);
-  }
+  cache.urls.delete(path);
 }

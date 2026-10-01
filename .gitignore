@@ -4,3 +4,7 @@ dist/
 .env.*
 !.env.example
 labsite.local.json
+
+# Cloudflare local state and secrets
+.wrangler/
+.dev.vars
