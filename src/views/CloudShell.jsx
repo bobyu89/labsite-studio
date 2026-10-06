@@ -17,6 +17,7 @@ import {
   Trash,
   LinkSimple,
   Copy,
+  SquaresFour,
 } from "@phosphor-icons/react";
 import { Field } from "../components/ui";
 import Project from "./Project";
@@ -254,6 +255,69 @@ function ImportCard({ p }) {
   );
 }
 
+// Starts a new lab site from one of the templates shipped with the editor.
+function TemplateCard({ p }) {
+  const [templates, setTemplates] = useState(null);
+  const [form, setForm] = useState({ template: "", slug: "", name: "" });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const set = (k) => (v) => setForm((f) => ({ ...f, [k]: v }));
+  useEffect(() => {
+    fetch("/templates/index.json", { cache: "no-store" })
+      .then((r) => (r.ok && (r.headers.get("Content-Type") || "").includes("json") ? r.json() : []))
+      .then((list) => {
+        setTemplates(list);
+        if (list[0]) setForm((f) => ({ ...f, template: f.template || list[0].id }));
+      })
+      .catch(() => setTemplates([]));
+  }, []);
+  if (templates && !templates.length) return null;
+  const chosen = templates?.find((t) => t.id === form.template);
+  return (
+    <section className="open-card cloud-import">
+      <SquaresFour size={28} />
+      <h3>從模板建立網站</h3>
+      <p>用模板開一個新的研究室網站，內容先放範例文字，老師再自己改。建立後要按「發布」才會公開。</p>
+      <form
+        className="cloud-form"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          setBusy(true);
+          setError(null);
+          try {
+            const r = await p.cloudCalls.importSite({ template: form.template, slug: form.slug.trim(), name: form.name.trim() });
+            await p.refreshCloud();
+            setForm((f) => ({ ...f, slug: "", name: "" }));
+            p.notify?.(`已用模板建立「${r.site.name}」，可以開始編輯了。`);
+          } catch (err) {
+            setError(err.message);
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        <label className="field">
+          <span>模板</span>
+          <select value={form.template} onChange={(e) => set("template")(e.target.value)} disabled={!templates}>
+            {(templates || []).map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        {chosen?.description && <p className="small-note">{chosen.description}</p>}
+        <Field label="研究室名稱" value={form.name} onChange={set("name")} placeholder="護理創新研究室" required />
+        <Field label="網址代稱（小寫英文、數字、連字號）" value={form.slug} onChange={set("slug")} placeholder="nursing-innovation" required />
+        <Button size="3" type="submit" disabled={busy || !form.template || !form.slug.trim() || !form.name.trim()}>
+          {busy ? "建立中…" : "建立網站"}
+        </Button>
+      </form>
+      {error && <span className="error-text small-note">{error}</span>}
+    </section>
+  );
+}
+
 function CloudHome({ p }) {
   const me = p.cloud.me;
   return (
@@ -281,6 +345,7 @@ function CloudHome({ p }) {
         {me.sites.map((s) => (
           <SiteCard key={s.id} p={p} site={s} admin={me.admin} />
         ))}
+        {me.admin && <TemplateCard p={p} />}
         {me.admin && <ImportCard p={p} />}
         {me.admin && me.via !== "access" && <InviteCard p={p} />}
       </div>

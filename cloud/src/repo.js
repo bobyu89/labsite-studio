@@ -210,7 +210,7 @@ export async function history(env, site, limit = 50) {
 }
 
 /* ------------------------------------------------------- create/import */
-export async function createSite(env, { slug, name, files, author, message, githubRepo, githubBranch, now }) {
+export async function createSite(env, { slug, name, files, author, message, githubRepo, githubBranch, now, live = true, source = null }) {
   const s = cleanSlug(slug);
   if (await getSite(env, s)) throw new RepoError(409, "這個網址代稱已經有人使用：" + s);
   const id = randomId(6);
@@ -221,13 +221,14 @@ export async function createSite(env, { slug, name, files, author, message, gith
     .bind(id, s, String(name || s).slice(0, 80), githubRepo || null, githubBranch || null, at)
     .run();
   const { commit } = await commitChanges(env, id, { files, author, message, now: at });
-  // An imported site is already live elsewhere and already on GitHub.
+  // An imported site is already live elsewhere and already on GitHub; a site
+  // made from a template stays unpublished until the lab presses 發布.
   await env.DB.prepare(
     "UPDATE sites SET published_commit = ?, backup_commit = ?, backup_status = ?, backup_at = ? WHERE id = ?",
   )
-    .bind(commit.id, githubRepo ? commit.id : null, githubRepo ? "ok" : null, githubRepo ? at : null, id)
+    .bind(live ? commit.id : null, githubRepo ? commit.id : null, githubRepo ? "ok" : null, githubRepo ? at : null, id)
     .run();
-  await logEvent(env, id, "import", commit.id, author, githubRepo || null, at);
+  await logEvent(env, id, "import", commit.id, author, source || githubRepo || null, at);
   return getSite(env, id);
 }
 

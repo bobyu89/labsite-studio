@@ -19,18 +19,22 @@ import SitePreview from "../components/SitePreview";
 import SiteDataPanel from "../components/SiteDataPanel";
 import PairPanel from "../components/PairPanel";
 import CloudHistory from "../components/CloudHistory";
+import LibraryPanel, { AddToLibrary } from "../components/LibraryPanel";
+import SiteThemePanel from "../components/SiteThemePanel";
 import { parsePage, listSections, readHead } from "../site/page.js";
 import { pageLabel } from "../hooks/useProject";
 
 export default function Project({ p, device, setDevice, setConfirm }) {
   const [tab, setTab] = useState("blocks");
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [saving, setSaving] = useState(null);
   const parsed = useMemo(() => (p.html ? parsePage(p.html) : null), [p.html]);
   const sections = useMemo(() => (parsed ? listSections(parsed.doc) : []), [parsed]);
   const head = useMemo(() => (parsed ? readHead(parsed.doc) : null), [parsed]);
   const selected = Math.min(p.selected, Math.max(0, sections.length - 1));
   const writable = !!p.project?.source.writable;
   const isCloud = p.project?.source.kind === "cloud";
-  const unsavedCount = p.dirtyPages.length + (p.siteDirty ? 1 : 0);
+  const unsavedCount = p.dirtyPages.length + (p.siteDirty ? 1 : 0) + (p.theme?.dirty ? 1 : 0);
   const onPublish = () =>
     setConfirm(
       p.anyDirty
@@ -162,9 +166,9 @@ export default function Project({ p, device, setDevice, setConfirm }) {
             <FloppyDisk size={18} />
             {p.busy ? "處理中" : "保存此頁"}
           </Button>
-          {p.dirtyPages.length + (p.siteDirty ? 1 : 0) > 1 && (
+          {unsavedCount > 1 && (
             <Button variant="surface" onClick={p.saveAll} disabled={!writable || p.busy}>
-              全部保存（{p.dirtyPages.length + (p.siteDirty ? 1 : 0)}）
+              全部保存（{unsavedCount}）
             </Button>
           )}
           {isCloud && (
@@ -195,7 +199,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
               p.anyDirty
                 ? setConfirm({
                     title: "關閉專案？",
-                    description: "有 " + (p.dirtyPages.length + (p.siteDirty ? 1 : 0)) + " 個檔案尚未保存，關閉後修改會遺失。",
+                    description: "有 " + unsavedCount + " 個檔案尚未保存，關閉後修改會遺失。",
                     action: p.closeProject,
                   })
                 : p.closeProject()
@@ -220,11 +224,13 @@ export default function Project({ p, device, setDevice, setConfirm }) {
               ["head", "頁面資訊"],
               ["pair", "中英對照"],
               ["site", "網站資料"],
+              ...(p.theme ? [["theme", "外觀"]] : []),
               ...(isCloud ? [["history", "版本紀錄"]] : []),
             ].map(([id, label]) => (
               <button key={id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}>
                 {label}
                 {id === "site" && p.siteDirty && <span className="unsaved-dot" aria-label="未保存" />}
+                {id === "theme" && p.theme?.dirty && <span className="unsaved-dot" aria-label="未保存" />}
                 {id === "pair" && p.pairStatus[p.current] === "diff" && <span className="unsaved-dot" aria-label="結構不同" />}
               </button>
             ))}
@@ -232,6 +238,10 @@ export default function Project({ p, device, setDevice, setConfirm }) {
           {tab === "history" && isCloud ? (
             <div className="inspector-body">
               <CloudHistory p={p} setConfirm={setConfirm} />
+            </div>
+          ) : tab === "theme" && p.theme ? (
+            <div className="inspector-body">
+              <SiteThemePanel p={p} />
             </div>
           ) : tab === "site" ? (
             <div className="inspector-body">
@@ -315,6 +325,8 @@ export default function Project({ p, device, setDevice, setConfirm }) {
                     action: () => p.remove(i),
                   })
                 }
+                onAdd={p.library?.sections.length && sections.length ? () => setLibraryOpen(true) : null}
+                onSave={writable ? (i) => setSaving(i) : null}
               />
               <div className="inspector-body">
                 <h3 className="inspector-subtitle">
@@ -340,6 +352,8 @@ export default function Project({ p, device, setDevice, setConfirm }) {
             </>
           )}
         </aside>
+        <LibraryPanel p={p} sections={sections} selected={selected} open={libraryOpen} onClose={() => setLibraryOpen(false)} />
+        <AddToLibrary p={p} section={sections[saving]} index={saving} open={saving !== null} onClose={() => setSaving(null)} />
         <SitePreview
           html={p.html}
           pagePath={p.current}

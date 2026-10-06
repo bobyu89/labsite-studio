@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 import { viteSingleFile } from "vite-plugin-singlefile";
 import fs from "node:fs";
 import path from "node:path";
+import { bundleTemplates } from "./tools/bundle-templates.js";
 
 // Dev-only bridge: serves a local website folder (the lab site repo) at
 // /__labsite/ so the editor can read and write its files without the
@@ -86,6 +87,28 @@ function labsiteDevSite() {
     },
   };
 }
+function labsiteTemplates() {
+  return {
+    name: "labsite-templates",
+    configureServer(server) {
+      server.middlewares.use("/templates/", (req, res, next) => {
+        const m = req.url.match(/^\/([a-z0-9-]+)\.json$/);
+        if (!m) return next();
+        const { index, bundles } = bundleTemplates();
+        const body = m[1] === "index" ? index : bundles[m[1]];
+        if (!body) return next();
+        res.setHeader("Content-Type", "application/json; charset=utf-8");
+        res.end(JSON.stringify(body));
+      });
+    },
+    generateBundle() {
+      const { index, bundles } = bundleTemplates();
+      this.emitFile({ type: "asset", fileName: "templates/index.json", source: JSON.stringify(index) });
+      for (const [id, bundle] of Object.entries(bundles))
+        this.emitFile({ type: "asset", fileName: `templates/${id}.json`, source: JSON.stringify(bundle) });
+    },
+  };
+}
 function resolveSiteDir() {
   let dir = process.env.LABSITE_SITE_DIR;
   if (!dir) {
@@ -101,7 +124,7 @@ function resolveSiteDir() {
 // `npm run dev:cloud` (vite --mode cloud) forwards /api to a local LabSite
 // Cloud worker (`npm --prefix cloud run dev`), so the editor runs in cloud mode.
 export default defineConfig(({ mode }) => ({
-  plugins: [react(), viteSingleFile(), labsiteDevSite()],
+  plugins: [react(), viteSingleFile(), labsiteDevSite(), labsiteTemplates()],
   base: "./",
   server:
     mode === "cloud"

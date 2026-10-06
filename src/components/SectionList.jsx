@@ -1,9 +1,9 @@
 import React, { useRef } from "react";
-import { DotsSixVertical, ArrowUp, ArrowDown, Copy, Trash } from "@phosphor-icons/react";
+import { DotsSixVertical, ArrowUp, ArrowDown, Copy, Trash, Plus, BookmarkSimple } from "@phosphor-icons/react";
 import { IconButton } from "./ui";
 import { useDragReorder } from "../hooks/useDragReorder";
 
-export default function SectionList({ sections, selected, onSelect, onMove, onDuplicate, onRemove }) {
+export default function SectionList({ sections, selected, onSelect, onMove, onDuplicate, onRemove, onAdd, onSave }) {
   const listRef = useRef();
   const { start, rowClass } = useDragReorder(listRef, onMove);
   return (
@@ -40,6 +40,11 @@ export default function SectionList({ sections, selected, onSelect, onMove, onDu
               <IconButton label="複製區塊" onClick={() => onDuplicate(i)}>
                 <Copy size={15} />
               </IconButton>
+              {onSave && (
+                <IconButton label="加入元件庫" onClick={() => onSave(i)}>
+                  <BookmarkSimple size={15} />
+                </IconButton>
+              )}
               <IconButton label="刪除區塊" disabled={sections.length === 1} onClick={() => onRemove(i)}>
                 <Trash size={15} />
               </IconButton>
@@ -47,6 +52,11 @@ export default function SectionList({ sections, selected, onSelect, onMove, onDu
           )}
         </div>
       ))}
+      {onAdd && (
+        <button type="button" className="section-add" onClick={onAdd}>
+          <Plus size={16} weight="bold" /> 從元件庫新增區塊
+        </button>
+      )}
     </div>
   );
 }

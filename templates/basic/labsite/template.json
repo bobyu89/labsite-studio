@@ -1,0 +1,8 @@
+{
+  "name": "導引",
+  "description": "像醫院導引標示一樣清楚的研究室網站：首頁是分區目錄看板，每個分區有自己的顏色，中英雙語標示。",
+  "placeholder": {
+    "nameZh": "知行研究室",
+    "nameEn": "Zhixing Nursing Research Lab"
+  }
+}

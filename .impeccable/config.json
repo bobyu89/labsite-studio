@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "design-system-font",
+        "value": "barlow",
+        "createdAt": "2026-10-06T13:36:48.412Z",
+        "reason": "Claude: Barlow is one of the theme generator's sanctioned font pairs (FONT_PAIRS id highway in src/site/themes.js); the flagged line is a test fixture URL"
+      }
+    ]
+  }
+}

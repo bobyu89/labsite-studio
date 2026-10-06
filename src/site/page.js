@@ -255,8 +255,7 @@ export function sectionSummary(el, index) {
     (heading && collapse(heading.textContent)) ||
     (el.id && "#" + el.id) ||
     "區塊 " + (index + 1);
-  const kind =
-    el.classList.contains("hero") || el.classList.contains("page-hero")
+  const kind = ["hero", "page-hero", "directory", "page-sign"].some((c) => el.classList.contains(c))
       ? "主視覺"
       : el.querySelector("form")
         ? "表單"
@@ -372,6 +371,100 @@ export function duplicateSection(doc, index) {
   if (isDivider(after)) anchor.after(...block, doc.createTextNode(gap), divider);
   else anchor.after(doc.createTextNode(gap), divider, ...block);
   return true;
+}
+
+/* ------------------------------------------------------- library sections */
+// A library snippet is one <section> (optionally preceded by comment banners)
+// written as if its page sat at the site root. Inserting it into en/x.html
+// prefixes asset references with ../; links to other pages stay as written,
+// because every language folder has its own copy of each page.
+const EXTERNAL_REF = /^(?:[a-z][a-z0-9+.-]*:|\/|#)/i;
+const PAGE_REF = /(?:\.html?|\/)(?:[?#].*)?$/i;
+export function rebaseRefs(root, pagePath = "") {
+  const depth = (String(pagePath).match(/\//g) || []).length;
+  if (!depth) return;
+  const prefix = "../".repeat(depth);
+  const fix = (v) => (!v || EXTERNAL_REF.test(v) || v.startsWith("..") ? v : prefix + v);
+  for (const el of [root, ...root.querySelectorAll("[src], [href], [srcset], [poster]")]) {
+    for (const name of ["src", "poster"]) if (el.hasAttribute(name)) el.setAttribute(name, fix(el.getAttribute(name)));
+    if (el.hasAttribute("href")) {
+      const v = el.getAttribute("href");
+      if (!PAGE_REF.test(v)) el.setAttribute("href", fix(v));
+    }
+    if (el.hasAttribute("srcset"))
+      el.setAttribute(
+        "srcset",
+        el
+          .getAttribute("srcset")
+          .split(",")
+          .map((c) => c.trim().replace(/^\S+/, fix))
+          .join(", "),
+      );
+  }
+}
+
+// Parses a snippet inside `doc` and returns its banner comments and section,
+// or null when the snippet is not exactly one <section>.
+export function snippetParts(doc, html) {
+  const holder = doc.createElement("div");
+  holder.innerHTML = String(html).replace(/\r\n?/g, "\n").trim();
+  const found = [...holder.children];
+  if (found.length !== 1 || found[0].tagName.toLowerCase() !== "section") return null;
+  const section = found[0];
+  const banner = [...holder.childNodes].filter((n) => n.nodeType === 8 && n.nodeValue.trim());
+  return { banner, section };
+}
+
+// Inserts a library snippet after section `afterIndex` (-1 = first on the
+// page), keeping the page's own rhythm: the same whitespace as its other
+// sections and, if the page separates sections with dividers, a copy of one.
+// Ids that already exist on the page are dropped from the new section.
+export function insertSection(doc, afterIndex, html, pagePath = "") {
+  const sections = sectionElements(doc);
+  if (sections.length >= 60 || afterIndex < -1 || afterIndex >= sections.length) return false;
+  const parts = snippetParts(doc, html);
+  if (!parts) return false;
+  const { banner, section } = parts;
+  const taken = new Set([...doc.querySelectorAll("[id]")].map((n) => n.id));
+  for (const el of [section, ...section.querySelectorAll("[id]")]) if (el.id && taken.has(el.id)) el.removeAttribute("id");
+  rebaseRefs(section, pagePath);
+  const text = (s) => doc.createTextNode(s);
+  if (!sections.length) {
+    const before = [...doc.body.children].find((el) => ["footer", "script"].includes(el.tagName.toLowerCase()));
+    const nodes = [text("\n  "), ...banner.flatMap((c) => [c, text("\n  ")]), section, text("\n")];
+    if (before) before.before(...nodes);
+    else doc.body.append(...nodes);
+    return true;
+  }
+  const gap = gapBefore(sections[0]);
+  const unit = [...banner.flatMap((c) => [c, text(gap)]), section];
+  const sample = sections.map((s) => [nextMeaningful(s), prevMeaningful(s)]).flat().find(isDivider);
+  const divider = () => (sample ? [text(gap), sample.cloneNode(true)] : []);
+  if (afterIndex === -1) {
+    unitOf(sections[0])[0].before(...unit, ...divider(), text(gap));
+    return true;
+  }
+  const anchor = sections[afterIndex];
+  const after = nextMeaningful(anchor);
+  if (isDivider(after)) after.after(text(gap), ...unit, ...divider());
+  else anchor.after(...divider(), text(gap), ...unit);
+  return true;
+}
+
+// The section at `index` as a standalone snippet (banner comments included),
+// with asset references made root-relative again.
+export function sectionSnippet(doc, index, pagePath = "") {
+  const el = sectionElements(doc)[index];
+  if (!el) return null;
+  const copy = el.cloneNode(true);
+  const depth = (String(pagePath).match(/\//g) || []).length;
+  if (depth) {
+    const strip = (v) => (v && v.startsWith("../".repeat(depth)) ? v.slice(3 * depth) : v);
+    for (const n of [copy, ...copy.querySelectorAll("[src], [href], [poster]")])
+      for (const name of ["src", "href", "poster"]) if (n.hasAttribute(name)) n.setAttribute(name, strip(n.getAttribute(name)));
+  }
+  const comments = leadingNodes(el).filter((n) => n.nodeType === 8).map((n) => "<!--" + n.nodeValue + "-->");
+  return [...comments, copy.outerHTML].join("\n") + "\n";
 }
 
 /* -------------------------------------------------------------------- fields */
@@ -505,13 +598,19 @@ const LIST_HINTS = [
   ["gallery", "照片"],
   ["award", "得獎"],
   ["block", "資訊區"],
+  ["zone", "導引色帶"],
+  ["alumn", "畢業成員"],
+  ["photo", "照片"],
+  ["contact", "聯絡資訊"],
+  ["tag", "標籤"],
+  ["col", "資料欄"],
 ];
 function listLabel(container, item) {
   const cls = (item.getAttribute("class") || "") + " " + (container.getAttribute("class") || "");
   const hint = LIST_HINTS.find(([k]) => cls.includes(k))?.[1];
   if (hint) return hint;
   const tag = item.tagName.toLowerCase();
-  return tag === "tr" ? "表格列" : tag === "li" ? "條列項目" : "項目";
+  return tag === "tr" ? "表格列" : tag === "li" ? "條列項目" : tag === "p" ? "段落" : "項目";
 }
 function isList(el) {
   // Table cells are columns of one row, never repeatable items.

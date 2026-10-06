@@ -1,0 +1,156 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-06T00:00:00Z",
+  "title": "Design System: LabSite Studio — template \"導引\" (basic)",
+  "extensions": {
+    "colorMeta": {
+      "zone-research": { "role": "primary", "displayName": "Research Teal", "canonical": "oklch(48.7% 0.082 189.2)", "themeVar": "--zone-research", "swappable": true, "tonalRamp": ["#000f0d", "#002e2b", "#02504c", "#187570", "#459993", "#6cbfb9", "#93e6df", "#b7fff8"] },
+      "zone-team": { "role": "primary", "displayName": "Team Blue", "canonical": "oklch(42.6% 0.115 256.6)", "themeVar": "--zone-team", "swappable": true, "tonalRamp": ["#000923", "#002453", "#144481", "#3766a7", "#5a8bce", "#7eb0f6", "#bbd6fc", "#e6effc"] },
+      "zone-publications": { "role": "primary", "displayName": "Publications Brick", "canonical": "oklch(49.8% 0.152 28.7)", "themeVar": "--zone-publications", "swappable": true, "tonalRamp": ["#200000", "#500000", "#840b08", "#ac392f", "#d65f51", "#fd8677", "#fec4bb", "#fde9e6"] },
+      "zone-join": { "role": "primary", "displayName": "Join Plum", "canonical": "oklch(45.4% 0.144 352.4)", "themeVar": "--zone-join", "swappable": true, "tonalRamp": ["#1e000e", "#4b002c", "#79144c", "#a13c6e", "#c96092", "#f285b7", "#febfd9", "#fce8f0"] },
+      "on-zone": { "role": "primary", "displayName": "On-zone White", "canonical": "#ffffff", "themeVar": "--on-zone", "swappable": false, "note": "Fixed white by the Dark Zone Rule; themes.js always emits #ffffff." },
+      "on-join": { "role": "primary", "displayName": "On-join White", "canonical": "#ffffff", "themeVar": "--on-join", "swappable": false, "note": "Fixed white by the Dark Zone Rule." },
+      "mark": { "role": "secondary", "displayName": "You-Are-Here Amber", "canonical": "oklch(78.5% 0.164 77.6)", "themeVar": "--mark", "swappable": true, "note": "Generated themes keep amber hue 75 (oklch(0.8 0.16 75)); location and focus only.", "tonalRamp": ["#130900", "#352201", "#5c3e02", "#875d04", "#b47d07", "#e39f0a", "#fecb7a", "#feecd1"] },
+      "ink": { "role": "neutral", "displayName": "Sign Ink", "canonical": "oklch(20.7% 0.010 248.3)", "themeVar": "--ink", "swappable": true, "tonalRamp": ["#080c0f", "#23272b", "#41464a", "#62676c", "#858a8f", "#a9afb4", "#cfd5db", "#e9eff5"] },
+      "ink-soft": { "role": "neutral", "displayName": "Soft Ink", "canonical": "oklch(43.2% 0.023 243.4)", "themeVar": "--ink-soft", "swappable": true, "tonalRamp": ["#040c14", "#1d2831", "#3b4750", "#5b6872", "#7e8b96", "#a2b0bb", "#c8d6e2", "#e2f1fd"] },
+      "wall": { "role": "neutral", "displayName": "Wall Grey", "canonical": "oklch(93.5% 0.005 228.8)", "themeVar": "--wall", "swappable": true, "tonalRamp": ["#090c0d", "#242728", "#424647", "#636768", "#868a8c", "#abafb0", "#d1d5d7", "#ebeff1"] },
+      "plate": { "role": "neutral", "displayName": "Sign Plate", "canonical": "#ffffff", "themeVar": "--plate", "swappable": true, "tonalRamp": ["#0b0b0b", "#262626", "#454545", "#666666", "#898989", "#aeaeae", "#d4d4d4", "#eeeeee"] },
+      "rule": { "role": "neutral", "displayName": "Rule Grey", "canonical": "oklch(84.4% 0.012 239.9)", "themeVar": "--rule", "swappable": true, "tonalRamp": ["#070c10", "#21272c", "#3f464b", "#60676c", "#838a90", "#a7afb5", "#cdd5db", "#e8f0f6"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "The lab name on the directory's ink sign plate; once per site." },
+      "page-title": { "displayName": "Page title", "purpose": "Inner-page zone sign title." },
+      "headline": { "displayName": "Headline", "purpose": "Section sign headings (primary-language label)." },
+      "title": { "displayName": "Title", "purpose": "Zone band labels and research area titles." },
+      "lead": { "displayName": "Lead", "purpose": "Statement and join leads, max 28-30em." },
+      "other-language": { "displayName": "Other-language line", "purpose": "The translation beneath every sign heading, soft ink, with its lang attribute." },
+      "body": { "displayName": "Body", "purpose": "Prose, max 38-40em." },
+      "label": { "displayName": "Label", "purpose": "Table heads, link plates, the language switch." }
+    },
+    "themeSurface": {
+      "file": "css/theme.css",
+      "swappable": ["--zone-research", "--zone-team", "--zone-publications", "--zone-join", "--mark", "--ink", "--ink-soft", "--wall", "--plate", "--rule", "--font", "--radius", "--max", "@import font URL"],
+      "fixedByRule": { "--on-zone": "#ffffff", "--on-join": "#ffffff" },
+      "generator": "src/site/themes.js makeTheme/generateThemes: zone hues via OKLCH schemes (wayfinding, analogous, mono, duo), each darkened until 4.6:1 against white and wall; join hue moved 90deg if within 40deg of amber (hue 75); radius 0, 4 or 10px; Latin-first font pairs from FONT_PAIRS.",
+      "contrastGate": "contrastIssues(vars) over CONTRAST_PAIRS must return no issues (4.5:1).",
+      "fixedStructure": ["markup contract (docs/markup-convention.md) and templates/basic class names", "data-zone values: research, team, publications, join", "layout grid, breakpoints and spacing in site.css", "motion grammar", "focus construction (ink outline + amber ring)", "arrow glyph geometry"]
+    },
+    "shadows": [
+      { "name": "focus-ring", "value": "outline: 3px solid var(--ink); outline-offset: 3px; box-shadow: 0 0 0 7px var(--mark)", "purpose": "Keyboard focus only. Not elevation; the system has no elevation shadows." }
+    ],
+    "motion": [
+      { "name": "ease-out-expo", "value": "cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Arrow advance (0.35-0.45s) and directory power-up (0.5-0.6s, 90ms stagger)." },
+      { "name": "ease-out-cubic", "value": "cubic-bezier(0.33, 1, 0.68, 1)", "purpose": "Zone band colour sweep, 0.5s, left to right." },
+      { "name": "colour-swap", "value": "0.2s", "purpose": "Button, header plate and link plate hover fills." },
+      { "name": "reduced-motion", "value": "prefers-reduced-motion: reduce", "purpose": "All transitions and transforms off; everything static." }
+    ],
+    "breakpoints": [
+      { "name": "narrow", "value": "860px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Solid ink sign button with a trailing arrow; inverts on hover.",
+      "html": "<a class=\"ds-btn\" href=\"#\">聯絡我們</a>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; gap: 12px; min-height: 48px; padding: 10px 20px; border: 2px solid var(--ink, #14181c); border-radius: var(--radius, 4px); background: var(--ink, #14181c); color: #ffffff; font-family: var(--font, 'Overpass', 'Noto Sans TC', sans-serif); font-weight: 800; text-decoration: none; transition: background-color 0.2s, color 0.2s; } .ds-btn::after { content: ''; width: 18px; height: 18px; background: currentColor; -webkit-mask: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 12h16M13 5l7 7-7 7' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='square'/%3E%3C/svg%3E\") center / contain no-repeat; mask: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 12h16M13 5l7 7-7 7' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='square'/%3E%3C/svg%3E\") center / contain no-repeat; transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1); } .ds-btn:hover { background: transparent; color: var(--ink, #14181c); } .ds-btn:hover::after { transform: translateX(4px); } .ds-btn:focus-visible { outline: 3px solid var(--ink, #14181c); outline-offset: 3px; box-shadow: 0 0 0 7px var(--mark, #f2a900); }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Outlined ink button; fills ink on hover.",
+      "html": "<a class=\"ds-btn-ghost\" href=\"#\">Google Scholar</a>",
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; min-height: 48px; padding: 10px 20px; border: 2px solid var(--ink, #14181c); border-radius: var(--radius, 4px); background: transparent; color: var(--ink, #14181c); font-family: var(--font, 'Overpass', 'Noto Sans TC', sans-serif); font-weight: 800; text-decoration: none; transition: background-color 0.2s, color 0.2s; } .ds-btn-ghost:hover { background: var(--ink, #14181c); color: #ffffff; } .ds-btn-ghost:focus-visible { outline: 3px solid var(--ink, #14181c); outline-offset: 3px; box-shadow: 0 0 0 7px var(--mark, #f2a900); }"
+    },
+    {
+      "name": "Zone Band",
+      "kind": "custom",
+      "refersTo": "zone-band",
+      "description": "Signature directory band: lights left to right in its zone colour on hover or focus, then the arrow advances.",
+      "html": "<a class=\"ds-band\" href=\"#\"><strong class=\"ds-band__label\">研究方向</strong><span class=\"ds-band__other\" lang=\"en\">Research</span><span class=\"ds-band__desc\">慢性病自我管理、護理教育、數位健康照護</span><svg class=\"ds-band__arrow\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M3 12h16M13 5l7 7-7 7\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.6\" stroke-linecap=\"square\"/></svg></a>",
+      "css": ".ds-band { --zone: var(--zone-research, #0b6e69); --on: var(--on-zone, #ffffff); display: grid; grid-template-columns: minmax(7rem, 12rem) minmax(5rem, 8rem) minmax(0, 1fr) auto; align-items: center; gap: 8px 24px; padding: 20px 24px; position: relative; isolation: isolate; overflow: hidden; border-radius: var(--radius, 4px); background: var(--plate, #ffffff); color: var(--ink, #14181c); font-family: var(--font, 'Overpass', 'Noto Sans TC', sans-serif); line-height: 1.6; text-decoration: none; } .ds-band::before { content: ''; position: absolute; inset: 0; z-index: -1; background: var(--zone); transform: scaleX(0); transform-origin: left; transition: transform 0.5s cubic-bezier(0.33, 1, 0.68, 1); } .ds-band__label { display: flex; align-items: center; gap: 14px; font-size: 1.5rem; font-weight: 900; line-height: 1.2; transition: color 0.1s 0.04s; } .ds-band__label::before { content: ''; width: 0.85em; height: 0.85em; flex: none; border-radius: 3px; background: var(--zone); transition: background-color 0.1s 0.04s; } .ds-band__other { font-weight: 600; color: var(--ink-soft, #46525c); transition: color 0.1s 0.16s; } .ds-band__desc { color: var(--ink-soft, #46525c); word-break: keep-all; overflow-wrap: anywhere; transition: color 0.1s 0.24s; } .ds-band__arrow { width: 30px; height: 30px; color: var(--zone); transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.2s, color 0.1s 0.34s; } .ds-band:hover::before, .ds-band:focus-visible::before { transform: scaleX(1); } .ds-band:hover, .ds-band:focus-visible, .ds-band:hover .ds-band__other, .ds-band:hover .ds-band__desc, .ds-band:hover .ds-band__arrow, .ds-band:focus-visible .ds-band__other, .ds-band:focus-visible .ds-band__desc, .ds-band:focus-visible .ds-band__arrow { color: var(--on); } .ds-band:hover .ds-band__label::before, .ds-band:focus-visible .ds-band__label::before { background: var(--on); } .ds-band:hover .ds-band__arrow, .ds-band:focus-visible .ds-band__arrow { transform: translateX(8px); } .ds-band:focus-visible { outline: 3px solid var(--ink, #14181c); outline-offset: 3px; box-shadow: 0 0 0 7px var(--mark, #f2a900); } @media (prefers-reduced-motion: reduce) { .ds-band::before, .ds-band *, .ds-band__label::before { transition: none; } .ds-band:hover .ds-band__arrow, .ds-band:focus-visible .ds-band__arrow { transform: none; } }"
+    },
+    {
+      "name": "Header Zone Plates",
+      "kind": "nav",
+      "refersTo": "zone-plate",
+      "description": "Header navigation: colour-keyed bilingual plates with the amber you-are-here bar on the current page.",
+      "html": "<nav class=\"ds-zones\" aria-label=\"主要導覽\"><a class=\"ds-plate\" href=\"#\" style=\"--zone: var(--zone-research, #0b6e69)\" aria-current=\"page\"><strong>研究方向</strong><span lang=\"en\">Research</span></a><a class=\"ds-plate\" href=\"#\" style=\"--zone: var(--zone-team, #1f4e8c)\"><strong>團隊成員</strong><span lang=\"en\">Team</span></a><a class=\"ds-plate\" href=\"#\" style=\"--zone: var(--zone-publications, #a8352b)\"><strong>論文發表</strong><span lang=\"en\">Publications</span></a></nav>",
+      "css": ".ds-zones { display: flex; gap: 2px; background: var(--plate, #ffffff); border-bottom: 1px solid var(--rule, #c5cdd3); font-family: var(--font, 'Overpass', 'Noto Sans TC', sans-serif); } .ds-plate { position: relative; display: flex; flex-direction: column; justify-content: center; padding: 10px 14px; min-width: max-content; color: var(--ink, #14181c); text-decoration: none; transition: background-color 0.2s; } .ds-plate strong { display: flex; align-items: center; gap: 8px; font-size: 0.95rem; font-weight: 700; line-height: 1.3; } .ds-plate strong::before { content: ''; width: 10px; height: 10px; flex: none; border-radius: 2px; background: var(--zone); } .ds-plate span { padding-left: 18px; font-size: 0.72rem; font-weight: 600; color: var(--ink-soft, #46525c); line-height: 1.3; } .ds-plate:hover { background: var(--wall, #e6eaec); } .ds-plate[aria-current='page']::after { content: ''; position: absolute; left: 14px; right: 14px; bottom: 0; height: 7px; border-bottom: 2px solid var(--ink, #14181c); background: var(--mark, #f2a900); } .ds-plate:focus-visible { outline: 3px solid var(--ink, #14181c); outline-offset: 3px; box-shadow: 0 0 0 7px var(--mark, #f2a900); }"
+    },
+    {
+      "name": "Sign Heading",
+      "kind": "custom",
+      "refersTo": "headline",
+      "description": "Bilingual section heading: heavy primary-language label, other-language line beneath.",
+      "html": "<hgroup class=\"ds-sign\"><h2>論文發表</h2><p lang=\"en\">Publications</p></hgroup>",
+      "css": ".ds-sign { display: grid; gap: 0.3rem; font-family: var(--font, 'Overpass', 'Noto Sans TC', sans-serif); color: var(--ink, #14181c); } .ds-sign h2 { margin: 0; font-size: clamp(1.9rem, 1.2rem + 2.6vw, 3rem); font-weight: 900; line-height: 1.15; text-wrap: balance; } .ds-sign p { margin: 0; font-size: clamp(0.95rem, 0.85rem + 0.4vw, 1.15rem); font-weight: 600; color: var(--ink-soft, #46525c); }"
+    },
+    {
+      "name": "Page Sign",
+      "kind": "custom",
+      "refersTo": "page-sign",
+      "description": "Inner-page full-bleed zone band with title, other-language line, lede and large arrow.",
+      "html": "<div class=\"ds-page-sign\"><div class=\"ds-page-sign__text\"><h1>研究方向</h1><p class=\"ds-page-sign__other\" lang=\"en\">Research</p><p>我們從臨床現場出發，研究慢性病照護與護理教育。</p></div><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M3 12h16M13 5l7 7-7 7\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.6\" stroke-linecap=\"square\"/></svg></div>",
+      "css": ".ds-page-sign { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 6px 32px; padding: 48px 32px 56px; background: var(--zone-research, #0b6e69); color: var(--on-zone, #ffffff); font-family: var(--font, 'Overpass', 'Noto Sans TC', sans-serif); } .ds-page-sign h1 { margin: 0; font-size: clamp(2.5rem, 1.4rem + 4vw, 4.5rem); font-weight: 900; line-height: 1.1; } .ds-page-sign__other { margin: 0; font-size: clamp(1.05rem, 0.9rem + 0.6vw, 1.4rem); font-weight: 600; } .ds-page-sign p:last-child { margin: 14px 0 0; max-width: 38em; line-height: 1.75; } .ds-page-sign svg { width: 72px; height: 72px; }"
+    },
+    {
+      "name": "Tag",
+      "kind": "chip",
+      "refersTo": "tag",
+      "description": "Static research keyword plate.",
+      "html": "<span class=\"ds-tag\">自我管理</span> <span class=\"ds-tag\">衛教介入</span>",
+      "css": ".ds-tag { display: inline-block; padding: 2px 10px; border: 1.5px solid var(--ink, #14181c); border-radius: var(--radius, 4px); color: var(--ink, #14181c); font-family: var(--font, 'Overpass', 'Noto Sans TC', sans-serif); font-size: 0.85rem; font-weight: 600; word-break: keep-all; overflow-wrap: anywhere; }"
+    },
+    {
+      "name": "Publication Row",
+      "kind": "card",
+      "refersTo": "link-plate",
+      "description": "Rule-ruled list row with tabular year column and a bordered link plate; the system's substitute for cards.",
+      "html": "<ul class=\"ds-pubs\"><li class=\"ds-pub\"><p class=\"ds-pub__year\">2026</p><p class=\"ds-pub__title\">慢性心衰竭病人自我照顧介入之隨機對照試驗（範例）</p><p class=\"ds-pub__meta\">王大明、林小華 · 護理雜誌</p><a class=\"ds-pub__link\" href=\"#\">DOI</a></li></ul>",
+      "css": ".ds-pubs { margin: 0; padding: 0; list-style: none; border-top: 3px solid var(--ink, #14181c); font-family: var(--font, 'Overpass', 'Noto Sans TC', sans-serif); color: var(--ink, #14181c); } .ds-pub { display: grid; grid-template-columns: 5rem minmax(0, 1fr) auto; gap: 4px 24px; padding-block: 20px; border-bottom: 1px solid var(--rule, #c5cdd3); } .ds-pub p { margin: 0; } .ds-pub__year { grid-row: 1 / span 2; font-size: 1.1rem; font-weight: 800; font-variant-numeric: tabular-nums; } .ds-pub__title { grid-column: 2; font-size: 1.1rem; font-weight: 700; line-height: 1.5; } .ds-pub__meta { grid-column: 2; font-size: 0.95rem; color: var(--ink-soft, #46525c); } .ds-pub__link { grid-column: 3; grid-row: 1; align-self: start; padding: 4px 10px; border: 2px solid var(--ink, #14181c); border-radius: var(--radius, 4px); color: inherit; font-size: 0.85rem; font-weight: 800; text-decoration: none; white-space: nowrap; } .ds-pub__link:hover { background: var(--ink, #14181c); color: #ffffff; } .ds-pub__link:focus-visible { outline: 3px solid var(--ink, #14181c); outline-offset: 3px; box-shadow: 0 0 0 7px var(--mark, #f2a900); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Hospital Directory Board",
+    "overview": "A lab website read the way a visitor reads a Taiwanese hospital or campus sign program: find the building directory, pick a zone, follow its colour. Every page answers \"where do I go next.\" Four zone colours (research, team, publications, join) each own whole full-width bands and colour their own page; signage-white plates sit on a cool wall grey; near-black ink carries the type. One amber mark means \"you are here,\" and nothing else on the site is amber.\n\nThe type is sign type: a heavy Chinese label with the other language set smaller and lighter beneath it, in one sans family. Depth is flat: plates meet and overlap, nothing casts a shadow. The only icon family is the arrow. Where a photo is missing, a flat wayfinding pictogram plate stands in and says it must be replaced.\n\nThis is a template platform, so the system has two layers. **Structure** (the markup contract in `docs/markup-convention.md` and the class names of `templates/basic`, the four-zone model, the layout, the motion, the focus construction) is shared by every template. **Theme** (the custom properties in `css/theme.css` plus its web-font `@import`) is the swappable surface; `src/site/themes.js` generates new contrast-safe token sets against it. A skin may restyle `site.css`, but it keeps the class names and the rules below.",
+    "keyCharacteristics": [
+      "Four zones, each a dark colour carrying white text; the zone colour is the page's identity.",
+      "One amber \"you are here\" mark, shared with keyboard focus.",
+      "Bilingual sign headings: heavy primary-language label, smaller other-language line beneath.",
+      "Flat planes; depth from plates overlapping bands.",
+      "Arrows are the only icons.",
+      "Rule-ruled lists (3px ink top rule, 1px rule dividers) instead of cards."
+    ],
+    "rules": [
+      { "name": "The You-Are-Here Rule", "body": "Amber marks only location and focus: the current page, the focused element, selection, the skip link. A generated theme moves any zone hue within 40 degrees of amber away from it.", "section": "colors" },
+      { "name": "The Dark Zone Rule", "body": "All four zones are dark enough to carry white text at 4.5:1, and dark enough to read as text on plate and wall at 4.5:1. `--on-zone` and `--on-join` stay white; a theme that needs dark text on a zone is outside the system.", "section": "colors" },
+      { "name": "The Theme Surface Rule", "body": "Only the `:root` custom properties in `css/theme.css` (zone-research, zone-team, zone-publications, zone-join, on-zone, on-join, mark, ink, ink-soft, wall, plate, rule, font, radius, max) and the font `@import` are swappable. Every pair in `CONTRAST_PAIRS` (`src/site/themes.js`) must pass 4.5:1 before a theme ships. Nothing in `site.css` may introduce a new colour that a theme cannot reach.", "section": "colors" },
+      { "name": "The Bilingual Sign Rule", "body": "Every section heading is a pair: the page language as a heavy label, the other language smaller, 600 weight, soft ink, directly beneath, marked with its `lang`. The second line is a translation, never a category tag or a teaser.", "section": "typography" },
+      { "name": "The Keep-All Rule", "body": "Short sign labels (band descriptors, PI list items, tags, member roles, alumni destinations) use `word-break: keep-all` with `overflow-wrap: anywhere`, so Chinese breaks only at spaces and 、，, never inside a word. Headings balance; paragraphs and list items wrap pretty.", "section": "typography" },
+      { "name": "The Overlapping Plate Rule", "body": "If something needs to read as in front, it overlaps the plane behind it; it never floats on a shadow.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do give every new page or section a zone through `data-zone` (research, team, publications, join) and let `--zone` / `--on` colour it.",
+      "Do set every section heading as a bilingual sign: heavy label, other-language line beneath with `lang`.",
+      "Do make depth by overlapping plates over bands.",
+      "Do use the arrow (24-unit viewBox, 2.6 stroke, square caps) as the only icon.",
+      "Do keep amber for the current page, focus, selection and the skip link only.",
+      "Do run every generated theme through `contrastIssues()`; all four zones dark, white text on all of them.",
+      "Do change a template's look through `css/theme.css` tokens and the font `@import`; change `site.css` only as a skin that keeps the class names.",
+      "Do keep motion to the directory power-up and the band sweep, with exponential ease-outs, and honour `prefers-reduced-motion`."
+    ],
+    "donts": [
+      "Don't use shadows for elevation; the focus ring is the only `box-shadow`.",
+      "Don't add icon families, glyph icons or decorative illustrations; arrows and replaceable pictograms only.",
+      "Don't add a big photo hero or a grid of identical icon cards; the directory board is the home page.",
+      "Don't use amber, or any hue within 40 degrees of it, as a zone colour.",
+      "Don't put dark text on a zone fill or light a zone too pale to carry white text.",
+      "Don't add a small label above a heading; the second sign line goes beneath, and it is a translation.",
+      "Don't introduce colours in `site.css` that a theme cannot reach, or bake any school or department identity into a template."
+    ]
+  }
+}

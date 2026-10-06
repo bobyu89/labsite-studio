@@ -1,10 +1,17 @@
-# LabSite Studio v3
+# LabSite Studio
 
-研究室網站工作台。v3 的重點是**真實網站模式**：直接開啟 `sung-lab-website`、`ycho-lab-website` 這類靜態網站的原始檔，用拖拉與表單修改內容，寫回原檔；設計、腳本與其餘原始碼一字不改。範例模式（虛構的「知行研究室」）仍保留，並改用 IndexedDB 保存草稿。
+研究室網站工作台。核心是**真實網站模式**：直接開啟 `sung-lab-website`、`ycho-lab-website` 這類靜態網站的原始檔，用拖拉與表單修改內容，寫回原檔；設計、腳本與其餘原始碼一字不改。範例模式（虛構的「知行研究室」）仍保留，並改用 IndexedDB 保存草稿。
 
 **線上版**：<https://bobyu89.github.io/labsite-studio/>（推到 `main` 會由 GitHub Actions 自動建置部署）。
 
-**LabSite Cloud（v4.0）**：老師不需要 GitHub，用 Email 驗證碼登入，編輯、保存版本、自己發布；網站由 Cloudflare 提供。架構、本機開發與部署步驟見 [`cloud/README.md`](cloud/README.md)。
+**LabSite Cloud（v4.0）**：老師不需要 GitHub，用一次性登入連結登入，編輯、保存版本、自己發布；網站由 Cloudflare 提供。架構、本機開發與部署步驟見 [`cloud/README.md`](cloud/README.md)。
+
+**模板、元件庫與外觀（v4.2）**：
+
+- **從模板建立網站**：雲端首頁的「從模板建立網站」用 `templates/<id>/` 開新網站，研究室名稱自動換進所有頁面，建立後先不公開。第一個模板是「導引」（`templates/basic/`，院內導引標示風格，中英雙語 5 頁）。
+- **元件庫**：每個網站在 `labsite/` 帶自己的區塊元件。編輯器的「從元件庫新增區塊」先在這一頁裡預覽，再插入；任何區塊都能「加入元件庫」存回去。規則見 [`docs/markup-convention.md`](docs/markup-convention.md) 第 7 節。
+- **外觀**：所有模板共用同一套 HTML 結構，外觀只在 `css/theme.css`。「外觀」分頁可以改顏色、字體、圓角，或按「產生 6 組」自動產生通過 WCAG AA 對比檢查的方案，預覽即時更新，保存後整站套用，內容一字不動（`src/site/themes.js`）。
+- 設計系統：[`DESIGN.md`](DESIGN.md)；產品脈絡：[`PRODUCT.md`](PRODUCT.md)。
 
 ## 換一台電腦繼續開發
 
@@ -129,7 +136,7 @@ GitHub 模式的注意事項：token 只存在瀏覽器的 localStorage；保存
 
 ## 驗證
 
-`npm test`：64 項測試（範例模式 21 項、真實網站 18 項、外部語料 13 項、GitHub 來源與 OAuth 5 項、Worker 7 項），使用 linkedom 提供 DOM（`tests/dom.js` 補上與瀏覽器一致的跳脫）。`npm run test:e2e` 對真實 repo 跑 GitHub 提交流程（需設 `LABSITE_E2E_TOKEN` 與 `LABSITE_E2E_REPO`，否則略過）。`npm run build` 產出單一 HTML。實際瀏覽器操作、兩個實驗室網站 42 頁與 Greene Lab 模板 6 頁在 Chromium 的 round-trip 結果見 `VALIDATION.md`。
+`npm test`：116 項測試（含元件庫、模板完整性、主題產生器與雲端），2 項 e2e 在沒有 token 時略過，使用 linkedom 提供 DOM（`tests/dom.js` 補上與瀏覽器一致的跳脫）。`npm run test:e2e` 對真實 repo 跑 GitHub 提交流程（需設 `LABSITE_E2E_TOKEN` 與 `LABSITE_E2E_REPO`，否則略過）。`npm run build` 產出單一 HTML。實際瀏覽器操作、兩個實驗室網站 42 頁與 Greene Lab 模板 6 頁在 Chromium 的 round-trip 結果見 `VALIDATION.md`。
 
 範例「知行研究室」為虛構示範內容。平台沒有保存任何 GitHub 憑證，也不會把草稿或網站內容傳到外部服務；預覽中的最新消息與照片是網站自己的腳本向 Google 試算表／Drive 讀取的。
 

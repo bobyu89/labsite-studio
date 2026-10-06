@@ -1,0 +1,29 @@
+/* Theme tokens. A template = this file + site.css; both can be swapped
+   without touching any page, so fonts are loaded here, not in each <head>. */
+@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Overpass:wght@400;600;700;800;900&display=swap");
+
+/* Theme: change these to make the site your lab's own.
+   Each zone colour owns its bands on the home page and colours its own page.
+   Text on a zone must keep 4.5:1 contrast: set --on-zone / --on-join to match. */
+:root {
+  --zone-research: #0b6e69;
+  --zone-team: #1f4e8c;
+  --zone-publications: #a8352b;
+  --zone-join: #8e2a5e;
+  --on-zone: #ffffff;
+  --on-join: #ffffff;
+
+  /* "You are here" mark and keyboard focus: the only amber on the site. */
+  --mark: #f2a900;
+
+  --ink: #14181c;
+  --ink-soft: #46525c;
+  --wall: #e6eaec;
+  --plate: #ffffff;
+  --rule: #c5cdd3;
+
+  /* Latin first so English uses Overpass and Chinese falls through to Noto Sans TC. */
+  --font: "Overpass", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  --radius: 4px;
+  --max: 1200px;
+}

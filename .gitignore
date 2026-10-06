@@ -8,3 +8,8 @@ labsite.local.json
 # Cloudflare local state and secrets
 .wrangler/
 .dev.vars
+
+# Impeccable working files (decision pages, review captures)
+.impeccable/questions/
+.impeccable/review/
+.impeccable/mocks/

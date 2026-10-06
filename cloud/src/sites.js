@@ -49,6 +49,8 @@ export async function serve(request, env) {
     return notFound();
   }
   if (path === "" || path.endsWith("/")) path += "index.html";
+  // The editor's own files (section library) are not part of the website.
+  if (path.startsWith("labsite/")) return notFound();
   let entry = tree.get(path);
   if (!entry && tree.has(path + "/index.html"))
     return Response.redirect(url.origin + r.prefix + r.path + "/" + url.search, 301);

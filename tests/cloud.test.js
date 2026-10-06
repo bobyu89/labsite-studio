@@ -644,3 +644,57 @@ test("API sign-in by invite link: admin makes a link, teacher opens it, cookie s
   assert.equal((await req("GET", "/api/me", { cookie: teacher })).status, 401);
   assert.equal((await req("GET", "/api/me", { cookie: "ls_session=" + "0".repeat(64) })).status, 401);
 });
+
+/* ============================================================ templates */
+test("create from a template: admin only, unpublished, lab name in js/data.js, editor files hidden", async () => {
+  const env = fakeEnv();
+  const bundle = {
+    id: "basic",
+    name: "清朗",
+    files: [
+      { path: "index.html", text: "<h1>知行研究室</h1>" },
+      { path: "js/data.js", text: 'const SITE = {\n  nameZh: "知行研究室",\n  email: "lab@example.edu.tw",\n};\n' },
+      { path: "assets/dot.png", base64: "iVBORw0KGgo=" },
+      { path: "labsite/library.json", text: '{"version":1,"sections":[]}' },
+    ],
+  };
+  env.ASSETS = {
+    async fetch(req) {
+      const u = new URL(req.url);
+      if (u.pathname === "/templates/basic.json") return new Response(JSON.stringify(bundle), { headers: { "Content-Type": "application/json" } });
+      return new Response("<!doctype html>", { headers: { "Content-Type": "text/html" } }); // SPA fallback
+    },
+  };
+  const app = createApp();
+  const call = (method, path, body, email = "admin@lab.tw") =>
+    app.request(
+      path,
+      {
+        method,
+        headers: { "Content-Type": "application/json", Origin: "http://localhost", Host: "localhost" },
+        body: body ? JSON.stringify(body) : undefined,
+      },
+      { ...env, DEV_USER_EMAIL: email },
+    );
+  const made = await call("POST", "http://localhost/api/sites", { template: "basic", slug: "wang-lab", name: "王老師研究室" });
+  assert.equal(made.status, 201);
+  const { site, files } = await made.json();
+  assert.equal(files, 4);
+  assert.equal(site.unpublished, true);
+  assert.equal(site.published, null);
+  const row = await getSite(env, "wang-lab");
+  assert.equal(await text(env, row, "index.html"), "<h1>知行研究室</h1>");
+  assert.match(await text(env, row, "js/data.js"), /nameZh: "王老師研究室"/);
+  const { tree } = await resolveRef(env, row, "draft");
+  assert.deepEqual([...env.BLOBS.store.get("b/" + tree.get("assets/dot.png").hash)], [...Buffer.from("iVBORw0KGgo=", "base64")]);
+  // Not public until published; the editor's library files never are.
+  assert.equal((await serve(new Request("https://sites.example/wang-lab/"), env)).status, 404);
+  await publish(env, row.id, null, { actor: "admin@lab.tw" });
+  assert.equal((await serve(new Request("https://sites.example/wang-lab/"), env)).status, 200);
+  assert.equal((await serve(new Request("https://sites.example/wang-lab/labsite/library.json"), env)).status, 404);
+  // Unknown template, bad id, teacher.
+  assert.equal((await call("POST", "http://localhost/api/sites", { template: "nope", slug: "x1", name: "x" })).status, 404);
+  assert.equal((await call("POST", "http://localhost/api/sites", { template: "../x", slug: "x2", name: "x" })).status, 400);
+  assert.equal((await call("POST", "http://localhost/api/sites", { template: "basic", slug: "x3", name: "x" }, "t@lab.tw")).status, 403);
+  assert.equal((await call("POST", "http://localhost/api/sites", { template: "basic", slug: "wang-lab", name: "x" })).status, 409);
+});

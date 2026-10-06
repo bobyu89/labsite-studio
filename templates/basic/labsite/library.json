@@ -1,0 +1,102 @@
+{
+  "version": 1,
+  "template": "basic",
+  "sections": [
+    {
+      "id": "directory",
+      "name": "目錄看板（首頁主視覺）",
+      "category": "主視覺",
+      "description": "研究室名稱、一句話介紹、合照，下方是各分區的導引色帶。"
+    },
+    {
+      "id": "page-sign",
+      "name": "頁面標示（內頁標題）",
+      "category": "主視覺",
+      "description": "內頁最上方的整寬色帶，顏色跟著這一頁所在的分區。"
+    },
+    {
+      "id": "statement",
+      "name": "研究室簡介",
+      "category": "介紹",
+      "description": "一段大字的宗旨，加上兩段說明文字。"
+    },
+    {
+      "id": "areas",
+      "name": "研究方向列表",
+      "category": "研究",
+      "description": "每個研究方向一列：標題、說明與關鍵字標籤，可新增刪除。"
+    },
+    {
+      "id": "projects",
+      "name": "研究計畫表",
+      "category": "研究",
+      "description": "期間、計畫名稱、補助單位與角色的表格，每一列都可新增刪除。"
+    },
+    {
+      "id": "pi",
+      "name": "主持人介紹",
+      "category": "團隊",
+      "description": "主持人照片、職稱、簡介、學歷與經歷清單。"
+    },
+    {
+      "id": "team",
+      "name": "團隊成員",
+      "category": "團隊",
+      "description": "成員照片、姓名、身分與研究主題，可新增刪除與拖拉排序。"
+    },
+    {
+      "id": "alumni",
+      "name": "畢業成員",
+      "category": "團隊",
+      "description": "畢業年、姓名與現職的雙欄清單。"
+    },
+    {
+      "id": "pubs-featured",
+      "name": "代表著作（大字）",
+      "category": "論文",
+      "description": "重點論文用較大的字級列出，每篇可附連結。"
+    },
+    {
+      "id": "pubs-list",
+      "name": "論文列表",
+      "category": "論文",
+      "description": "一般著作清單：年份、題目、作者、出處與連結。"
+    },
+    {
+      "id": "news",
+      "name": "最新消息",
+      "category": "消息",
+      "description": "日期與內容的清單，新消息加在最上面。"
+    },
+    {
+      "id": "join",
+      "name": "加入我們（招生）",
+      "category": "招生與聯絡",
+      "description": "整寬的招生色帶：說明、條件清單與聯絡按鈕。"
+    },
+    {
+      "id": "contact",
+      "name": "聯絡資訊",
+      "category": "招生與聯絡",
+      "description": "地址、Email、電話與地圖連結的清單。"
+    },
+    {
+      "id": "gallery",
+      "name": "活動照片",
+      "category": "消息",
+      "description": "照片格狀排列，每張可換圖、改圖說。"
+    },
+    {
+      "id": "prose",
+      "name": "文字段落",
+      "category": "介紹",
+      "description": "標題加上幾段文字，適合研究室規範、課程或計畫說明。"
+    },
+    {
+      "id": "next-zones",
+      "name": "繼續前往（分區導引）",
+      "category": "主視覺",
+      "description": "頁面最後的導引色帶，帶訪客前往其他分區。"
+    }
+  ]
+}

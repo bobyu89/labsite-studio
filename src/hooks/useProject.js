@@ -16,7 +16,11 @@ import {
   moveItem,
   pairOf,
   structureSignature,
+  insertSection,
+  sectionSnippet,
 } from "../site/page.js";
+import { loadLibrary, snippetPath, LIBRARY_PATH } from "../site/library.js";
+import { THEME_PATH, readTheme, patchTheme } from "../site/themes.js";
 import { readSiteFields, patchSiteField } from "../site/siteData.js";
 import { directorySource, detectDevSource, urlSource, normalizePath, stagedSource } from "../site/source.js";
 import { createPreviewCache, invalidatePreviewCache } from "../site/preview.js";
@@ -75,6 +79,10 @@ export function useProject(notify) {
   const [selected, setSelected] = useState(0);
   const [focus, setFocus] = useState(null);
   const [siteData, setSiteData] = useState(null);
+  // The site's section library (labsite/library.json), or null if it has none.
+  const [library, setLibrary] = useState(null);
+  // css/theme.css of template-based sites: { text, original }, or null.
+  const [theme, setThemeState] = useState(null);
   // Images picked but not yet saved: site path → { file, page }. They are
   // written in the same commit as the page that references them.
   const [staged, setStaged] = useState({});
@@ -145,7 +153,8 @@ export function useProject(notify) {
     (p) => drafts[p].present !== originals[p],
   );
   const siteDirty = !!siteData && siteData.text !== siteData.original;
-  const anyDirty = dirtyPages.length > 0 || siteDirty;
+  const themeDirty = !!theme && theme.text !== theme.original;
+  const anyDirty = dirtyPages.length > 0 || siteDirty || themeDirty;
   useEffect(() => {
     const onLeave = (e) => {
       if (anyDirty) {
@@ -199,8 +208,18 @@ export function useProject(notify) {
       } catch {
         data = null;
       }
+      const lib = await loadLibrary(source);
+      let themeFile = null;
+      try {
+        const text = await source.readText(THEME_PATH);
+        if (readTheme(text)) themeFile = { text, original: text };
+      } catch {
+        themeFile = null;
+      }
       cache.current = createPreviewCache();
       scrolls.current = {};
+      setLibrary(lib);
+      setThemeState(themeFile);
       setDrafts({});
       setOriginals({});
       setStaged({});
@@ -354,6 +373,8 @@ export function useProject(notify) {
     setStaged({});
     setCurrent(null);
     setSiteData(null);
+    setLibrary(null);
+    setThemeState(null);
     setError(null);
   }
 
@@ -466,6 +487,102 @@ export function useProject(notify) {
     }
   }
   const ensurePair = () => (pair ? ensureLoaded(pair) : Promise.resolve(null));
+
+  /* ---------------------------------------------------- section library */
+  const isEn = (path) => path.startsWith("en/");
+  // The snippet file for a page's language; English pages fall back to the
+  // Chinese snippet (new content arrives in the original language, as with items).
+  const snippetFile = (entry, path) => (isEn(path) && entry.en ? entry.en : entry.file);
+  async function readSnippet(entry, path) {
+    const file = snippetFile(entry, path);
+    try {
+      return await project.source.readText(file);
+    } catch (e) {
+      // An optional English file that does not exist: use the Chinese one.
+      if (file !== entry.file) return project.source.readText(entry.file);
+      throw e;
+    }
+  }
+  async function insertFromLibrary(entry, afterIndex) {
+    if (!project || !current || !state) return false;
+    const before = state.present;
+    let html;
+    try {
+      html = await readSnippet(entry, current);
+    } catch (e) {
+      setError("讀不到元件「" + entry.name + "」：" + e.message);
+      return false;
+    }
+    let ok = false;
+    const page = current;
+    editHtml(before, (doc) => (ok = insertSection(doc, afterIndex, html, page)));
+    if (!ok) {
+      setError("元件「" + entry.name + "」不是單一個 <section>，無法插入。");
+      return false;
+    }
+    edit((doc) => insertSection(doc, afterIndex, html, page));
+    setSelected(afterIndex + 1);
+    setFocus(null);
+    if (mirror && pair) {
+      const pairHtml = await ensureLoaded(pair);
+      if (pairHtml !== null && signature(before) === signature(pairHtml)) {
+        const other = await readSnippet(entry, pair).catch(() => html);
+        dispatch({ type: "change", update: (h) => editHtml(h, (doc) => insertSection(doc, afterIndex, other, pair)), at: Date.now() }, pair);
+      } else if (pairHtml !== null) notify("另一語言頁（" + pair + "）結構不同，新區塊只加在這一頁。");
+    }
+    return true;
+  }
+  // Saves the section at `index` (and, when the paired page lines up, its other
+  // language) into the site's library as one version.
+  async function addToLibrary(index, { name, category, description = "" }) {
+    if (!project?.source.writable || !current || !state) return false;
+    const label = String(name || "").trim();
+    if (!label) return false;
+    const id = "custom-" + Date.now().toString(36);
+    const zhPage = isEn(current) ? pair : current;
+    const enPage = isEn(current) ? current : pair;
+    const snippets = {};
+    const take = (path) => {
+      const html = path === current ? state.present : draftsRef.current[path]?.present;
+      return html ? sectionSnippet(parsePage(html).doc, index, path) : null;
+    };
+    const aligned = pair && draftsRef.current[pair] && signature(state.present) === signature(draftsRef.current[pair].present);
+    if (zhPage && (zhPage === current || aligned)) snippets.zh = take(zhPage);
+    if (enPage && (enPage === current || aligned)) snippets.en = take(enPage);
+    const entry = { id, name: label.slice(0, 40), category: String(category || "我的元件").trim().slice(0, 20) || "我的元件", description };
+    if (!snippets.zh) {
+      // Only an English page: store it as the main file.
+      snippets.zh = snippets.en;
+      delete snippets.en;
+      entry.en = false;
+    } else if (!snippets.en) entry.en = false;
+    let manifest = { version: 1, sections: [] };
+    try {
+      const raw = JSON.parse(await project.source.readText(LIBRARY_PATH));
+      if (raw && raw.version === 1 && Array.isArray(raw.sections)) manifest = raw;
+    } catch {
+      /* first entry: new manifest */
+    }
+    manifest.sections.push(entry);
+    const files = [
+      { path: snippetPath(id), text: snippets.zh },
+      ...(snippets.en ? [{ path: snippetPath(id, "en"), text: snippets.en }] : []),
+      { path: LIBRARY_PATH, text: JSON.stringify(manifest, null, 2) + "\n" },
+    ];
+    setBusy(true);
+    try {
+      await project.source.writeFiles(files, "加入元件庫：" + entry.name);
+      setLibrary(await loadLibrary(project.source));
+      notify("已把「" + entry.name + "」加入元件庫，之後在任何頁面都能插入。");
+      if (project.source.kind === "cloud") refreshCloud();
+      return true;
+    } catch (e) {
+      setError("加入元件庫失敗：" + e.message);
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
   async function replaceImage(i, path, file) {
     const source = project?.source;
     if (!source?.writable) {
@@ -488,19 +605,28 @@ export function useProject(notify) {
     api.setAttr(i, path, "src", rel);
     notify("圖片已放入 " + target + "，保存頁面時會一起寫入。");
   }
-  // What the preview reads: the real source with staged images laid over it.
-  const previewSource = useMemo(
-    () =>
-      project
-        ? stagedSource(project.source, Object.fromEntries(Object.entries(staged).map(([k, v]) => [k, v.file])))
-        : null,
-    [project, staged],
-  );
+  // What the preview reads: the real source with staged images and an
+  // unsaved theme laid over it.
+  const themeText = theme && theme.text !== theme.original ? theme.text : null;
+  const previewSource = useMemo(() => {
+    if (!project) return null;
+    invalidatePreviewCache(cache.current, THEME_PATH);
+    const over = Object.fromEntries(Object.entries(staged).map(([k, v]) => [k, v.file]));
+    if (themeText !== null) over[THEME_PATH] = themeText;
+    return stagedSource(project.source, over);
+  }, [project, staged, themeText]);
+
+  /* -------------------------------------------------------------- theme */
+  // Changes theme values in place ({ vars, fontUrl }); saved like any file.
+  function setTheme(patch) {
+    setThemeState((t) => (t ? { ...t, text: patchTheme(t.text, patch) } : t));
+  }
+  const revertTheme = () => setThemeState((t) => (t ? { ...t, text: t.original } : t));
 
   /* ------------------------------------------------------------ saving */
   // Every save is one unit: the pages named, the images staged for them and
   // (optionally) js/data.js, written together — a single commit on GitHub.
-  async function commitFiles({ pages = [], site = false }) {
+  async function commitFiles({ pages = [], site = false, themeFile = false }) {
     if (!project) return false;
     if (!project.source.writable) {
       setError("網址來源無法寫回，請用「下載此頁」取得修改後的檔案。");
@@ -519,6 +645,8 @@ export function useProject(notify) {
         }
     }
     if (site && siteData) files.push({ path: SITE_DATA, text: siteData.text });
+    const savedTheme = themeFile && theme && theme.text !== theme.original ? theme.text : null;
+    if (savedTheme !== null) files.push({ path: THEME_PATH, text: savedTheme });
     if (!files.length) return false;
     const names = files.map((f) => f.path);
     const message = saveMessage(files);
@@ -540,6 +668,7 @@ export function useProject(notify) {
         invalidatePreviewCache(cache.current, SITE_DATA);
         setSiteData((sd) => ({ ...sd, original: sd.text }));
       }
+      if (savedTheme !== null) setThemeState((t) => (t ? { ...t, original: savedTheme } : t));
       const what = names.length === 1 ? names[0] : names.length + " 個檔案";
       const kind = project.source.kind;
       notify(
@@ -559,7 +688,8 @@ export function useProject(notify) {
     }
   }
   const savePage = (path = current) => commitFiles({ pages: [path] });
-  const saveAll = () => commitFiles({ pages: dirtyPages, site: siteDirty });
+  const saveAll = () => commitFiles({ pages: dirtyPages, site: siteDirty, themeFile: themeDirty });
+  const saveTheme = () => commitFiles({ themeFile: true });
   function setSiteField(key, value) {
     setSiteData((s) => {
       const text = patchSiteField(s.text, key, value);
@@ -590,6 +720,14 @@ export function useProject(notify) {
     dirtyPages,
     siteData,
     siteDirty,
+    library,
+    theme: theme ? { ...readTheme(theme.text), dirty: themeDirty } : null,
+    setTheme,
+    revertTheme,
+    saveTheme,
+    readSnippet,
+    insertFromLibrary,
+    addToLibrary,
     anyDirty,
     busy,
     error,

@@ -7,6 +7,7 @@ import { fromBase64, enc } from "./bytes.js";
 import { contentType } from "./mime.js";
 import { zip } from "./zip.js";
 import { fetchRepoFiles, backupToGitHub, parseRepo } from "./github.js";
+import { templateFiles, personalize } from "./templates.js";
 import {
   RepoError,
   isAdmin,
@@ -151,6 +152,19 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
   /* --------------------------------------------------------- sites */
   app.post("/api/sites", requireAdmin, async (c) => {
     const body = await c.req.json().catch(() => ({}));
+    if (body.template) {
+      const files = personalize(await templateFiles(c.env, c.req.url, body.template), { name: body.name });
+      const site = await createSite(c.env, {
+        slug: body.slug,
+        name: body.name || body.slug,
+        files,
+        author: c.get("user").email,
+        message: `從模板「${body.template}」建立網站`,
+        live: false,
+        source: "template:" + body.template,
+      });
+      return c.json({ site: siteView(c.env, site), files: files.length }, 201);
+    }
     const { owner, repo } = parseRepo(body.github);
     const { ref, files } = await fetchRepoFiles({
       owner,
