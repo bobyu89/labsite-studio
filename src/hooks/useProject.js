@@ -21,6 +21,7 @@ import {
 } from "../site/page.js";
 import { loadLibrary, snippetPath, LIBRARY_PATH } from "../site/library.js";
 import { THEME_PATH, readTheme, patchTheme } from "../site/themes.js";
+import { SKINS_PATH, SITE_CSS, loadSkins, readSkin, themeForSkin, withCurrent } from "../site/skins.js";
 import { readSiteFields, patchSiteField } from "../site/siteData.js";
 import { directorySource, detectDevSource, urlSource, normalizePath, stagedSource } from "../site/source.js";
 import { createPreviewCache, invalidatePreviewCache } from "../site/preview.js";
@@ -83,6 +84,9 @@ export function useProject(notify) {
   const [library, setLibrary] = useState(null);
   // css/theme.css of template-based sites: { text, original }, or null.
   const [theme, setThemeState] = useState(null);
+  // Skins the site can switch to, and the css/site.css being previewed:
+  // { list, current, text, original, pending } or null.
+  const [skin, setSkin] = useState(null);
   // Images picked but not yet saved: site path → { file, page }. They are
   // written in the same commit as the page that references them.
   const [staged, setStaged] = useState({});
@@ -153,7 +157,7 @@ export function useProject(notify) {
     (p) => drafts[p].present !== originals[p],
   );
   const siteDirty = !!siteData && siteData.text !== siteData.original;
-  const themeDirty = !!theme && theme.text !== theme.original;
+  const themeDirty = (!!theme && theme.text !== theme.original) || (!!skin && skin.text !== skin.original);
   const anyDirty = dirtyPages.length > 0 || siteDirty || themeDirty;
   useEffect(() => {
     const onLeave = (e) => {
@@ -218,8 +222,19 @@ export function useProject(notify) {
       }
       cache.current = createPreviewCache();
       scrolls.current = {};
+      let skinState = null;
+      const skins = themeFile ? await loadSkins(source) : null;
+      if (skins) {
+        try {
+          const css = await source.readText(SITE_CSS);
+          skinState = { list: skins.skins, current: skins.current, text: css, original: css, pending: null };
+        } catch {
+          skinState = null;
+        }
+      }
       setLibrary(lib);
       setThemeState(themeFile);
+      setSkin(skinState);
       setDrafts({});
       setOriginals({});
       setStaged({});
@@ -375,6 +390,7 @@ export function useProject(notify) {
     setSiteData(null);
     setLibrary(null);
     setThemeState(null);
+    setSkin(null);
     setError(null);
   }
 
@@ -608,20 +624,40 @@ export function useProject(notify) {
   // What the preview reads: the real source with staged images and an
   // unsaved theme laid over it.
   const themeText = theme && theme.text !== theme.original ? theme.text : null;
+  const skinText = skin && skin.text !== skin.original ? skin.text : null;
   const previewSource = useMemo(() => {
     if (!project) return null;
     invalidatePreviewCache(cache.current, THEME_PATH);
+    invalidatePreviewCache(cache.current, SITE_CSS);
     const over = Object.fromEntries(Object.entries(staged).map(([k, v]) => [k, v.file]));
     if (themeText !== null) over[THEME_PATH] = themeText;
+    if (skinText !== null) over[SITE_CSS] = skinText;
     return stagedSource(project.source, over);
-  }, [project, staged, themeText]);
+  }, [project, staged, themeText, skinText]);
 
   /* -------------------------------------------------------------- theme */
   // Changes theme values in place ({ vars, fontUrl }); saved like any file.
   function setTheme(patch) {
     setThemeState((t) => (t ? { ...t, text: patchTheme(t.text, patch) } : t));
   }
-  const revertTheme = () => setThemeState((t) => (t ? { ...t, text: t.original } : t));
+  const revertTheme = () => {
+    setThemeState((t) => (t ? { ...t, text: t.original } : t));
+    setSkin((k) => (k ? { ...k, text: k.original, pending: null } : k));
+  };
+  // Previews another skin: its site.css and its theme (or the skin's theme
+  // with this site's colours kept). Saved together with 保存外觀.
+  async function previewSkin(id, { keepColors = false } = {}) {
+    if (!project || !skin || !theme) return false;
+    try {
+      const files = await readSkin(project.source, id);
+      setSkin((k) => ({ ...k, text: files.site, pending: id }));
+      setThemeState((t) => ({ ...t, text: themeForSkin(files.theme, t.original, { keepColors }) }));
+      return true;
+    } catch (e) {
+      setError("無法載入版型：" + e.message);
+      return false;
+    }
+  }
 
   /* ------------------------------------------------------------ saving */
   // Every save is one unit: the pages named, the images staged for them and
@@ -647,6 +683,17 @@ export function useProject(notify) {
     if (site && siteData) files.push({ path: SITE_DATA, text: siteData.text });
     const savedTheme = themeFile && theme && theme.text !== theme.original ? theme.text : null;
     if (savedTheme !== null) files.push({ path: THEME_PATH, text: savedTheme });
+    const savedSkin = themeFile && skin && skin.text !== skin.original ? skin : null;
+    if (savedSkin) {
+      files.push({ path: SITE_CSS, text: savedSkin.text });
+      if (savedSkin.pending) {
+        try {
+          files.push({ path: SKINS_PATH, text: withCurrent(await project.source.readText(SKINS_PATH), savedSkin.pending) });
+        } catch {
+          /* no manifest to update */
+        }
+      }
+    }
     if (!files.length) return false;
     const names = files.map((f) => f.path);
     const message = saveMessage(files);
@@ -669,6 +716,8 @@ export function useProject(notify) {
         setSiteData((sd) => ({ ...sd, original: sd.text }));
       }
       if (savedTheme !== null) setThemeState((t) => (t ? { ...t, original: savedTheme } : t));
+      if (savedSkin)
+        setSkin((k) => (k ? { ...k, original: savedSkin.text, current: savedSkin.pending || k.current, pending: null } : k));
       const what = names.length === 1 ? names[0] : names.length + " 個檔案";
       const kind = project.source.kind;
       notify(
@@ -722,6 +771,8 @@ export function useProject(notify) {
     siteDirty,
     library,
     theme: theme ? { ...readTheme(theme.text), dirty: themeDirty } : null,
+    skins: skin ? { list: skin.list, current: skin.current, pending: skin.pending } : null,
+    previewSkin,
     setTheme,
     revertTheme,
     saveTheme,

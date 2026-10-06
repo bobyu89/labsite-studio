@@ -1,0 +1,30 @@
+/* Theme tokens for the 圖譜 (atlas) skin. Same variable names as every skin,
+   so a lab's colours can be carried across; fonts are loaded here. */
+@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Public+Sans:wght@400;600;700;800;900&family=Archivo+Narrow:wght@400;500;600;700&display=swap");
+
+/* Zones follow the anatomical colour convention: vein blue, lymph green,
+   nerve ochre, fascia slate. Artery red (--mark) is reserved for whatever
+   the visitor is on or pointing at. */
+:root {
+  --zone-research: #24589e;
+  --zone-team: #2e6a3c;
+  --zone-publications: #7a5a10;
+  --zone-join: #44505c;
+  --on-zone: #ffffff;
+  --on-join: #ffffff;
+
+  /* "You are here", hover and focus: the only red on the site. */
+  --mark: #b3261e;
+
+  --ink: #1b1d1f;
+  --ink-soft: #4d5560;
+  --wall: #f3f4f5;
+  --plate: #ffffff;
+  --rule: #c9ced3;
+
+  /* Reading text, then the condensed atlas label face. */
+  --font: "Public Sans", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  --font-label: "Archivo Narrow", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  --radius: 0px;
+  --max: 1200px;
+}

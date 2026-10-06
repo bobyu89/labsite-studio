@@ -27,6 +27,7 @@ export default function SiteThemePanel({ p }) {
   const issues = useMemo(() => (t ? contrastIssues(t.vars) : []), [t]);
   if (!t) return <p className="small-note">這個網站沒有 css/theme.css，外觀只能在原始碼裡調整。</p>;
   const currentFont = FONT_PAIRS.find((f) => String(t.vars["--font"] || "").startsWith(`"${f.latin}"`));
+  const [keepColors, setKeepColors] = useState(false);
   const generate = () => {
     setBatch(generateThemes({ count: 6, seed: Date.now() }));
     setPicked(null);
@@ -34,6 +35,38 @@ export default function SiteThemePanel({ p }) {
   return (
     <div className="theme-panel">
       <p className="small-note">整個網站共用一組外觀。換配色、字體或圓角都不會動到任何文字與圖片，預覽會立刻更新，按「保存外觀」才會存成新版本。</p>
+
+      {p.skins && p.skins.list.length > 1 && (
+        <section className="theme-block">
+          <h4>版型</h4>
+          <p className="small-note">版型決定版面與元件的樣子；同一個網站可以隨時切換，文字、圖片與區塊都不會變。</p>
+          <div className="skin-list">
+            {p.skins.list.map((sk) => {
+              const active = (p.skins.pending || p.skins.current) === sk.id;
+              return (
+                <button
+                  key={sk.id}
+                  type="button"
+                  className={"skin-card" + (active ? " active" : "")}
+                  aria-pressed={active}
+                  disabled={p.busy}
+                  onClick={() => p.previewSkin(sk.id, { keepColors })}
+                >
+                  <strong>
+                    {sk.name}
+                    {p.skins.current === sk.id && <span className="muted">目前使用</span>}
+                  </strong>
+                  {sk.description && <span>{sk.description}</span>}
+                </button>
+              );
+            })}
+          </div>
+          <label className="check-row">
+            <input type="checkbox" checked={keepColors} onChange={(e) => setKeepColors(e.target.checked)} />
+            換版型時保留目前的配色
+          </label>
+        </section>
+      )}
 
       <section className="theme-block">
         <div className="theme-block-head">

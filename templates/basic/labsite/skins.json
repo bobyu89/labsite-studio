@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "current": "guide",
+  "skins": [
+    {
+      "id": "guide",
+      "name": "導引",
+      "description": "院內導引標示：分區目錄看板、整寬分區色帶、中英雙語標示。",
+      "from": "css"
+    },
+    {
+      "id": "atlas",
+      "name": "圖譜",
+      "description": "解剖圖譜的圖版：細墨線、引線標註、圖號與圖說；紅色只標示目前所在與滑過的地方。"
+    }
+  ]
+}

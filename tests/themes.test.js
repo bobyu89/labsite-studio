@@ -82,8 +82,11 @@ test("generateThemes: distinct, reproducible, applicable to the template", () =>
     assert.ok(Math.max(...gaps) < 110, `seed ${seed} hues ${hues}`);
     assert.equal(new Set(batch.map((t) => t.scheme)).size, 4, `seed ${seed} schemes`);
     assert.equal(new Set(batch.map((t) => t.font)).size, 5, `seed ${seed} fonts`);
-    // Amber stays reserved for the "you are here" mark.
-    for (const t of batch) assert.ok(contrast(t.vars["--zone-join"], "#ffffff") >= 4.5);
+    // The skin keeps its own "you are here" mark; join is a dark zone.
+    for (const t of batch) {
+      assert.equal(t.vars["--mark"], undefined);
+      assert.ok(contrast(t.vars["--zone-join"], "#ffffff") >= 4.5);
+    }
   }
   for (const t of a) {
     const css = patchTheme(BASIC, t);

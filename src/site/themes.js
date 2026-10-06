@@ -121,6 +121,8 @@ function darkEnough(h, C, startL, grounds) {
   }
   return oklch(0.25, C, h);
 }
+// The skin's "you are here" mark is not generated (each skin uses it in its
+// own way); join hues just keep away from the amber mark of 導引.
 const MARK_HUE = 75;
 
 /* ------------------------------------------------------------- generator */
@@ -182,7 +184,6 @@ export function makeTheme({ hue, scheme = "wayfinding", font = FONT_PAIRS[0], ra
     "--zone-join": join,
     "--on-zone": "#ffffff",
     "--on-join": "#ffffff",
-    "--mark": oklch(0.8, 0.16, MARK_HUE),
     "--ink": ink,
     "--ink-soft": oklch(0.45, 0.02, hue),
     "--wall": wall,

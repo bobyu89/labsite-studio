@@ -138,6 +138,20 @@ labsite/sections/<id>.en.html   英文版（選用）
 
 模板就是一個帶元件庫的完整網站，放在本 repo 的 `templates/<id>/`，`labsite/template.json` 寫模板名稱與說明。建置時每個模板打包成 `templates/<id>.json`，雲端版的「從模板建立網站」一次讀取整包。
 
+### 版型
+
+同一套 HTML 可以換不同的版型。版型 = `css/site.css`（版面與元件）＋ `css/theme.css`（顏色、字體、圓角變數），每個網站把可切換的版型放在：
+
+```
+labsite/skins.json                 { "version": 1, "current": "guide", "skins": [{ "id", "name", "description" }] }
+labsite/skins/<id>/site.css
+labsite/skins/<id>/theme.css
+```
+
+- 切換版型只覆寫 `css/site.css` 與 `css/theme.css`，並更新 `skins.json` 的 `current`；頁面一個字都不動。勾選「保留目前的配色」時，只把顏色變數帶到新版型的 `theme.css`，字體與圓角用新版型的。
+- 每種版型的 `theme.css` 用同一組變數名稱（`--zone-research`、`--zone-team`、`--zone-publications`、`--zone-join`、`--on-zone`、`--on-join`、`--mark`、`--ink`、`--ink-soft`、`--wall`、`--plate`、`--rule`、`--font`、`--radius`），版型可以另加自己的變數（例如圖譜的 `--font-label`）。
+- 模板 repo 裡，`skins.json` 標記 `"from": "css"` 的版型不另存檔案，打包時從 `css/` 複製。
+
 ## 8. 給新網站的最短檢查表
 
 1. 頁面放在根目錄，英文版放 `en/` 同名。

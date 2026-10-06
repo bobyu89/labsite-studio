@@ -24,6 +24,21 @@ export function bundleTemplates(root = "templates") {
       }
     };
     walk("");
+    // Skins marked "from": "css" are the template's own stylesheets: the
+    // bundle carries copies under labsite/skins/<id>/ so a site can switch
+    // back to them later, without keeping duplicates in the repo.
+    const manifest = files.find((f) => f.path === "labsite/skins.json");
+    if (manifest) {
+      for (const skin of JSON.parse(manifest.text).skins || []) {
+        if (skin.from !== "css") continue;
+        for (const name of ["site.css", "theme.css"]) {
+          const target = `labsite/skins/${skin.id}/${name}`;
+          const source = files.find((f) => f.path === "css/" + name);
+          if (source && !files.some((f) => f.path === target)) files.push({ path: target, text: source.text });
+        }
+      }
+      files.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+    }
     let meta = {};
     try {
       meta = JSON.parse(fs.readFileSync(path.join(dir, "labsite/template.json"), "utf8"));
