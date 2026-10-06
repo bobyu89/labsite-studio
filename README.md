@@ -6,6 +6,46 @@
 
 **LabSite Cloud（v4.0）**：老師不需要 GitHub，用 Email 驗證碼登入，編輯、保存版本、自己發布；網站由 Cloudflare 提供。架構、本機開發與部署步驟見 [`cloud/README.md`](cloud/README.md)。
 
+## 換一台電腦繼續開發
+
+需要 Node 24 以上（測試與本機雲端用到 Node 內建的 SQLite）。
+
+```bash
+git clone https://github.com/bobyu89/labsite-studio.git
+cd labsite-studio
+npm ci
+npm --prefix cloud ci
+npm test
+```
+
+**本機跑雲端版**：建立 `cloud/.dev.vars`（不在 git 裡），內容如下，然後建置並啟動。
+
+```
+DEV_AUTH=on
+DEV_USER_EMAIL=bobyu89@gmail.com
+SITE_URL_TEMPLATE=http://127.0.0.1:8788/{slug}/
+```
+
+```bash
+npm run build
+npm --prefix cloud run dev:node
+```
+
+編輯器在 <http://127.0.0.1:8787>，公開網站在 <http://127.0.0.1:8788/<代稱>/>。想測邀請連結登入，改用 `dev:node:invite`，再用 `npm --prefix cloud run invite -- 你的Email --local` 產生連結。
+
+**部署到 Cloudflare**：每台電腦第一次要先登入 wrangler，之後就能部署。
+
+```bash
+npx --prefix cloud wrangler login
+npm --prefix cloud run deploy
+```
+
+**不在 GitHub 上、換電腦要重建的東西**：`cloud/.dev.vars`、本機測試資料 `cloud/.wrangler/`、`labsite.local.json`、`node_modules/`、`dist/`。正式資料都在 Cloudflare 的 D1，不受影響。
+
+**Windows 注意**：Cloudflare 官方的 `wrangler dev` 需要較新版的 Microsoft Visual C++ 可轉散發套件；沒有的話用上面的 `dev:node`，跑的是同一份 Worker 程式。
+
+目前進度與決策紀錄：[`cloud/README.md`](cloud/README.md)（架構、部署、選用功能）、[`VALIDATION.md`](VALIDATION.md)（每一版驗證了什麼、還沒驗證什麼）、[`docs/plan-2026-09.md`](docs/plan-2026-09.md)（原始規劃）。
+
 ## 開啟方式
 
 - **線上版 + GitHub 直接編輯**（建議）：打開上面的網址 → 「從 GitHub 直接編輯」→ 用 GitHub 登入（或貼上 token）→ 選擇儲存庫 → 開啟並編輯。每次「保存此頁」就是一個 commit，網站的 GitHub Pages 一兩分鐘後自動更新，不需要本機 clone 或 git。登入按鈕需要先部署一次 OAuth 服務，步驟見 [`worker/README.md`](worker/README.md)；在那之前可用 fine-grained token（只需 `Contents: Read and write` 權限、限定兩個網站 repo）。
