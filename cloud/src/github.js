@@ -28,18 +28,55 @@ export function parseRepo(text) {
   return { owner: m[1], repo: m[2] };
 }
 
+// Why GitHub said no, in words a teacher-admin can act on.
+async function explain(res, what) {
+  let detail = "";
+  try {
+    detail = (await res.json()).message || "";
+  } catch {
+    /* not JSON */
+  }
+  if (res.status === 404) return new RepoError(404, `找不到 GitHub 儲存庫 ${what}，請確認名稱，私人儲存庫需要先設定 GITHUB_BACKUP_TOKEN。`);
+  if (res.status === 403 || res.status === 429)
+    return new RepoError(503, `GitHub 暫時拒絕下載 ${what}（${res.status}，多半是流量限制），請幾分鐘後再試。${detail ? " " + detail : ""}`);
+  return new RepoError(502, `下載 ${what} 失敗（${res.status}）${detail ? " " + detail : ""}`);
+}
+
+// The default branch, read the way `git ls-remote` does: one plain HTTP
+// request that is not counted against the (tiny, shared-IP) REST API quota.
+export async function defaultBranch({ owner, repo, fetchImpl = fetch }) {
+  const res = await fetchImpl(`https://github.com/${owner}/${repo}.git/info/refs?service=git-upload-pack`, {
+    headers: { "User-Agent": "git/2.45.0 (labsite-cloud)" },
+  });
+  if (!res.ok) throw await explain(res, `${owner}/${repo}`);
+  const m = (await res.text()).match(/symref=HEAD:refs\/heads\/([^\s\0]+)/);
+  return m ? m[1] : "main";
+}
+
+// Whole repository in one download. Public repos go through codeload (no API
+// quota); with a token we use the REST API, which also reaches private repos.
 export async function fetchRepoFiles({ owner, repo, branch, token, fetchImpl = fetch }) {
   let ref = branch;
-  if (!ref) {
-    const res = await fetchImpl(`${API}/repos/${owner}/${repo}`, { headers: headers(token) });
-    if (!res.ok) throw new RepoError(404, `找不到 GitHub 儲存庫 ${owner}/${repo}（${res.status}）`);
-    ref = (await res.json()).default_branch || "main";
+  let res;
+  if (token) {
+    if (!ref) {
+      const meta = await fetchImpl(`${API}/repos/${owner}/${repo}`, { headers: headers(token) });
+      if (!meta.ok) throw await explain(meta, `${owner}/${repo}`);
+      ref = (await meta.json()).default_branch || "main";
+    }
+    res = await fetchImpl(`${API}/repos/${owner}/${repo}/tarball/${encodeURIComponent(ref)}`, {
+      headers: headers(token),
+      redirect: "follow",
+    });
+  } else {
+    if (!ref) ref = await defaultBranch({ owner, repo, fetchImpl });
+    const path = ref.split("/").map(encodeURIComponent).join("/");
+    res = await fetchImpl(`https://codeload.github.com/${owner}/${repo}/tar.gz/refs/heads/${path}`, {
+      headers: { "User-Agent": "labsite-cloud" },
+      redirect: "follow",
+    });
   }
-  const res = await fetchImpl(`${API}/repos/${owner}/${repo}/tarball/${encodeURIComponent(ref)}`, {
-    headers: headers(token),
-    redirect: "follow",
-  });
-  if (!res.ok || !res.body) throw new RepoError(502, `下載 ${owner}/${repo}@${ref} 失敗（${res.status}）`);
+  if (!res.ok || !res.body) throw await explain(res, `${owner}/${repo}@${ref}`);
   const files = stripTopDir(parseTar(await gunzip(res.body))).filter((f) => {
     if (f.bytes.length > MAX_IMPORT_FILE) return false;
     return !/(^|\/)\.git(\/|$)/.test(f.path);

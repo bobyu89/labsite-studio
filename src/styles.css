@@ -2956,6 +2956,7 @@ h3 {
   background: #f8faf9;
 }
 .invite-email {
+  flex: none;
   font-size: 13px;
   background: #fff;
 }

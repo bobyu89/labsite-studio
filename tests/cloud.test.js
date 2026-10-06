@@ -277,17 +277,39 @@ async function tarball(files, top = "bobyu89-sung-lab-website-abc1234") {
   return gzip(makeTar([{ path: top + "/", type: "5" }, ...files.map(([p, d]) => ({ path: top + "/" + p, data: d }))]));
 }
 
-test("fetchRepoFiles: default branch lookup, one tarball download, .git paths dropped", async () => {
+test("fetchRepoFiles without a token: branch via git smart-HTTP, tarball via codeload, no REST API calls", async () => {
   const gz = await tarball([["index.html", "<h1>hi</h1>"], ["assets/a.png", new Uint8Array([1])], [".git/config", "x"], [".github/workflows/x.yml", "y"]]);
+  const refs = "001e# service=git-upload-pack\n0000015b3c1e" + "a".repeat(36) + " HEAD\0multi_ack symref=HEAD:refs/heads/master agent=git/github\n0000";
   const f = scriptedFetch([
-    [/\/repos\/bobyu89\/sung-lab-website$/, { json: { default_branch: "master" } }],
-    ["/tarball/master", { body: gz }],
+    ["/sung-lab-website.git/info/refs?service=git-upload-pack", { body: refs }],
+    ["codeload.github.com/bobyu89/sung-lab-website/tar.gz/refs/heads/master", { body: gz }],
   ]);
   const { ref, files } = await fetchRepoFiles({ owner: "bobyu89", repo: "sung-lab-website", fetchImpl: f });
   assert.equal(ref, "master");
   assert.deepEqual(files.map((x) => x.path), ["index.html", "assets/a.png", ".github/workflows/x.yml"]);
   assert.equal(f.calls.length, 2);
-  assert.equal(f.calls[1].headers["User-Agent"], "labsite-cloud");
+  assert.ok(!f.calls.some((c) => c.url.includes("api.github.com")), "the shared-IP REST quota is never touched");
+  // A branch with a slash keeps its slash.
+  const g = scriptedFetch([["/tar.gz/refs/heads/feature/new-site", { body: gz }]]);
+  assert.equal((await fetchRepoFiles({ owner: "o", repo: "r", branch: "feature/new-site", fetchImpl: g })).ref, "feature/new-site");
+});
+
+test("fetchRepoFiles with a token uses the REST API (private repos); GitHub refusals become clear messages", async () => {
+  const gz = await tarball([["index.html", "x"]]);
+  const f = scriptedFetch([
+    [/\/repos\/o\/private$/, { json: { default_branch: "main" } }],
+    ["/repos/o/private/tarball/main", { body: gz }],
+  ]);
+  const r = await fetchRepoFiles({ owner: "o", repo: "private", token: "t", fetchImpl: f });
+  assert.equal(r.ref, "main");
+  assert.equal(f.calls[0].headers.Authorization, "Bearer t");
+  const limited = scriptedFetch([["/info/refs", { body: "" }], ["codeload", { status: 403, json: { message: "rate limited" } }]]);
+  await assert.rejects(
+    () => fetchRepoFiles({ owner: "o", repo: "r", fetchImpl: limited }),
+    (e) => e.status === 503 && /流量限制/.test(e.message) && /rate limited/.test(e.message),
+  );
+  const missing = scriptedFetch([["/info/refs", { status: 404, body: "Not Found" }]]);
+  await assert.rejects(() => fetchRepoFiles({ owner: "o", repo: "nope", fetchImpl: missing }), (e) => e.status === 404 && /找不到/.test(e.message));
 });
 
 /* ======================================================== GitHub backup */
@@ -373,7 +395,7 @@ function api(env, fetchImpl = scriptedFetch([])) {
 
 test("API: import, read, save with conflict detection, history, publish, restore, export", async () => {
   const gz = await tarball([["index.html", "<h1>宋</h1>"], ["en/index.html", "<h1>Sung</h1>"], ["assets/a.png", new Uint8Array([1, 2])]]);
-  const gh = scriptedFetch([["/tarball/master", { body: gz }]]);
+  const gh = scriptedFetch([["/tar.gz/refs/heads/master", { body: gz }]]);
   const env = fakeEnv();
   const call = api(env, gh);
 
