@@ -5,6 +5,8 @@
 // Like production: no R2 (file contents go to D1). Flags:
 //   --invite-only   ignore DEV_AUTH; sign in only with invite links
 //   --r2            keep file contents in a folder acting as R2
+//   --ai-mock       answer the Claude API with canned themes (no key needed),
+//                   to work on the AI theme UI offline
 //
 //   npm run build            (in labsite-studio/, to refresh ../dist)
 //   npm --prefix cloud run dev:node
@@ -57,7 +59,27 @@ const env = {
   ...(flags.has("--r2") ? { BLOBS: dirR2(join(state, "blobs")) } : {}),
   ASSETS,
 };
-const app = createApp();
+// Canned Messages API reply for --ai-mock: three fixed proposals, one of them
+// deliberately too light so the contrast repair path is exercised.
+const mockThemes = [
+  { name: "清晨病房", rationale: "（模擬回應）淡藍與木色，安靜可信。", research: "#2c6e91", team: "#7a5230", publications: "#3f6b4a", join: "#8a3d3d", ink: "#16191c", wall: "#eef1f2", font: "legible", radius: 4 },
+  { name: "研討會海報", rationale: "（模擬回應）高對比的學術配色。", research: "#1d3f73", team: "#a33b2a", publications: "#2f5d50", join: "#5b4b8a", ink: "#111418", wall: "#f1f2f4", font: "scholar", radius: 0 },
+  { name: "春日校園", rationale: "（模擬回應）偏淺的綠色會被自動調深。", research: "#8fd19e", team: "#9ecbe8", publications: "#f2b880", join: "#c9a0dc", ink: "#333333", wall: "#f5f7f2", font: "public", radius: 10 },
+];
+const mockFetch = async (url, init) => {
+  if (!String(url).includes("api.anthropic.com")) return fetch(url, init);
+  await new Promise((r) => setTimeout(r, 800));
+  return new Response(
+    JSON.stringify({
+      id: "msg_mock", type: "message", role: "assistant", model: "claude-opus-5-5",
+      content: [{ type: "text", text: JSON.stringify({ themes: mockThemes }) }],
+      stop_reason: "end_turn", stop_sequence: null, usage: { input_tokens: 0, output_tokens: 0 },
+    }),
+    { headers: { "Content-Type": "application/json" } },
+  );
+};
+if (flags.has("--ai-mock")) env.ANTHROPIC_API_KEY = env.ANTHROPIC_API_KEY || "mock";
+const app = createApp(flags.has("--ai-mock") ? { fetchImpl: mockFetch } : {});
 
 function listen(port, handler) {
   createServer(async (req, res) => {

@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Button } from "@radix-ui/themes";
-import { Sparkle, ArrowCounterClockwise, FloppyDisk, WarningCircle, CheckCircle } from "@phosphor-icons/react";
+import { Sparkle, ArrowCounterClockwise, FloppyDisk, WarningCircle, CheckCircle, MagicWand } from "@phosphor-icons/react";
 import { generateThemes, contrastIssues, FONT_PAIRS, fontUrl, fontStack, parseColor } from "../site/themes.js";
 
 // The site's look: colours, fonts and corners from css/theme.css. Every
@@ -28,6 +28,8 @@ export default function SiteThemePanel({ p }) {
   if (!t) return <p className="small-note">這個網站沒有 css/theme.css，外觀只能在原始碼裡調整。</p>;
   const currentFont = FONT_PAIRS.find((f) => String(t.vars["--font"] || "").startsWith(`"${f.latin}"`));
   const [keepColors, setKeepColors] = useState(false);
+  const [aiText, setAiText] = useState("");
+  const [ai, setAi] = useState({ busy: false, themes: [], error: null, remaining: null });
   const generate = () => {
     setBatch(generateThemes({ count: 6, seed: Date.now() }));
     setPicked(null);
@@ -65,6 +67,71 @@ export default function SiteThemePanel({ p }) {
             <input type="checkbox" checked={keepColors} onChange={(e) => setKeepColors(e.target.checked)} />
             換版型時保留目前的配色
           </label>
+        </section>
+      )}
+
+      {p.ai?.available && (
+        <section className="theme-block">
+          <h4>用一句話描述，讓 AI 配色</h4>
+          <form
+            className="ai-form"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setAi((a) => ({ ...a, busy: true, error: null }));
+              try {
+                const r = await p.ai.generate(aiText);
+                setAi({ busy: false, themes: r.themes, error: null, remaining: r.remaining });
+                setPicked(null);
+              } catch (err) {
+                setAi((a) => ({ ...a, busy: false, error: err.message }));
+              }
+            }}
+          >
+            <textarea
+              value={aiText}
+              onChange={(e) => setAiText(e.target.value)}
+              rows={2}
+              maxLength={300}
+              placeholder="例如：沉穩可信、像清晨的病房，帶一點溫暖的木頭色"
+              aria-label="描述想要的網站外觀"
+            />
+            <Button size="2" type="submit" disabled={ai.busy || aiText.trim().length < 2}>
+              <MagicWand size={15} /> {ai.busy ? "AI 正在配色…" : "產生 3 組"}
+            </Button>
+          </form>
+          {ai.error && <p className="error-text small-note">{ai.error}</p>}
+          {ai.themes.length > 0 && (
+            <div className="theme-grid">
+              {ai.themes.map((th, i) => {
+                const id = "ai-" + i + "-" + th.name;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    className={"theme-card" + (picked === id ? " active" : "")}
+                    aria-pressed={picked === id}
+                    onClick={() => {
+                      setPicked(id);
+                      p.setTheme(th);
+                    }}
+                  >
+                    <span className="theme-swatches" aria-hidden="true">
+                      {SWATCH.map((k) => (
+                        <i key={k} style={{ background: th.vars[k] }} />
+                      ))}
+                    </span>
+                    <strong>{th.name}</strong>
+                    {th.rationale && <span className="theme-why">{th.rationale}</span>}
+                    {th.adjusted?.length > 0 && <span className="theme-why">已把 {th.adjusted.length} 個顏色調深，讓文字看得清楚。</span>}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <p className="small-note">
+            AI 只會改顏色、字體與圓角，不會動到文字。每一組都會重新檢查對比。
+            {ai.remaining !== null && ` 這個網站今天還可以用 ${ai.remaining} 次。`}
+          </p>
         </section>
       )}
 

@@ -226,3 +226,58 @@ export function generateThemes({ count = 6, seed = Date.now(), schemes = Object.
   }
   return out;
 }
+
+/* --------------------------------------------- themes from free-form colours */
+// Used for colours proposed by people or by AI: whatever comes in, what goes
+// out passes the template's contrast pairs.
+const hex2 = (n) => Math.round(Math.min(255, Math.max(0, n))).toString(16).padStart(2, "0");
+export const toHex = (rgb) => "#" + rgb.map(hex2).join("");
+// Mixes colour a toward colour b by t (0..1), in sRGB.
+export function mix(a, b, t) {
+  const ca = parseColor(a);
+  const cb = parseColor(b);
+  return toHex(ca.map((v, i) => v + (cb[i] - v) * t));
+}
+// Darkens (toward ink) or lightens (toward white) until the colour reaches
+// `ratio` against every ground. Keeps the hue; returns the closest passing step.
+export function ensureContrast(color, grounds, { ratio = 4.6, toward = "#000000" } = {}) {
+  for (let t = 0; t <= 1.0001; t += 0.04) {
+    const c = mix(color, toward, t);
+    if (grounds.every((g) => contrast(c, g) >= ratio)) return c;
+  }
+  return toward;
+}
+
+// Builds a full theme from proposed colours ({ research, team, publications,
+// join, ink, wall }), a FONT_PAIRS id and a radius. Zones carry white text and
+// must read on white and on the wall; the wall stays light; ink stays dark.
+export function themeFromColors({ name, colors, font, radius = 4 }) {
+  const valid = (c) => (parseColor(c) ? toHex(parseColor(c)) : null);
+  let wall = valid(colors.wall) || "#eef0f2";
+  if (luminance(parseColor(wall)) < 0.78) wall = ensureContrast(wall, ["#000000"], { ratio: 16, toward: "#ffffff" });
+  let ink = valid(colors.ink) || "#16191c";
+  ink = ensureContrast(ink, ["#ffffff", wall], { ratio: 12 });
+  const grounds = ["#ffffff", wall];
+  const zone = (c, fallback) => ensureContrast(valid(c) || fallback, grounds);
+  const pair = FONT_PAIRS.find((f) => f.id === font) || FONT_PAIRS[0];
+  const r = [0, 4, 10].includes(Number(radius)) ? Number(radius) : 4;
+  const changed = [];
+  const vars = {
+    "--zone-research": zone(colors.research, "#0b6e69"),
+    "--zone-team": zone(colors.team, "#1f4e8c"),
+    "--zone-publications": zone(colors.publications, "#a8352b"),
+    "--zone-join": zone(colors.join, "#8e2a5e"),
+    "--on-zone": "#ffffff",
+    "--on-join": "#ffffff",
+    "--ink": ink,
+    "--ink-soft": ensureContrast(mix(ink, wall, 0.3), grounds),
+    "--wall": wall,
+    "--plate": "#ffffff",
+    "--rule": mix(wall, ink, 0.16),
+    "--font": fontStack(pair),
+    "--radius": r + "px",
+  };
+  for (const [key, from] of [["--zone-research", colors.research], ["--zone-team", colors.team], ["--zone-publications", colors.publications], ["--zone-join", colors.join], ["--ink", colors.ink], ["--wall", colors.wall]])
+    if (valid(from) && valid(from) !== vars[key]) changed.push(key);
+  return { name: String(name || "").slice(0, 30), font: pair.id, vars, fontUrl: fontUrl(pair), adjusted: changed };
+}

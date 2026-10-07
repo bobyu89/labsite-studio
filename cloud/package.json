@@ -5,6 +5,7 @@
   "scripts": {
     "dev:node": "node dev/server.js",
     "dev:node:invite": "node dev/server.js --invite-only",
+    "dev:node:ai-mock": "node dev/server.js --ai-mock",
     "invite": "node scripts/invite.js",
     "dev": "wrangler dev -c wrangler.api.toml --port 8787 --persist-to .wrangler/state",
     "dev:sites": "wrangler dev -c wrangler.sites.toml --port 8788 --persist-to .wrangler/state",
@@ -13,6 +14,7 @@
     "deploy": "npm --prefix .. run build && wrangler deploy -c wrangler.api.toml && wrangler deploy -c wrangler.sites.toml"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.132.0",
     "hono": "^4.9.0"
   },
   "devDependencies": {

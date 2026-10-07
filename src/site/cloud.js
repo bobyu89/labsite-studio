@@ -55,6 +55,7 @@ export function cloudApi(fetchImpl = (...a) => fetch(...a)) {
     addMember: (id, email) => call("POST", site(id) + "/members", { email }),
     removeMember: (id, email) => call("DELETE", site(id) + "/members/" + encodeURIComponent(email)),
     backup: (id) => call("POST", site(id) + "/backup", {}),
+    aiTheme: (id, description) => call("POST", site(id) + "/ai-theme", { description }),
     exportUrl: (id, ref = "draft") => "/api" + site(id) + "/export?ref=" + ref,
     fetchImpl,
   };

@@ -100,6 +100,18 @@ npx --prefix cloud wrangler secret put GITHUB_BACKUP_TOKEN -c cloud/wrangler.api
 
 沒有設定時備份會顯示「未設定備份 token」，不影響發布。單次發布超過 40 個檔案變更時不自動備份（免費方案每個請求最多 50 個對外連線），請改用「下載整站」。
 
+### （選用）AI 外觀
+
+老師在「外觀」分頁用一句話描述想要的感覺，由 Claude（`claude-opus-5-5`）產生 3 組配色與字體；伺服器會把每一組都修正到 WCAG AA 對比才回傳。每個網站每天最多 20 次（`cloud/src/ai.js` 的 `AI_DAILY_LIMIT`），每次都記在 `events` 表。
+
+需要一把 Anthropic API 金鑰，由你自己設定為 Worker 的 secret（金鑰不會進 git，也不會傳到瀏覽器）：
+
+```bash
+npx --prefix cloud wrangler secret put ANTHROPIC_API_KEY -c cloud/wrangler.api.toml
+```
+
+沒有設定時，編輯器不顯示這個功能。本機想試介面但沒有金鑰，可用 `npm --prefix cloud run dev:node:ai-mock`，它回傳固定的模擬方案，不會呼叫 API。
+
 ### （選用）改用 R2 存檔案
 
 網站變多、圖片變大時再做：在儀表板啟用 R2，`npx wrangler r2 bucket create labsite-blobs`，把兩個 `wrangler.*.toml` 裡註解掉的 `r2_buckets` 打開。新上傳的檔案會進 R2；舊檔案要先複製過去。

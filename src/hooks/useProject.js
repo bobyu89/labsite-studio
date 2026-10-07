@@ -640,6 +640,13 @@ export function useProject(notify) {
   function setTheme(patch) {
     setThemeState((t) => (t ? { ...t, text: patchTheme(t.text, patch) } : t));
   }
+  // AI themes (LabSite Cloud with an API key): one sentence → three themes,
+  // already contrast-checked by the server. Applying one is setTheme().
+  const aiAvailable = !!cloud.me?.ai && project?.source.kind === "cloud";
+  async function generateAiThemes(description) {
+    if (!aiAvailable) throw new Error("這個網站沒有開啟 AI 外觀。");
+    return cloudCalls.aiTheme(project.source.site.id, description);
+  }
   const revertTheme = () => {
     setThemeState((t) => (t ? { ...t, text: t.original } : t));
     setSkin((k) => (k ? { ...k, text: k.original, pending: null } : k));
@@ -772,6 +779,7 @@ export function useProject(notify) {
     library,
     theme: theme ? { ...readTheme(theme.text), dirty: themeDirty } : null,
     skins: skin ? { list: skin.list, current: skin.current, pending: skin.pending } : null,
+    ai: { available: aiAvailable, generate: generateAiThemes },
     previewSkin,
     setTheme,
     revertTheme,

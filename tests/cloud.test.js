@@ -698,3 +698,103 @@ test("create from a template: admin only, unpublished, lab name in js/data.js, e
   assert.equal((await call("POST", "http://localhost/api/sites", { template: "basic", slug: "x3", name: "x" }, "t@lab.tw")).status, 403);
   assert.equal((await call("POST", "http://localhost/api/sites", { template: "basic", slug: "wang-lab", name: "x" })).status, 409);
 });
+
+/* ============================================================ AI themes */
+const aiReply = (themes, stop = "end_turn") => ({
+  json: {
+    id: "msg_test",
+    type: "message",
+    role: "assistant",
+    model: "claude-opus-5-5",
+    content: [{ type: "text", text: JSON.stringify({ themes }) }],
+    stop_reason: stop,
+    stop_sequence: null,
+    usage: { input_tokens: 10, output_tokens: 10 },
+  },
+});
+const proposal = (over = {}) => ({
+  name: "海港晨光",
+  rationale: "以海藍為主，沉穩可信。",
+  research: "#1d5c8a",
+  team: "#2f6b4f",
+  publications: "#9a3b2e",
+  join: "#5a4a8a",
+  ink: "#15191d",
+  wall: "#eef1f3",
+  font: "legible",
+  radius: 4,
+  ...over,
+});
+
+test("AI themes: structured request, contrast-checked results, refusal, rate limit, daily cap, no key", async () => {
+  const { contrastIssues } = await import("../src/site/themes.js");
+  let mode = "ok";
+  const fetchImpl = scriptedFetch([
+    [
+      "api.anthropic.com/v1/messages",
+      () =>
+        mode === "refusal"
+          ? aiReply([], "refusal")
+          : mode === "busy"
+            ? { status: 429, json: { type: "error", error: { type: "rate_limit_error", message: "slow down" } } }
+            : aiReply([proposal(), proposal({ name: "淡彩", research: "#9fd3e6", team: "#ffd166", publications: "#f4a6a6", wall: "#b0b0b0" }), proposal({ name: "第三組", font: "nope", radius: 7 })]),
+    ],
+  ]);
+  const env = fakeEnv({ ANTHROPIC_API_KEY: "test-key" });
+  const site = await seed(env);
+  const app = createApp({ fetchImpl });
+  const call = (body, email = "admin@lab.tw", e = env) =>
+    app.request(
+      `http://localhost/api/sites/${site.id}/ai-theme`,
+      { method: "POST", headers: { "Content-Type": "application/json", Origin: "http://localhost" }, body: JSON.stringify(body) },
+      { ...e, DEV_USER_EMAIL: email },
+    );
+
+  const ok = await call({ description: "沉穩、像海邊的醫院" });
+  assert.equal(ok.status, 200);
+  const { themes, remaining } = await ok.json();
+  assert.equal(themes.length, 3);
+  assert.equal(remaining, 19);
+  for (const t of themes) {
+    assert.deepEqual(contrastIssues(t.vars), [], t.name);
+    assert.ok(t.fontUrl.startsWith("https://fonts.googleapis.com/"));
+  }
+  assert.ok(themes[1].adjusted.includes("--zone-research"), "too-light colours are darkened and reported");
+  assert.equal(themes[2].font, "signage", "unknown font falls back");
+  assert.equal(themes[2].vars["--radius"], "4px", "unknown radius falls back");
+  const sent = fetchImpl.calls.find((c) => c.url.includes("api.anthropic.com"));
+  const body = JSON.parse(sent.body);
+  assert.equal(body.model, "claude-opus-5-5");
+  assert.equal(body.output_config.format.type, "json_schema");
+  assert.equal(body.fallbacks, "default");
+  const beta = typeof sent.headers.get === "function" ? sent.headers.get("anthropic-beta") : sent.headers["anthropic-beta"];
+  assert.match(String(beta), /server-side-fallback-2026-07-01/);
+  assert.match(body.messages[0].content, /沉穩、像海邊的醫院/);
+
+  mode = "refusal";
+  assert.equal((await call({ description: "something" })).status, 422);
+  mode = "busy";
+  assert.equal((await call({ description: "something" })).status, 503);
+  mode = "ok";
+  assert.equal((await call({ description: "x" })).status, 400, "too short");
+  assert.equal((await call({ description: "好" }, "stranger@lab.tw")).status, 403, "not a member");
+
+  // Daily cap: only successful requests count.
+  for (let i = 0; i < 19; i++) assert.equal((await call({ description: "第 " + i + " 次" })).status, 200);
+  const capped = await call({ description: "再一次" });
+  assert.equal(capped.status, 429);
+  assert.match((await capped.json()).error, /今天已經用了 20 次/);
+
+  // No key: the feature reports itself as off.
+  const bare = fakeEnv();
+  const site2 = await seed(bare);
+  const off = await app.request(
+    `http://localhost/api/sites/${site2.id}/ai-theme`,
+    { method: "POST", headers: { "Content-Type": "application/json", Origin: "http://localhost" }, body: JSON.stringify({ description: "沉穩" }) },
+    bare,
+  );
+  assert.equal(off.status, 503);
+  const me = await app.request("http://localhost/api/me", {}, bare);
+  assert.equal((await me.json()).ai, false);
+  assert.equal((await (await app.request("http://localhost/api/me", {}, env)).json()).ai, true);
+});

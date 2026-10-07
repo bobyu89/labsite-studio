@@ -8,6 +8,7 @@ import { contentType } from "./mime.js";
 import { zip } from "./zip.js";
 import { fetchRepoFiles, backupToGitHub, parseRepo } from "./github.js";
 import { templateFiles, personalize } from "./templates.js";
+import { aiThemes, aiUsage, AI_DAILY_LIMIT } from "./ai.js";
 import {
   RepoError,
   isAdmin,
@@ -27,6 +28,7 @@ import {
   membersOf,
   loadTree,
   cleanPath,
+  logEvent,
 } from "./repo.js";
 
 export const publicUrl = (env, slug) =>
@@ -130,7 +132,13 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
   app.get("/api/me", async (c) => {
     const user = c.get("user");
     const sites = await sitesFor(c.env, user.email);
-    return c.json({ email: user.email, admin: user.admin, via: user.via, sites: sites.map((s) => siteView(c.env, s)) });
+    return c.json({
+      email: user.email,
+      admin: user.admin,
+      via: user.via,
+      ai: !!c.env.ANTHROPIC_API_KEY,
+      sites: sites.map((s) => siteView(c.env, s)),
+    });
   });
 
   app.post("/api/logout", async (c) => {
@@ -273,6 +281,19 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
     const result = await restoreCommit(c.env, site.id, body.commit, { author: c.get("user").email });
     const fresh = await getSite(c.env, site.id);
     return c.json({ commit: commitView(result.commit, fresh), changed: result.changed, noop: result.noop, site: siteView(c.env, fresh) });
+  });
+
+  // One sentence in, three contrast-checked themes out. Logged per site and
+  // capped per day, so a busy editor cannot run up the bill.
+  app.post("/api/sites/:id/ai-theme", async (c) => {
+    const site = c.get("site");
+    const body = await c.req.json().catch(() => ({}));
+    const used = await aiUsage(c.env, site.id);
+    if (used >= AI_DAILY_LIMIT)
+      return c.json({ error: `這個網站今天已經用了 ${used} 次 AI 外觀，明天再試，或先用「產生 6 組」。` }, 429);
+    const themes = await aiThemes(c.env, body.description, fetchImpl);
+    await logEvent(c.env, site.id, "ai_theme", null, c.get("user").email, String(body.description || "").slice(0, 300));
+    return c.json({ themes, remaining: AI_DAILY_LIMIT - used - 1 });
   });
 
   app.get("/api/sites/:id/export", async (c) => {
