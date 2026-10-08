@@ -152,6 +152,18 @@ labsite/skins/<id>/theme.css
 - 每種版型的 `theme.css` 用同一組變數名稱（`--zone-research`、`--zone-team`、`--zone-publications`、`--zone-join`、`--on-zone`、`--on-join`、`--mark`、`--ink`、`--ink-soft`、`--wall`、`--plate`、`--rule`、`--font`、`--radius`），版型可以另加自己的變數（例如圖譜的 `--font-label`）。
 - 模板 repo 裡，`skins.json` 標記 `"from": "css"` 的版型不另存檔案，打包時從 `css/` 複製。
 
+### 動畫
+
+- 全站風格：`theme.css` 的 `--motion: none | subtle | lively`。每頁 `<head>` 有一小段腳本，在樣式載入後讀它並設定 `<html data-motion="…">`；`none`、系統設定減少動態效果、或在編輯器裡（除非按了播放動畫）都不設定。
+- 區塊：`<section data-motion="fade | rise | slide | stagger | none">`，編輯器只寫這五個值；沒有寫就用全站風格的預設（輕微 = 淡入，活潑 = 有清單的區塊依序出現、其他上升）。這是唯一可以由編輯器修改的非 `src/alt/href/title` 屬性。
+- 執行在 `js/site.js`：區塊捲進畫面才出現；腳本還沒執行時 CSS 先隱藏區塊，但 2.5 秒後一定顯示；列印時全部顯示。`.stat__value` 的數字會從 0 跳到原文（「30+」「2,400」照原樣停住）。
+- 每個版型的 `site.css` 都帶同一段 `/* motion:start */ … /* motion:end */`，測試會檢查它們完全相同。
+
+### 圖片
+
+- 上傳的圖片放在 `assets/`，檔名是「原檔名的英數字 + 內容雜湊前 6 碼」，例如 `assets/img-0001-1a2b3c.webp`；可轉換的格式會縮到最長邊 1600px 並轉成 WebP，SVG 與 GIF 原樣保留。
+- 照片庫判斷「使用中」時會看所有頁面的 `src`、`srcset`、`href`，所有 CSS 的 `url(...)`，以及 `js/data.js`；只有都沒有引用的圖片才能刪除。
+
 ## 8. 給新網站的最短檢查表
 
 1. 頁面放在根目錄，英文版放 `en/` 同名。

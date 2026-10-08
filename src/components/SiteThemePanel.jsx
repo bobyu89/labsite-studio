@@ -185,6 +185,33 @@ export default function SiteThemePanel({ p }) {
         </div>
       </section>
 
+      {t.vars["--motion"] && (
+        <section className="theme-block">
+          <h4>動畫</h4>
+          <div className="segmented" role="radiogroup" aria-label="網站的動畫風格">
+            {[
+              ["none", "不要動畫"],
+              ["subtle", "輕微"],
+              ["lively", "活潑"],
+            ].map(([v, label]) => (
+              <button
+                key={v}
+                type="button"
+                role="radio"
+                aria-checked={t.vars["--motion"] === v}
+                className={t.vars["--motion"] === v ? "active" : ""}
+                onClick={() => p.setTheme({ vars: { "--motion": v } })}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className="small-note">
+            區塊捲進畫面時出現的方式。每個區塊也可以在「頁面區塊」另外指定。按預覽上方的 ▷ 可以從頂端播放一次；訪客的系統若設定「減少動態效果」，一律不播放。
+          </p>
+        </section>
+      )}
+
       <section className="theme-block">
         <h4>字體與圓角</h4>
         <label className="field">

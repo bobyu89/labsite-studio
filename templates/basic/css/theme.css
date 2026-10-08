@@ -24,6 +24,9 @@
 
   /* Latin first so English uses Overpass and Chinese falls through to Noto Sans TC. */
   --font: "Overpass", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  /* How much the site moves: none, subtle or lively. Visitors who ask their
+     system for reduced motion always get none. */
+  --motion: subtle;
   --radius: 4px;
   --max: 1200px;
 }

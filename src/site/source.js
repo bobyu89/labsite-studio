@@ -1,9 +1,11 @@
 // Site sources: where a real website's files come from and where edits go.
 // Every source exposes the same small interface so the editor stays agnostic.
 //   { kind, name, writable, readText(path), readBlob(path), writeText(path, text),
-//     writeBlob(path, blob), writeFiles(files, message), listPages() }
-// writeFiles takes [{ path, text }] / [{ path, blob }] and saves them as one
-// unit (one commit on GitHub; plain sequential writes elsewhere).
+//     writeBlob(path, blob), writeFiles(files, message), listPages(),
+//     listFiles?(prefix) -> [{ path, size }] }
+// writeFiles takes [{ path, text }] / [{ path, blob }] / [{ path, delete: true }]
+// and saves them as one unit (one commit on GitHub; plain sequential writes
+// elsewhere). listFiles is optional (the read-only URL source has none).
 // Paths are POSIX-style, relative to the site root, never starting with "/".
 
 export function normalizePath(path) {
@@ -33,9 +35,12 @@ export function resolveFrom(pagePath, ref) {
 export const isPagePath = (p) => /^(?:[^/]+\/)?[^/]+\.html$/.test(p);
 
 // Default writeFiles for sources without atomic multi-file writes.
-export const sequentialWriter = (writeText, writeBlob) => async (files) => {
+export const sequentialWriter = (writeText, writeBlob, remove) => async (files) => {
   for (const f of files) {
-    if (f.text !== undefined) await writeText(f.path, f.text);
+    if (f.delete) {
+      if (!remove) throw new Error("這個來源無法刪除檔案：" + f.path);
+      await remove(f.path);
+    } else if (f.text !== undefined) await writeText(f.path, f.text);
     else await writeBlob(f.path, f.blob);
   }
   return null;
@@ -77,6 +82,12 @@ export function directorySource(handle) {
     await w.write(data);
     await w.close();
   }
+  async function remove(path) {
+    const parts = normalizePath(path).split("/");
+    let dir = handle;
+    for (const part of parts.slice(0, -1)) dir = await dir.getDirectoryHandle(part);
+    await dir.removeEntry(parts.at(-1));
+  }
   return {
     kind: "directory",
     name: handle.name,
@@ -90,7 +101,25 @@ export function directorySource(handle) {
     },
     writeText: write,
     writeBlob: write,
-    writeFiles: sequentialWriter(write, write),
+    writeFiles: sequentialWriter(write, write, remove),
+    async listFiles(prefix = "") {
+      const out = [];
+      let dir = handle;
+      try {
+        for (const part of normalizePath(prefix).split("/").filter(Boolean)) dir = await dir.getDirectoryHandle(part);
+      } catch {
+        return out;
+      }
+      const walk = async (d, base) => {
+        for await (const [name, entry] of d.entries()) {
+          const p = base ? base + "/" + name : name;
+          if (entry.kind === "directory") await walk(entry, p);
+          else out.push({ path: p, size: (await entry.getFile()).size });
+        }
+      };
+      await walk(dir, normalizePath(prefix));
+      return out;
+    },
     async listPages() {
       const pages = [];
       for await (const [name, entry] of handle.entries()) {
@@ -126,6 +155,10 @@ export function devSource(info) {
     const res = await fetch(url(path), { method: "PUT", body });
     if (!res.ok) throw new Error("寫入失敗：" + path);
   };
+  const remove = async (path) => {
+    const res = await fetch(url(path), { method: "DELETE" });
+    if (!res.ok) throw new Error("刪除失敗：" + path);
+  };
   return {
     kind: "dev",
     name: info.name,
@@ -134,9 +167,13 @@ export function devSource(info) {
     readBlob: async (path) => (await get(path)).blob(),
     writeText: put,
     writeBlob: put,
-    writeFiles: sequentialWriter(put, put),
+    writeFiles: sequentialWriter(put, put, remove),
     async listPages() {
       const res = await fetch("/__labsite/list", { cache: "no-store" });
+      return res.ok ? res.json() : [];
+    },
+    async listFiles(prefix = "") {
+      const res = await fetch("/__labsite/files?prefix=" + encodeURIComponent(normalizePath(prefix)), { cache: "no-store" });
       return res.ok ? res.json() : [];
     },
   };

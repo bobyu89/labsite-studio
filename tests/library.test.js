@@ -171,3 +171,14 @@ test("snippetPreviewHtml: the snippet takes the first section's place, header an
   const filled = snippetPreviewHtml(empty, SNIPPET);
   assert.deepEqual([...filled.matchAll(/<(header|section|footer)[\s>]/g)].map((m) => m[1]), ["header", "section", "footer"]);
 });
+
+test("section motion: only known values, removable, round-trips", async () => {
+  const { setSectionMotion, sectionMotion } = await import("../src/site/page.js");
+  const a = editHtml(PAGE, (doc) => setSectionMotion(doc, 1, "stagger"));
+  assert.match(a, /<section[^>]*data-motion="stagger"[^>]*>\s*<h2>最新消息/);
+  assert.equal(sectionMotion(parsePage(a).doc, 1), "stagger");
+  assert.equal(serializePage(parsePage(a)), a);
+  assert.equal(editHtml(a, (doc) => setSectionMotion(doc, 1, "explode")), a, "unknown value refused");
+  assert.equal(editHtml(a, (doc) => setSectionMotion(doc, 1, "")), PAGE, "removing restores the original");
+  assert.equal(editHtml(PAGE, (doc) => setSectionMotion(doc, 9, "fade")), PAGE);
+});

@@ -25,6 +25,9 @@
   /* Reading text, then the condensed atlas label face. */
   --font: "Public Sans", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
   --font-label: "Archivo Narrow", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  /* How much the site moves: none, subtle or lively. Visitors who ask their
+     system for reduced motion always get none. */
+  --motion: subtle;
   --radius: 0px;
   --max: 1200px;
 }

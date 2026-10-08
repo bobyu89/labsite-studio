@@ -111,6 +111,10 @@ export function githubSource({ owner, repo, branch, token, fetchImpl = fetch }) 
     const entries = [];
     for (const f of files) {
       const key = normalizePath(f.path);
+      if (f.delete) {
+        entries.push({ key, remove: true });
+        continue;
+      }
       const content =
         f.text !== undefined ? textToBase64(f.text) : toBase64(new Uint8Array(await f.blob.arrayBuffer()));
       entries.push({ key, content });
@@ -129,11 +133,12 @@ export function githubSource({ owner, repo, branch, token, fetchImpl = fetch }) 
         throw new Error(`寫入 ${e.key} 失敗（409）遠端檔案已被其他人更新，請重新開啟頁面後再改。`);
     }
     for (const e of entries)
-      e.sha = (await git("POST", "blobs", { content: e.content, encoding: "base64" }, "上傳 " + e.key + " 失敗")).sha;
+      if (!e.remove) e.sha = (await git("POST", "blobs", { content: e.content, encoding: "base64" }, "上傳 " + e.key + " 失敗")).sha;
+    // A tree entry with sha null deletes that path.
     const tree = await git(
       "POST",
       "trees",
-      { base_tree: baseTree, tree: entries.map((e) => ({ path: e.key, mode: "100644", type: "blob", sha: e.sha })) },
+      { base_tree: baseTree, tree: entries.map((e) => ({ path: e.key, mode: "100644", type: "blob", sha: e.remove ? null : e.sha })) },
       "建立檔案樹失敗",
     );
     const commit = await git(
@@ -143,7 +148,10 @@ export function githubSource({ owner, repo, branch, token, fetchImpl = fetch }) 
       "建立 commit 失敗",
     );
     await git("PATCH", `refs/heads/${ref}`, { sha: commit.sha }, "更新分支失敗");
-    for (const e of entries) shas.set(e.key, e.sha);
+    for (const e of entries) {
+      if (e.remove) shas.delete(e.key);
+      else shas.set(e.key, e.sha);
+    }
     return commit.sha;
   }
   return {
@@ -178,6 +186,17 @@ export function githubSource({ owner, repo, branch, token, fetchImpl = fetch }) 
         if (isPagePath(entry.path)) pages.push(entry.path);
       }
       return pages;
+    },
+    async listFiles(prefix = "") {
+      const res = await fetchImpl(`${base}/git/trees/${encodeURIComponent(branch)}?recursive=1`, { headers: headers() });
+      if (!res.ok) await fail(res, "讀取檔案清單失敗");
+      const p = normalizePath(prefix);
+      return ((await res.json()).tree || [])
+        .filter((e) => e.type === "blob" && (!p || e.path.startsWith(p + "/")))
+        .map((e) => {
+          shas.set(e.path, e.sha);
+          return { path: e.path, size: e.size ?? 0 };
+        });
     },
   };
 }

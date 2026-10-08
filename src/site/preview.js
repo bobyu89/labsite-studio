@@ -12,6 +12,7 @@ const BRIDGE = `
   [data-ls].ls-selected{outline:3px solid #0d6557 !important;outline-offset:3px}
   section[data-ls].ls-selected{outline-offset:-3px}
   html{scroll-behavior:auto !important}
+  img.ls-drop{outline:4px dashed #0d6557 !important;outline-offset:-4px;filter:brightness(1.06)}
 </style>
 <script id="labsite-bridge">
 (function(){
@@ -24,6 +25,21 @@ const BRIDGE = `
     if(a){post({type:"navigate",href:a.getAttribute("href")});}
   },true);
   document.addEventListener("submit",function(e){e.preventDefault()},true);
+  // Drop a photo on an image in the preview to replace it. The File is sent
+  // to the editor (structured clone), which compresses and stages it.
+  var hasFiles=function(e){return e.dataTransfer&&[].indexOf.call(e.dataTransfer.types||[],"Files")>=0};
+  var clearDrop=function(keep){document.querySelectorAll(".ls-drop").forEach(function(n){if(n!==keep)n.classList.remove("ls-drop")})};
+  document.addEventListener("dragover",function(e){
+    if(!hasFiles(e))return;e.preventDefault();
+    var img=e.target.closest&&e.target.closest("img[data-ls]");clearDrop(img);
+    if(img){img.classList.add("ls-drop");e.dataTransfer.dropEffect="copy"}else{e.dataTransfer.dropEffect="none"}
+  },true);
+  document.addEventListener("dragleave",function(e){if(!e.relatedTarget)clearDrop(null)},true);
+  document.addEventListener("drop",function(e){
+    if(!hasFiles(e))return;e.preventDefault();clearDrop(null);
+    var img=e.target.closest&&e.target.closest("img[data-ls]");var f=e.dataTransfer.files[0];
+    if(img&&f)post({type:"drop",id:img.getAttribute("data-ls"),file:f});
+  },true);
   var t;window.addEventListener("scroll",function(){clearTimeout(t);t=setTimeout(function(){post({type:"scroll",y:window.scrollY})},120)},{passive:true});
   window.addEventListener("message",function(e){
     var m=e.data||{};if(m.source!=="labsite-host")return;
@@ -56,7 +72,7 @@ function stamp(doc) {
   });
 }
 
-export async function buildPreview({ html, pagePath, source, cache, scrollY = 0 }) {
+export async function buildPreview({ html, pagePath, source, cache, scrollY = 0, playMotion = false }) {
   const { doc } = parsePage(html);
   stamp(doc);
   const missing = [];
@@ -121,7 +137,9 @@ export async function buildPreview({ html, pagePath, source, cache, scrollY = 0 
     else missing.push(path);
   }
   const init = doc.createElement("script");
-  init.textContent = "window.__lsScroll=" + Math.max(0, Math.floor(scrollY)) + ";";
+  // playMotion lets the site's own scripts run their entrance animations
+  // once (they normally stay still inside the editor).
+  init.textContent = "window.__lsScroll=" + (playMotion ? 0 : Math.max(0, Math.floor(scrollY))) + ";" + (playMotion ? "window.__lsMotion=1;" : "");
   doc.head.prepend(init);
   doc.body.insertAdjacentHTML("beforeend", BRIDGE);
   return {

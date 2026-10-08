@@ -53,3 +53,18 @@ for (const [id, bundle] of Object.entries(bundleTemplates().bundles)) {
     assert.equal(files.get(skinFile(skins.current, "theme.css")), files.get("css/theme.css"));
   });
 }
+
+test("every skin carries the same motion block and a --motion token", () => {
+  for (const [, bundle] of Object.entries(bundleTemplates().bundles)) {
+    const files = new Map(bundle.files.map((f) => [f.path, f.text]));
+    const skins = parseSkins(files.get("labsite/skins.json")).skins;
+    const block = (css) => {
+      const m = css.match(/\/\* motion:start[\s\S]*?\/\* motion:end \*\//);
+      return m && m[0];
+    };
+    const blocks = skins.map((s) => block(files.get(skinFile(s.id, "site.css"))));
+    assert.ok(blocks.every(Boolean), "each skin has the motion block");
+    assert.ok(blocks.every((b) => b === blocks[0]), "motion blocks are identical");
+    for (const s of skins) assert.ok(["none", "subtle", "lively"].includes(readTheme(files.get(skinFile(s.id, "theme.css"))).vars["--motion"]), s.id);
+  }
+});

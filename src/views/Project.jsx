@@ -10,6 +10,7 @@ import {
   X,
   RocketLaunch,
   ArrowSquareOut,
+  Images,
 } from "@phosphor-icons/react";
 import { IconButton, Field, download } from "../components/ui";
 import ProjectOpen from "../components/ProjectOpen";
@@ -21,13 +22,17 @@ import PairPanel from "../components/PairPanel";
 import CloudHistory from "../components/CloudHistory";
 import LibraryPanel, { AddToLibrary } from "../components/LibraryPanel";
 import SiteThemePanel from "../components/SiteThemePanel";
-import { parsePage, listSections, readHead } from "../site/page.js";
+import PhotoLibrary from "../components/PhotoLibrary";
+import { parsePage, listSections, readHead, sectionMotion } from "../site/page.js";
 import { pageLabel } from "../hooks/useProject";
 
 export default function Project({ p, device, setDevice, setConfirm }) {
   const [tab, setTab] = useState("blocks");
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [saving, setSaving] = useState(null);
+  // Photo library: null (closed), { target: null } to manage, or
+  // { target: { index, path } } to pick an image for one field.
+  const [photos, setPhotos] = useState(null);
   const parsed = useMemo(() => (p.html ? parsePage(p.html) : null), [p.html]);
   const sections = useMemo(() => (parsed ? listSections(parsed.doc) : []), [parsed]);
   const head = useMemo(() => (parsed ? readHead(parsed.doc) : null), [parsed]);
@@ -187,6 +192,11 @@ export default function Project({ p, device, setDevice, setConfirm }) {
               <ArrowSquareOut size={18} />
             </IconButton>
           )}
+          {p.canListAssets && (
+            <IconButton label="照片庫" onClick={() => setPhotos({ target: null })}>
+              <Images size={18} />
+            </IconButton>
+          )}
           <IconButton
             label="下載此頁 HTML"
             onClick={() => download(p.html, p.current.split("/").pop(), "text/html")}
@@ -333,6 +343,19 @@ export default function Project({ p, device, setDevice, setConfirm }) {
                   {sections[selected]?.title}
                   <span className="muted">{sections[selected]?.kind}</span>
                 </h3>
+                {p.theme?.vars["--motion"] && parsed && sections[selected] && (
+                  <label className="page-picker motion-picker">
+                    <span>進場動畫</span>
+                    <select value={sectionMotion(parsed.doc, selected)} onChange={(e) => p.setMotion(selected, e.target.value)} disabled={!writable}>
+                      <option value="">跟隨全站設定</option>
+                      <option value="fade">淡入</option>
+                      <option value="rise">上升</option>
+                      <option value="slide">從左滑入</option>
+                      <option value="stagger">項目依序出現</option>
+                      <option value="none">不要動畫</option>
+                    </select>
+                  </label>
+                )}
                 <FieldInspector
                   html={p.html}
                   index={selected}
@@ -341,6 +364,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
                   setText={p.setText}
                   setAttr={p.setAttr}
                   replaceImage={p.replaceImage}
+                  openLibrary={p.canListAssets ? (index, path) => setPhotos({ target: { index, path } }) : null}
                   writable={writable}
                   busy={p.busy}
                   addItem={p.addItem}
@@ -354,6 +378,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
         </aside>
         <LibraryPanel p={p} sections={sections} selected={selected} open={libraryOpen} onClose={() => setLibraryOpen(false)} />
         <AddToLibrary p={p} section={sections[saving]} index={saving} open={saving !== null} onClose={() => setSaving(null)} />
+        <PhotoLibrary p={p} open={!!photos} target={photos?.target || null} onClose={() => setPhotos(null)} setConfirm={setConfirm} />
         <SitePreview
           html={p.html}
           pagePath={p.current}
@@ -369,6 +394,8 @@ export default function Project({ p, device, setDevice, setConfirm }) {
             p.setFocus(path);
           }}
           onNavigate={switchPage}
+          onDropImage={writable ? (i, path, file) => p.replaceImage(i, path, file) : null}
+          canPlayMotion={!!p.theme?.vars["--motion"]}
           device={device}
           setDevice={setDevice}
         />

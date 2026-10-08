@@ -443,11 +443,11 @@ body > section.directory {
 /* Entrance: the bands are readable from the first frame; their colour keys
    and arrows switch on in order, like a directory board powering up. */
 @media (prefers-reduced-motion: no-preference) {
-  .js .directory__zones .zone-band__label::before {
+  html[data-motion] .directory__zones .zone-band__label::before {
     animation: key-on 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
     animation-delay: calc(120ms + var(--i, 0) * 90ms);
   }
-  .js .directory__zones .zone-band__arrow {
+  html[data-motion] .directory__zones .zone-band__arrow {
     animation: arrow-on 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
     animation-delay: calc(220ms + var(--i, 0) * 90ms);
   }
@@ -991,6 +991,185 @@ body > section.page-sign {
   font-size: 0.82rem;
   color: color-mix(in srgb, #ffffff 68%, var(--ink));
 }
+
+/* ----------------------------------------------------------------- stats */
+.stats-band {
+  background: var(--wall);
+}
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.stat {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: clamp(20px, 2.5vw, 28px);
+  border-radius: var(--radius);
+  background: var(--plate);
+}
+.stat:nth-child(4n + 1) {
+  --zone: var(--zone-research);
+}
+.stat:nth-child(4n + 2) {
+  --zone: var(--zone-team);
+}
+.stat:nth-child(4n + 3) {
+  --zone: var(--zone-publications);
+}
+.stat:nth-child(4n + 4) {
+  --zone: var(--zone-join);
+}
+.stat__value {
+  font-size: clamp(2.6rem, 1.6rem + 3vw, 4rem);
+  font-weight: 900;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+/* The zone key square, as on every other sign in this skin. */
+.stat__label {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+.stat__label::before {
+  content: "";
+  width: 0.75em;
+  height: 0.75em;
+  flex: none;
+  border-radius: 2px;
+  background: var(--zone);
+}
+
+/* -------------------------------------------------------------- timeline */
+.timeline-band {
+  background: var(--plate);
+}
+.timeline {
+  position: relative;
+  margin: 0;
+  padding: 0 0 0 2.25rem;
+  list-style: none;
+}
+.timeline::before {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 0.4em;
+  bottom: 0.4em;
+  width: 4px;
+  border-radius: 2px;
+  background: var(--zone-research);
+}
+.milestone {
+  position: relative;
+  padding-bottom: clamp(24px, 3vw, 36px);
+}
+.milestone:last-child {
+  padding-bottom: 0;
+}
+.milestone::before {
+  content: "";
+  position: absolute;
+  left: calc(-2.25rem + 1px);
+  top: 0.3em;
+  width: 16px;
+  height: 16px;
+  border: 4px solid var(--zone-research);
+  border-radius: var(--radius);
+  background: var(--plate);
+}
+.milestone__year {
+  font-size: 1.1rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  color: var(--zone-research);
+}
+.milestone__title {
+  margin-top: 2px;
+  font-size: clamp(1.2rem, 1rem + 0.8vw, 1.5rem);
+  font-weight: 900;
+}
+.milestone__desc {
+  max-width: 36em;
+  margin-top: 4px;
+  color: var(--ink-soft);
+}
+
+/* motion:start — the same block in every skin; js/site.js drives it.
+   html[data-motion] is the site style (theme.css --motion); sections carry
+   data-m (fade, rise, slide, stagger) and .m-wait until they scroll in. */
+html[data-motion="subtle"] {
+  --m-dur: 0.6s;
+  --m-shift: 14px;
+  --m-step: 55ms;
+  --m-ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+html[data-motion="lively"] {
+  --m-dur: 1s;
+  --m-shift: 48px;
+  --m-step: 100ms;
+  --m-ease: cubic-bezier(0.19, 1, 0.22, 1);
+}
+/* Before js/site.js arms the page, sections wait hidden, but they are
+   revealed after 2.5 s regardless, so content never stays hidden. */
+html[data-motion]:not(.m-armed) body > section:not([data-motion="none"]) {
+  opacity: 0;
+  animation: m-failsafe 0.01s 2.5s forwards;
+}
+@keyframes m-failsafe {
+  to {
+    opacity: 1;
+  }
+}
+html[data-motion] body > section[data-m] {
+  transition:
+    opacity var(--m-dur) var(--m-ease),
+    transform var(--m-dur) var(--m-ease);
+}
+html[data-motion] body > section.m-wait:is([data-m="fade"], [data-m="rise"], [data-m="slide"]) {
+  opacity: 0;
+}
+html[data-motion] body > section.m-wait[data-m="rise"] {
+  transform: translateY(var(--m-shift));
+}
+html[data-motion] body > section.m-wait[data-m="slide"] {
+  transform: translateX(calc(-1 * var(--m-shift)));
+}
+html[data-motion] body > section[data-m="stagger"] :is(.zone-band, .area, .member, .alumnus, .pub, .news-item, .photo, .contact-item, .stat, .milestone) {
+  transition:
+    opacity var(--m-dur) var(--m-ease),
+    transform var(--m-dur) var(--m-ease);
+  transition-delay: calc(var(--m-i, 0) * var(--m-step));
+}
+html[data-motion] body > section.m-wait[data-m="stagger"] :is(.zone-band, .area, .member, .alumnus, .pub, .news-item, .photo, .contact-item, .stat, .milestone) {
+  opacity: 0;
+  transform: translateY(calc(var(--m-shift) * 0.6));
+}
+/* Timelines draw their line downwards as they come in. */
+html[data-motion] body > section[data-m] .timeline::before {
+  transform-origin: top;
+  transition: transform calc(var(--m-dur) * 2) var(--m-ease);
+}
+html[data-motion] body > section.m-wait[data-m] .timeline::before {
+  transform: scaleY(0);
+}
+/* Printed pages show everything, whatever has scrolled into view. */
+@media print {
+  html[data-motion] body > section,
+  html[data-motion] body > section :is(.zone-band, .area, .member, .alumnus, .pub, .news-item, .photo, .contact-item, .stat, .milestone) {
+    opacity: 1 !important;
+    transform: none !important;
+    animation: none !important;
+  }
+}
+/* motion:end */
 
 /* ------------------------------------------------------------- narrow */
 /* The header needs ~1000px for name, five plates and the language button;

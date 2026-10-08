@@ -121,6 +121,12 @@ export function cloudSource(site, fetchImpl = (...a) => fetch(...a)) {
       for (const e of data.entries) hashes.set(e.path, e.hash);
       return data.entries.map((e) => e.path).filter(isPagePath);
     },
+    async listFiles(prefix = "") {
+      const data = await request(fetchImpl, "GET", base + "/tree");
+      for (const e of data.entries) hashes.set(e.path, e.hash);
+      const p = normalizePath(prefix);
+      return data.entries.filter((e) => !p || e.path.startsWith(p + "/")).map((e) => ({ path: e.path, size: e.size }));
+    },
     readText: async (path) => (await raw(path)).text(),
     readBlob: async (path) => (await raw(path)).blob(),
     async writeFiles(files, message) {
@@ -130,9 +136,11 @@ export function cloudSource(site, fetchImpl = (...a) => fetch(...a)) {
         const path = normalizePath(f.path);
         baseHashes[path] = hashes.has(path) ? hashes.get(path) : null;
         body.push(
-          f.text !== undefined
-            ? { path, text: f.text }
-            : { path, base64: toBase64(new Uint8Array(await f.blob.arrayBuffer())) },
+          f.delete
+            ? { path, delete: true }
+            : f.text !== undefined
+              ? { path, text: f.text }
+              : { path, base64: toBase64(new Uint8Array(await f.blob.arrayBuffer())) },
         );
       }
       const data = await request(fetchImpl, "POST", base + "/commits", { message, base: baseHashes, files: body });

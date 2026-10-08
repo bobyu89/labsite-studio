@@ -19,7 +19,66 @@ const key = (path) => path.join(".");
 const isPrefix = (prefix, path) => prefix.length <= path.length && prefix.every((v, i) => v === path[i]);
 
 /* Plain fields of one element (text, link, image). */
-function Fields({ fields, index, focus, setFocus, setText, setAttr, replaceImage, writable, busy }) {
+// An image field takes a picked file, a file dropped on it, or an image from
+// the site's photo library.
+function ImageField({ f, k, cls, index, setFocus, setAttr, replaceImage, openLibrary, writable, busy }) {
+  const [over, setOver] = useState(false);
+  const accepts = writable && !busy;
+  return (
+    <div
+      className={cls + " field-image" + (over ? " drop-over" : "")}
+      data-el={k}
+      onFocusCapture={() => setFocus(k)}
+      onDragOver={(e) => {
+        if (!accepts || ![...e.dataTransfer.types].includes("Files")) return;
+        e.preventDefault();
+        setOver(true);
+      }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(e) => {
+        setOver(false);
+        const file = e.dataTransfer.files?.[0];
+        if (!accepts || !file) return;
+        e.preventDefault();
+        replaceImage(index, f.path, file);
+      }}
+    >
+      <span className="field-image-label">
+        <ImageIcon size={14} /> {f.label}
+      </span>
+      <code className="field-image-src" title={f.src}>
+        {f.src || "（尚未設定）"}
+      </code>
+      <Field label="替代文字（給讀者與搜尋引擎）" value={f.alt} onChange={(v) => setAttr(index, f.path, "alt", v)} />
+      <div className="field-image-actions">
+        <label className="upload-inline">
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
+            hidden
+            disabled={!accepts}
+            onChange={(e) => {
+              const file = e.target.files[0];
+              e.target.value = "";
+              if (file) replaceImage(index, f.path, file);
+            }}
+          />
+          <Button asChild variant="surface" size="1" disabled={!accepts}>
+            <span>{writable ? "上傳新圖片" : "此來源無法更換圖片"}</span>
+          </Button>
+        </label>
+        {openLibrary && (
+          <Button variant="ghost" size="1" disabled={!accepts} onClick={() => openLibrary(index, f.path)}>
+            從照片庫選擇
+          </Button>
+        )}
+      </div>
+      {writable && <span className="small-note">也可以把照片直接拖到這裡，或拖到右側預覽的圖片上。會自動縮小並轉成 WebP。</span>}
+    </div>
+  );
+}
+
+function Fields({ fields, index, focus, setFocus, setText, setAttr, replaceImage, openLibrary, writable, busy }) {
   if (!fields.length) return null;
   return (
     <div className="field-list">
@@ -47,32 +106,19 @@ function Fields({ fields, index, focus, setFocus, setText, setAttr, replaceImage
             </div>
           );
         return (
-          <div className={cls + " field-image"} data-el={k} key={n} onFocusCapture={() => setFocus(k)}>
-            <span className="field-image-label">
-              <ImageIcon size={14} /> {f.label}
-            </span>
-            <code className="field-image-src" title={f.src}>
-              {f.src || "（尚未設定）"}
-            </code>
-            <Field label="替代文字（給讀者與搜尋引擎）" value={f.alt} onChange={(v) => setAttr(index, f.path, "alt", v)} />
-            <label className="upload-inline">
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp,image/svg+xml"
-                hidden
-                disabled={!writable || busy}
-                onChange={(e) => {
-                  const file = e.target.files[0];
-                  e.target.value = "";
-                  if (file) replaceImage(index, f.path, file);
-                }}
-              />
-              <Button asChild variant="surface" size="1" disabled={!writable || busy}>
-                <span>{writable ? "更換圖片（寫入 assets/）" : "此來源無法更換圖片"}</span>
-              </Button>
-            </label>
-          </div>
-        );
+          <ImageField
+            key={n}
+            f={f}
+            k={k}
+            cls={cls}
+            index={index}
+            setFocus={setFocus}
+            setAttr={setAttr}
+            replaceImage={replaceImage}
+            openLibrary={openLibrary}
+            writable={writable}
+            busy={busy}
+          />        );
       })}
     </div>
   );
@@ -181,7 +227,7 @@ function Node({ node, section, ctx, open, toggle, focusPath }) {
   );
 }
 
-export default function FieldInspector({ html, index, focus, setFocus, setText, setAttr, replaceImage, writable, busy, addItem, removeItem, moveItem, setConfirm }) {
+export default function FieldInspector({ html, index, focus, setFocus, setText, setAttr, replaceImage, openLibrary, writable, busy, addItem, removeItem, moveItem, setConfirm }) {
   const section = useMemo(() => (html ? sectionElements(parsePage(html).doc)[index] : null), [html, index]);
   const node = useMemo(() => (section ? describeNode(section) : { fields: [], lists: [] }), [section]);
   const [open, setOpen] = useState(() => new Set());
@@ -208,7 +254,7 @@ export default function FieldInspector({ html, index, focus, setFocus, setText, 
     }
   }, [focus]);
   if (!section) return null;
-  const ctx = { index, focus, setFocus, setText, setAttr, replaceImage, writable, busy, addItem, removeItem, moveItem, setConfirm };
+  const ctx = { index, focus, setFocus, setText, setAttr, replaceImage, openLibrary, writable, busy, addItem, removeItem, moveItem, setConfirm };
   return (
     <div ref={ref}>
       <Node node={node} section={section} ctx={ctx} open={open} toggle={toggle} focusPath={focusPath} />

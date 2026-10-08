@@ -44,6 +44,21 @@ function labsiteDevSite() {
                 if (f.endsWith(".html")) pages.push("en/" + f);
             return send(200, pages);
           }
+          if (url.pathname === "/files") {
+            const prefix = url.searchParams.get("prefix") || "";
+            const out = [];
+            const walk = (dir) => {
+              if (!fs.existsSync(dir)) return;
+              for (const name of fs.readdirSync(dir)) {
+                const full = path.join(dir, name);
+                const st = fs.statSync(full);
+                if (st.isDirectory()) walk(full);
+                else out.push({ path: path.relative(root, full).split(path.sep).join("/"), size: st.size });
+              }
+            };
+            walk(inside(prefix || "."));
+            return send(200, out);
+          }
           if (url.pathname.startsWith("/file/")) {
             const rel = decodeURIComponent(url.pathname.slice(6));
             const full = inside(rel);
@@ -66,6 +81,10 @@ function labsiteDevSite() {
               res.statusCode = 200;
               res.setHeader("Content-Type", types[ext] || "application/octet-stream");
               return fs.createReadStream(full).pipe(res);
+            }
+            if (req.method === "DELETE") {
+              if (fs.existsSync(full)) fs.unlinkSync(full);
+              return send(200, { ok: true });
             }
             if (req.method === "PUT") {
               const chunks = [];

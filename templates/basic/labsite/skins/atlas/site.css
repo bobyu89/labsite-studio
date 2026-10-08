@@ -1043,6 +1043,179 @@ body[data-page="contact"] > section.join {
   color: var(--ink-soft);
 }
 
+/* ----------------------------------------------------------------- stats */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  column-gap: 24px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--ink);
+}
+.stat {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  padding-block: 20px 22px;
+  border-bottom: 1px solid var(--rule);
+}
+.stat:nth-child(4n + 1) {
+  --zone: var(--zone-research);
+}
+.stat:nth-child(4n + 2) {
+  --zone: var(--zone-team);
+}
+.stat:nth-child(4n + 3) {
+  --zone: var(--zone-publications);
+}
+.stat:nth-child(4n + 4) {
+  --zone: var(--zone-join);
+}
+.stat__value {
+  font-family: var(--label);
+  font-size: clamp(2.6rem, 1.6rem + 3vw, 4.2rem);
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.stat__label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--label);
+  letter-spacing: 0.03em;
+  color: var(--ink-soft);
+}
+.stat__label::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--zone);
+}
+
+/* -------------------------------------------------------------- timeline */
+.timeline {
+  position: relative;
+  margin: 0;
+  padding: 24px 0 0 2rem;
+  list-style: none;
+  border-top: 1px solid var(--ink);
+}
+.timeline::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 24px;
+  bottom: 0;
+  width: 1px;
+  background: var(--ink);
+}
+.milestone {
+  position: relative;
+  padding-bottom: 28px;
+}
+.milestone:last-child {
+  padding-bottom: 0;
+}
+.milestone::before {
+  content: "";
+  position: absolute;
+  left: calc(-2rem);
+  top: 0.5em;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ink);
+}
+.milestone__year {
+  font-family: var(--label);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--zone-research);
+}
+.milestone__title {
+  font-family: var(--label);
+  font-size: clamp(1.25rem, 1rem + 0.8vw, 1.6rem);
+  font-weight: 700;
+}
+.milestone__desc {
+  max-width: 36em;
+  margin-top: 4px;
+  color: var(--ink-soft);
+}
+
+/* motion:start — the same block in every skin; js/site.js drives it.
+   html[data-motion] is the site style (theme.css --motion); sections carry
+   data-m (fade, rise, slide, stagger) and .m-wait until they scroll in. */
+html[data-motion="subtle"] {
+  --m-dur: 0.6s;
+  --m-shift: 14px;
+  --m-step: 55ms;
+  --m-ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+html[data-motion="lively"] {
+  --m-dur: 1s;
+  --m-shift: 48px;
+  --m-step: 100ms;
+  --m-ease: cubic-bezier(0.19, 1, 0.22, 1);
+}
+/* Before js/site.js arms the page, sections wait hidden, but they are
+   revealed after 2.5 s regardless, so content never stays hidden. */
+html[data-motion]:not(.m-armed) body > section:not([data-motion="none"]) {
+  opacity: 0;
+  animation: m-failsafe 0.01s 2.5s forwards;
+}
+@keyframes m-failsafe {
+  to {
+    opacity: 1;
+  }
+}
+html[data-motion] body > section[data-m] {
+  transition:
+    opacity var(--m-dur) var(--m-ease),
+    transform var(--m-dur) var(--m-ease);
+}
+html[data-motion] body > section.m-wait:is([data-m="fade"], [data-m="rise"], [data-m="slide"]) {
+  opacity: 0;
+}
+html[data-motion] body > section.m-wait[data-m="rise"] {
+  transform: translateY(var(--m-shift));
+}
+html[data-motion] body > section.m-wait[data-m="slide"] {
+  transform: translateX(calc(-1 * var(--m-shift)));
+}
+html[data-motion] body > section[data-m="stagger"] :is(.zone-band, .area, .member, .alumnus, .pub, .news-item, .photo, .contact-item, .stat, .milestone) {
+  transition:
+    opacity var(--m-dur) var(--m-ease),
+    transform var(--m-dur) var(--m-ease);
+  transition-delay: calc(var(--m-i, 0) * var(--m-step));
+}
+html[data-motion] body > section.m-wait[data-m="stagger"] :is(.zone-band, .area, .member, .alumnus, .pub, .news-item, .photo, .contact-item, .stat, .milestone) {
+  opacity: 0;
+  transform: translateY(calc(var(--m-shift) * 0.6));
+}
+/* Timelines draw their line downwards as they come in. */
+html[data-motion] body > section[data-m] .timeline::before {
+  transform-origin: top;
+  transition: transform calc(var(--m-dur) * 2) var(--m-ease);
+}
+html[data-motion] body > section.m-wait[data-m] .timeline::before {
+  transform: scaleY(0);
+}
+/* Printed pages show everything, whatever has scrolled into view. */
+@media print {
+  html[data-motion] body > section,
+  html[data-motion] body > section :is(.zone-band, .area, .member, .alumnus, .pub, .news-item, .photo, .contact-item, .stat, .milestone) {
+    opacity: 1 !important;
+    transform: none !important;
+    animation: none !important;
+  }
+}
+/* motion:end */
+
 /* ------------------------------------------------------------- narrow */
 @media (max-width: 1024px) {
   .masthead {

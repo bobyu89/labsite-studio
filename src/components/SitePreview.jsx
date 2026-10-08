@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Desktop, DeviceMobile, ArrowsClockwise } from "@phosphor-icons/react";
+import { Desktop, DeviceMobile, ArrowsClockwise, Play } from "@phosphor-icons/react";
 import { IconButton } from "./ui";
 import { buildPreview } from "../site/preview.js";
 import { resolveFrom, isPagePath } from "../site/source.js";
@@ -17,6 +17,8 @@ export default function SitePreview({
   focus,
   onSelect,
   onNavigate,
+  onDropImage,
+  canPlayMotion = false,
   device,
   setDevice,
 }) {
@@ -26,10 +28,15 @@ export default function SitePreview({
   const [missing, setMissing] = useState([]);
   const [stale, setStale] = useState(false);
   const latest = useRef(0);
+  // 播放動畫: rebuild once with the site's entrance animations switched on.
+  const [motionTick, setMotionTick] = useState(0);
+  const playedTick = useRef(0);
   useEffect(() => {
     if (!html || !pagePath) return;
     setStale(true);
     const id = ++latest.current;
+    const playMotion = motionTick !== playedTick.current;
+    playedTick.current = motionTick;
     const t = setTimeout(async () => {
       try {
         const out = await buildPreview({
@@ -38,6 +45,7 @@ export default function SitePreview({
           source,
           cache,
           scrollY: scrolls[pagePath] || 0,
+          playMotion,
         });
         if (id !== latest.current) return;
         setSrcdoc(out.srcdoc);
@@ -47,7 +55,7 @@ export default function SitePreview({
       }
     }, 280);
     return () => clearTimeout(t);
-  }, [html, pagePath, source, cache, scrolls]);
+  }, [html, pagePath, source, cache, scrolls, motionTick]);
 
   const highlightId =
     selected === null || selected === undefined
@@ -72,13 +80,16 @@ export default function SitePreview({
         const target = resolveFrom(pagePath, m.href);
         if (target && isPagePath(target) && pages.includes(target)) onNavigate(target);
         else if (target && pages.includes(target + "/index.html")) onNavigate(target + "/index.html");
+      } else if (m.type === "drop" && onDropImage && m.file) {
+        const [s, path] = String(m.id).split("/");
+        if (path) onDropImage(Number(s.slice(1)), path.split(".").map(Number), m.file);
       } else if (m.type === "scroll") {
         scrolls[pagePath] = m.y;
       }
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [pagePath, pages, onSelect, onNavigate, scrolls, highlightId]);
+  }, [pagePath, pages, onSelect, onNavigate, onDropImage, scrolls, highlightId]);
   useEffect(() => {
     frame.current?.contentWindow?.postMessage(
       { source: "labsite-host", type: "highlight", id: highlightId, scroll: true },
@@ -101,6 +112,11 @@ export default function SitePreview({
           <IconButton label="手機尺寸" aria-pressed={device === "mobile"} onClick={() => setDevice("mobile")}>
             <DeviceMobile size={19} />
           </IconButton>
+          {canPlayMotion && (
+            <IconButton label="播放動畫（從頁面頂端開始）" onClick={() => setMotionTick((n) => n + 1)}>
+              <Play size={17} />
+            </IconButton>
+          )}
           <IconButton
             label="重新載入預覽"
             onClick={() => setReloads((n) => n + 1)}

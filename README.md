@@ -13,6 +13,8 @@
 - **外觀**：所有模板共用同一套 HTML 結構，外觀只在 `css/theme.css`。「外觀」分頁可以改顏色、字體、圓角，或按「產生 6 組」自動產生通過 WCAG AA 對比檢查的方案，預覽即時更新，保存後整站套用，內容一字不動（`src/site/themes.js`）。
 - **版型（v4.3）**：同一套 HTML 可以有多種版型，每種版型是一組 `site.css` + `theme.css`，放在網站的 `labsite/skins/`。「外觀」分頁可以在「導引」與「圖譜」（解剖圖譜圖版風格）之間切換，可選擇保留目前的配色；保存後整站換版型，文字、圖片與區塊都不變。
 - **AI 外觀（v4.4）**：雲端版的「外觀」分頁可以用一句話描述想要的感覺，由 Claude 產生 3 組配色與字體，伺服器修正到 WCAG AA 才回傳，每站每天 20 次。需要管理者設定 `ANTHROPIC_API_KEY`，見 [`cloud/README.md`](cloud/README.md)。
+- **圖片（v4.5）**：上傳或拖放的照片先在瀏覽器縮到最長邊 1600px 並轉成 WebP，檔名帶內容雜湊（同名照片不再互相覆蓋）；可以把照片拖到圖片欄位或預覽裡的圖片上；「照片庫」列出網站所有圖片，可重複使用、刪除沒用到的（會檢查頁面、CSS 與網站資料的引用）。
+- **動畫（v4.5）**：「外觀」選全站動畫風格（不要／輕微／活潑，寫在 `theme.css` 的 `--motion`），每個區塊可另選進場動畫（淡入、上升、滑入、依序出現、不要），預覽的 ▷ 從頂端播放一次；系統設定「減少動態效果」的訪客一律不播放。元件庫新增「成果數字」（數字跳動）與「大事記」（時間軸）。
 - 設計系統：[`DESIGN.md`](DESIGN.md)；產品脈絡：[`PRODUCT.md`](PRODUCT.md)。
 
 ## 換一台電腦繼續開發
@@ -138,7 +140,7 @@ GitHub 模式的注意事項：token 只存在瀏覽器的 localStorage；保存
 
 ## 驗證
 
-`npm test`：121 項測試（含元件庫、模板完整性、主題產生器、版型、AI 外觀與雲端），2 項 e2e 在沒有 token 時略過，使用 linkedom 提供 DOM（`tests/dom.js` 補上與瀏覽器一致的跳脫）。`npm run test:e2e` 對真實 repo 跑 GitHub 提交流程（需設 `LABSITE_E2E_TOKEN` 與 `LABSITE_E2E_REPO`，否則略過）。`npm run build` 產出單一 HTML。實際瀏覽器操作、兩個實驗室網站 42 頁與 Greene Lab 模板 6 頁在 Chromium 的 round-trip 結果見 `VALIDATION.md`。
+`npm test`：128 項測試（含元件庫、模板完整性、主題產生器、版型、AI 外觀、圖片、動畫與雲端），2 項 e2e 在沒有 token 時略過，使用 linkedom 提供 DOM（`tests/dom.js` 補上與瀏覽器一致的跳脫）。`npm run test:e2e` 對真實 repo 跑 GitHub 提交流程（需設 `LABSITE_E2E_TOKEN` 與 `LABSITE_E2E_REPO`，否則略過）。`npm run build` 產出單一 HTML。實際瀏覽器操作、兩個實驗室網站 42 頁與 Greene Lab 模板 6 頁在 Chromium 的 round-trip 結果見 `VALIDATION.md`。
 
 範例「知行研究室」為虛構示範內容。平台沒有保存任何 GitHub 憑證，也不會把草稿或網站內容傳到外部服務；預覽中的最新消息與照片是網站自己的腳本向 Google 試算表／Drive 讀取的。
 

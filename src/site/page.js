@@ -604,6 +604,8 @@ const LIST_HINTS = [
   ["contact", "聯絡資訊"],
   ["tag", "標籤"],
   ["col", "資料欄"],
+  ["stat", "成果數字"],
+  ["milestone", "大事記"],
 ];
 function listLabel(container, item) {
   const cls = (item.getAttribute("class") || "") + " " + (container.getAttribute("class") || "");
@@ -787,4 +789,24 @@ export function editHtml(html, mutate) {
   const page = parsePage(html);
   const changed = mutate(page.doc, page);
   return changed === false ? html : serializePage(page);
+}
+
+/* ----------------------------------------------------------------- motion */
+// A section's entrance animation lives in data-motion on the <section>. Only
+// these values are written; "" removes the attribute (follow the site style).
+export const MOTIONS = ["fade", "rise", "slide", "stagger", "none"];
+export function sectionMotion(doc, index) {
+  return sectionElements(doc)[index]?.getAttribute("data-motion") || "";
+}
+export function setSectionMotion(doc, index, value) {
+  const el = sectionElements(doc)[index];
+  if (!el) return false;
+  if (!value) {
+    if (!el.hasAttribute("data-motion")) return false;
+    el.removeAttribute("data-motion");
+    return true;
+  }
+  if (!MOTIONS.includes(value) || el.getAttribute("data-motion") === value) return false;
+  el.setAttribute("data-motion", value);
+  return true;
 }

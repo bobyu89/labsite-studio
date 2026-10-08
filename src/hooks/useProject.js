@@ -18,12 +18,14 @@ import {
   structureSignature,
   insertSection,
   sectionSnippet,
+  setSectionMotion,
 } from "../site/page.js";
 import { loadLibrary, snippetPath, LIBRARY_PATH } from "../site/library.js";
 import { THEME_PATH, readTheme, patchTheme } from "../site/themes.js";
 import { SKINS_PATH, SITE_CSS, loadSkins, readSkin, themeForSkin, withCurrent } from "../site/skins.js";
+import { prepareImage, formatBytes, isImagePath, referencedImages } from "../site/images.js";
 import { readSiteFields, patchSiteField } from "../site/siteData.js";
-import { directorySource, detectDevSource, urlSource, normalizePath, stagedSource } from "../site/source.js";
+import { directorySource, detectDevSource, urlSource, normalizePath, stagedSource, resolveFrom } from "../site/source.js";
 import { createPreviewCache, invalidatePreviewCache } from "../site/preview.js";
 import { detectCloud, cloudApi, cloudSource, redeemInviteFromUrl } from "../site/cloud.js";
 import { pageLabel, saveMessage } from "../site/labels.js";
@@ -470,6 +472,9 @@ export function useProject(notify) {
     addItem: (i, containerPath, after) => structural((doc) => addItem(section(doc, i), containerPath, after)),
     removeItem: (i, containerPath, index) => structural((doc) => removeItem(section(doc, i), containerPath, index)),
     moveItem: (i, containerPath, from, to) => structural((doc) => moveItem(section(doc, i), containerPath, from, to)),
+    // Presentation, not structure, but applied to the paired page as well so
+    // both languages animate alike.
+    setMotion: (i, value) => structural((doc) => setSectionMotion(doc, i, value)),
   };
   // Structure status for every loaded zh/en pair, recomputed from drafts.
   const pairStatus = useMemo(() => {
@@ -599,28 +604,78 @@ export function useProject(notify) {
       setBusy(false);
     }
   }
-  async function replaceImage(i, path, file) {
+  // Picked or dropped image: scaled and re-encoded in the browser, named after
+  // its content, staged, and written with the page that references it.
+  async function replaceImage(i, path, file, page = current) {
     const source = project?.source;
     if (!source?.writable) {
       setError("目前來源無法寫入圖片，請改用資料夾或開發伺服器模式。");
-      return;
+      return false;
     }
-    if (!["image/jpeg", "image/png", "image/webp", "image/svg+xml"].includes(file.type)) {
-      notify("請使用 JPG、PNG、WebP 或 SVG 圖片。");
-      return;
+    let img;
+    try {
+      img = await prepareImage(file);
+    } catch (e) {
+      notify(e.message);
+      return false;
     }
-    if (file.size > 4 * 1024 * 1024) {
-      notify("圖片請控制在 4 MB 以內，以免網站載入變慢。");
-      return;
-    }
-    const safe = file.name.replace(/[\\/:*?"<>|]+/g, "-").trim();
-    const target = normalizePath("assets/" + safe);
-    invalidatePreviewCache(cache.current, target);
-    setStaged((st) => ({ ...st, [target]: { file, page: current } }));
-    const rel = current.startsWith("en/") ? "../" + target : target;
-    api.setAttr(i, path, "src", rel);
-    notify("圖片已放入 " + target + "，保存頁面時會一起寫入。");
+    invalidatePreviewCache(cache.current, img.path);
+    setStaged((st) => ({ ...st, [img.path]: { file: img.blob, page } }));
+    api.setAttr(i, path, "src", relFrom(page, img.path), page);
+    notify(
+      img.converted
+        ? `圖片已縮成 ${img.width}×${img.height}、${formatBytes(img.after)}（原本 ${formatBytes(img.before)}），保存頁面時會一起寫入。`
+        : `圖片已放入 ${img.path}，保存頁面時會一起寫入。`,
+    );
+    return true;
   }
+  const relFrom = (page, target) => "../".repeat((page.match(/\//g) || []).length) + target;
+  // Uses an image already on the site (from the photo library).
+  function useAsset(i, path, assetPath) {
+    api.setAttr(i, path, "src", relFrom(current, assetPath));
+  }
+  // The site's images, with which pages use them (all pages are read, using
+  // unsaved drafts where there are any).
+  async function listAssets() {
+    const source = project?.source;
+    if (!source?.listFiles) return null;
+    const files = (await source.listFiles("assets")).filter((f) => isImagePath(f.path));
+    const textOf = {};
+    for (const page of project.pages) {
+      textOf[page] = draftsRef.current[page]?.present ?? (await source.readText(page).catch(() => ""));
+    }
+    for (const css of (await source.listFiles("css").catch(() => [])).filter((f) => f.path.endsWith(".css")))
+      textOf[css.path] = await source.readText(css.path).catch(() => "");
+    if (siteData) textOf[SITE_DATA] = siteData.text;
+    const used = referencedImages(textOf, resolveFrom);
+    const saved = new Set(files.map((f) => f.path));
+    // Images picked but not saved yet are listed too, so they can be reused.
+    const pending = Object.entries(staged)
+      .filter(([p]) => !saved.has(p))
+      .map(([p, st]) => ({ path: p, size: st.file.size, used: used.has(p), pending: true }));
+    return [...pending, ...files.map((f) => ({ ...f, used: used.has(f.path) }))];
+  }
+  // Deletes images nothing references, as one saved version.
+  async function deleteAssets(paths) {
+    if (!project?.source.writable || !paths.length) return false;
+    setBusy(true);
+    try {
+      await project.source.writeFiles(
+        paths.map((p) => ({ path: p, delete: true })),
+        "刪除未使用的圖片：" + paths.map((p) => p.split("/").pop()).join("、"),
+      );
+      for (const p of paths) invalidatePreviewCache(cache.current, p);
+      notify(`已刪除 ${paths.length} 張沒有使用的圖片。`);
+      if (project.source.kind === "cloud") refreshCloud();
+      return true;
+    } catch (e) {
+      setError("刪除圖片失敗：" + e.message);
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+  const readAsset = (p) => (staged[p] ? Promise.resolve(staged[p].file) : project.source.readBlob(p));
   // What the preview reads: the real source with staged images and an
   // unsaved theme laid over it.
   const themeText = theme && theme.text !== theme.original ? theme.text : null;
@@ -822,6 +877,11 @@ export function useProject(notify) {
     closeProject,
     ...api,
     replaceImage,
+    useAsset,
+    listAssets,
+    deleteAssets,
+    readAsset,
+    canListAssets: !!project?.source.listFiles,
     savePage,
     saveAll,
     revertPage,
