@@ -208,7 +208,7 @@ test("head title and description sync their social tags", () => {
     return true;
   });
   const { doc } = parsePage(out);
-  assert.deepEqual(readHead(doc), { title: "成員｜新名稱", description: "新描述" });
+  assert.deepEqual(readHead(doc), { title: "成員｜新名稱", description: "新描述", image: null });
   assert.equal(doc.querySelector('meta[property="og:title"]').getAttribute("content"), "成員｜新名稱");
   assert.equal(doc.querySelector('meta[property="og:description"]').getAttribute("content"), "新描述");
 });

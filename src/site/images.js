@@ -134,7 +134,7 @@ export function referencedImages(pages, resolve) {
       if (p) used.add(p);
     }
     // Photo lists in js/data.js: { src: "assets/…", thumb: "…" }
-    for (const m of String(html).matchAll(/\b(?:src|thumb)\s*:\s*["']([^"']+)["']/g)) {
+    for (const m of String(html).matchAll(/\b(?:src|thumb|cover)["']?\s*:\s*["']([^"']+)["']/g)) {
       const p = resolve(pagePath, m[1]);
       if (p) used.add(p);
     }

@@ -5,7 +5,7 @@ import { Button } from "@radix-ui/themes";
 import { ImagesSquare, ArrowUp, ArrowDown, Trash, FloppyDisk, UploadSimple, ArrowSquareOut } from "@phosphor-icons/react";
 import { PICKER_ACCEPT } from "../site/images.js";
 
-function Thumb({ p, src }) {
+export function Thumb({ p, src }) {
   const [url, setUrl] = useState(null);
   useEffect(() => {
     let alive = true;

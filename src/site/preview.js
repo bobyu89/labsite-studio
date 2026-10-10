@@ -190,6 +190,22 @@ export async function buildPreview({ html, pagePath, source, cache, scrollY = 0,
   const asker = doc.createElement("script");
   asker.textContent = "(" + askForImages.toString() + ")();";
   doc.head.prepend(asker);
+  // Album blocks read data/albums.json, which the isolated preview cannot
+  // fetch: hand it the (possibly unsaved) albums directly.
+  if (doc.querySelector(".ls-album")) {
+    const albums = await text("data/albums.json");
+    let json = null;
+    try {
+      json = albums === null ? null : JSON.stringify(JSON.parse(albums));
+    } catch {
+      json = null;
+    }
+    if (json) {
+      const data = doc.createElement("script");
+      data.textContent = "window.__lsAlbums=" + json.replace(/</g, "\\u003c") + ";";
+      doc.head.prepend(data);
+    }
+  }
   const init = doc.createElement("script");
   // playMotion lets the site's own scripts run their entrance animations
   // once (they normally stay still inside the editor).

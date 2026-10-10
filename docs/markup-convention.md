@@ -167,6 +167,16 @@ labsite/skins/<id>/theme.css
 - **成員照片位置**：class 含 `avatar`、`headshot` 或 `portrait`、裡面只有 1–3 個字（通常是姓氏）的 `<span>`／`<div>`，會被當成「還沒有照片的照片欄位」。放入照片後，這個元素會變成同 class 的 `<img>`，`alt` 取附近的姓名（例如「游明勳 照片」），所以網站 CSS 要能讓 `img.avatar` 正常顯示（`object-fit: cover`）。
 - **活動相簿**：`js/data.js` 裡有 `const LOCAL_PHOTOS = [ … ];`，而且每一項都是只含 `src`、`thumb`、`caption` 字串的物件時，編輯器會出現「活動相簿」分頁：可一次加入多張照片（存到 `assets/gallery/`）、寫說明、排序、移除。存檔時整個陣列重寫成一行一張，檔案其他部分不動。照片由網站自己的腳本顯示；編輯器預覽會替這些腳本動態加入的圖片向編輯器要檔案。
 
+### 雲端相簿與照片區塊
+
+- 相簿存在 `data/albums.json`：`{ "version": 1, "albums": [{ "id", "name", "cover"?, "photos": [{ "src", "caption" }] }] }`，照片檔在 `assets/albums/`。編輯器的「雲端相簿」可以建相簿、一次加入多張、寫說明、排序、設封面、搬到別本、刪除沒用到的照片；也用來替圖片欄位、單張照片區塊與分享預覽圖選照片。
+- 三種可插入任何頁面的區塊（body 直屬的 `<section>`，和其他區塊一樣可以排序、複製、刪除）：
+  - 單張照片：`section.ls-block.ls-photo-section > .ls-wrap > figure.ls-photo > img + figcaption`
+  - 相簿展示：`section.ls-block.ls-album-section > .ls-wrap > h2.ls-title + p.ls-text + div.ls-album[data-album][data-layout][data-base]`；`data-layout` 是 `grid`（方格）／`carousel`（輪播）／`masonry`（瀑布流），`data-base` 是回到網站根目錄的相對路徑（`en/` 頁面為 `../`）。這兩個 data 屬性是編輯器唯一會改的 data 屬性。
+  - 標題與文字：`section.ls-block.ls-text-section > .ls-wrap > h2.ls-title + p.ls-text`
+- 用到區塊的頁面，`<head>` 會加上 `css/labsite-blocks.css`（相簿展示另加 `js/labsite-albums.js`）。這兩個檔案由編輯器產生、帶版本號，更新時整個覆寫；不要手改。相簿由腳本在瀏覽器裡讀 `data/albums.json` 填入，所以相簿加照片後，所有展示它的頁面自動更新；點照片可放大，支援鍵盤。
+- 分享預覽圖：「分享設定」可替每一頁選照片，寫入 `og:image`（沒有就新增）與 `twitter:image`，網址是網站公開網址＋照片路徑。
+
 ## 8. 給新網站的最短檢查表
 
 1. 頁面放在根目錄，英文版放 `en/` 同名。

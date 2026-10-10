@@ -23,12 +23,14 @@ import PairPanel from "../components/PairPanel";
 import CloudHistory from "../components/CloudHistory";
 import LibraryPanel, { AddToLibrary } from "../components/LibraryPanel";
 import SiteThemePanel from "../components/SiteThemePanel";
-import PhotoLibrary from "../components/PhotoLibrary";
+import CloudAlbums from "../components/CloudAlbums";
+import { InsertAlbumDialog, AlbumBlockSettings } from "../components/AlbumBlock";
+import { Thumb } from "../components/AlbumPanel";
 import AlbumPanel from "../components/AlbumPanel";
 import RelocatePanel from "../components/RelocatePanel";
 import TextSizePanel from "../components/TextSizePanel";
 import EditorGuide, { guideDismissed } from "../components/EditorGuide";
-import { parsePage, listSections, readHead, sectionMotion } from "../site/page.js";
+import { parsePage, listSections, readHead, sectionMotion, sectionElements, pathOf } from "../site/page.js";
 import { pageLabel } from "../hooks/useProject";
 
 // Shown above the editor; brought into view when a new error appears, since
@@ -51,7 +53,9 @@ export default function Project({ p, device, setDevice, setConfirm }) {
   const [saving, setSaving] = useState(null);
   // Photo library: null (closed), { target: null } to manage, or
   // { target: { index, path } } to pick an image for one field.
+  // 雲端相簿: null (closed), {} to manage, or { pick, title } to choose a photo.
   const [photos, setPhotos] = useState(null);
+  const [insertAlbum, setInsertAlbum] = useState(false);
   const [guide, setGuide] = useState(() => !guideDismissed());
   // A photo dropped anywhere else would make the browser open the file and
   // leave the editor; catch it and say where photos go instead.
@@ -78,7 +82,20 @@ export default function Project({ p, device, setDevice, setConfirm }) {
   const selected = Math.min(p.selected, Math.max(0, sections.length - 1));
   const writable = !!p.project?.source.writable;
   const isCloud = p.project?.source.kind === "cloud";
-  const unsavedCount = p.dirtyPages.length + (p.siteDirty ? 1 : 0) + (p.textSize?.dirty ? 1 : 0);
+  const unsavedCount = p.dirtyPages.length + (p.siteDirty ? 1 : 0) + (p.textSize?.dirty ? 1 : 0) + (p.albumsDirty ? 1 : 0);
+  // The album block in the selected section, if any.
+  const albumEl = parsed ? sectionElements(parsed.doc)[selected]?.querySelector(".ls-album[data-album]") : null;
+  const albumBlockInfo = albumEl
+    ? { album: albumEl.getAttribute("data-album"), layout: albumEl.getAttribute("data-layout") || "grid", path: pathOf(albumEl, sectionElements(parsed.doc)[selected]) }
+    : null;
+  const insertAfter = sections.length ? selected : -1;
+  const pickPhoto = (title, pick) => setPhotos({ title, pick });
+  // Site path of an image URL (share images are absolute URLs).
+  const assetOf = (url) => {
+    const at = String(url).indexOf("assets/");
+    return at >= 0 ? decodeURI(String(url).slice(at).split(/[?#]/)[0]) : String(url);
+  };
+  const shareUrl = (assetPath) => (p.cloudSite?.url ? p.cloudSite.url.replace(/\/?$/, "/") + assetPath : assetPath);
   const onPublish = () =>
     setConfirm(
       p.anyDirty
@@ -243,9 +260,9 @@ export default function Project({ p, device, setDevice, setConfirm }) {
             </Button>
           )}
           {p.canListAssets && (
-            <Button variant="surface" onClick={() => setPhotos({ target: null })} title="網站裡所有的照片">
+            <Button variant="surface" onClick={() => setPhotos({})} title="網站自己的照片與相簿">
               <Images size={18} />
-              照片庫
+              雲端相簿
             </Button>
           )}
           {isCloud && p.cloudSite?.url && (
@@ -367,6 +384,28 @@ export default function Project({ p, device, setDevice, setConfirm }) {
                     onChange={(description) => p.setHead({ description })}
                   />
                   <p className="small-note">同步更新 og 與 twitter 的對應標籤。</p>
+                  {p.canListAssets && (
+                    <div className="share-image">
+                      <span className="field-label">分享預覽圖（貼到 LINE、Facebook 時出現的圖）</span>
+                      {head.image ? (
+                        <div className="share-image-row">
+                          <Thumb p={p} src={assetOf(head.image)} />
+                          <code title={head.image}>{head.image.split("/").pop()}</code>
+                        </div>
+                      ) : (
+                        <p className="small-note">這一頁還沒有分享預覽圖。</p>
+                      )}
+                      <Button
+                        size="1"
+                        variant="soft"
+                        disabled={!writable}
+                        onClick={() => pickPhoto("選分享預覽圖", (path) => p.setHead({ image: shareUrl(path) }))}
+                      >
+                        從雲端相簿選
+                      </Button>
+                      <p className="small-note">建議用橫式照片（約 1200×630）。每一頁可以不同。</p>
+                    </div>
+                  )}
                 </>
               )}
             </div>
@@ -405,6 +444,31 @@ export default function Project({ p, device, setDevice, setConfirm }) {
                 onAdd={p.library?.sections.length && sections.length ? () => setLibraryOpen(true) : null}
                 onSave={writable ? (i) => setSaving(i) : null}
               />
+              {writable && (
+                <div className="insert-blocks">
+                  <span>{sections.length ? "在選取的區塊後面加入：" : "加入："}</span>
+                  <Button
+                    size="1"
+                    variant="soft"
+                    disabled={!p.canListAssets}
+                    onClick={() =>
+                      pickPhoto("選一張照片放到這一頁", (src) => {
+                        const all = [...(p.albums?.albums || []).flatMap((a) => a.photos), ...(p.album?.photos || [])];
+                        const caption = all.find((x) => x.src === src)?.caption || "";
+                        p.insertBlock(insertAfter, "photo", { src, caption });
+                      })
+                    }
+                  >
+                    ＋ 照片
+                  </Button>
+                  <Button size="1" variant="soft" disabled={!p.albums} onClick={() => setInsertAlbum(true)}>
+                    ＋ 相簿展示
+                  </Button>
+                  <Button size="1" variant="soft" onClick={() => p.insertBlock(insertAfter, "text", {})}>
+                    ＋ 標題與文字
+                  </Button>
+                </div>
+              )}
               <div className="inspector-body">
                 <h3 className="inspector-subtitle">
                   {sections[selected]?.title}
@@ -423,6 +487,15 @@ export default function Project({ p, device, setDevice, setConfirm }) {
                     </select>
                   </label>
                 )}
+                {albumBlockInfo && (
+                  <AlbumBlockSettings
+                    p={p}
+                    block={albumBlockInfo}
+                    writable={writable}
+                    openManager={() => setPhotos({})}
+                    onChange={(name, value) => p.setAttr(selected, albumBlockInfo.path, name, value)}
+                  />
+                )}
                 <FieldInspector
                   html={p.html}
                   index={selected}
@@ -431,7 +504,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
                   setText={p.setText}
                   setAttr={p.setAttr}
                   replaceImage={p.replaceImage}
-                  openLibrary={p.canListAssets ? (index, path) => setPhotos({ target: { index, path } }) : null}
+                  openLibrary={p.canListAssets ? (index, path) => pickPhoto("選一張照片放進這個欄位", (asset) => p.useAsset(index, path, asset)) : null}
                   writable={writable}
                   busy={p.busy}
                   addItem={p.addItem}
@@ -445,7 +518,14 @@ export default function Project({ p, device, setDevice, setConfirm }) {
         </aside>
         <LibraryPanel p={p} sections={sections} selected={selected} open={libraryOpen} onClose={() => setLibraryOpen(false)} />
         <AddToLibrary p={p} section={sections[saving]} index={saving} open={saving !== null} onClose={() => setSaving(null)} />
-        <PhotoLibrary p={p} open={!!photos} target={photos?.target || null} onClose={() => setPhotos(null)} setConfirm={setConfirm} />
+        <CloudAlbums p={p} open={!!photos} onPick={photos?.pick} pickTitle={photos?.title} onClose={() => setPhotos(null)} setConfirm={setConfirm} />
+        <InsertAlbumDialog
+          p={p}
+          open={insertAlbum}
+          onClose={() => setInsertAlbum(false)}
+          openManager={() => setPhotos({})}
+          onInsert={(opts) => p.insertBlock(insertAfter, "album", opts)}
+        />
         <SitePreview
           html={p.html}
           pagePath={p.current}

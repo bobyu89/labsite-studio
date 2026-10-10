@@ -603,7 +603,8 @@ export function setText(section, path, value) {
 export function setAttribute(section, path, name, value) {
   const el = nodeAt(section, path);
   if (!el || el.nodeType !== 1) return false;
-  if (!["src", "alt", "href", "title"].includes(name)) return false;
+  const albumSetting = ["data-album", "data-layout"].includes(name) && el.classList?.contains("ls-album");
+  if (!["src", "alt", "href", "title"].includes(name) && !albumSetting) return false;
   if (name === "src" && isPhotoSlot(el)) {
     const img = el.ownerDocument.createElement("img");
     for (const a of [...el.attributes]) img.setAttribute(a.name, a.value);
@@ -797,9 +798,10 @@ export function readHead(doc) {
   return {
     title: q("title")?.textContent || "",
     description: q('meta[name="description"]')?.getAttribute("content") || "",
+    image: q('meta[property="og:image"]')?.getAttribute("content") ?? null,
   };
 }
-export function writeHead(doc, { title, description }) {
+export function writeHead(doc, { title, description, image }) {
   const q = (sel) => doc.head.querySelector(sel);
   if (typeof title === "string") {
     const t = q("title");
@@ -811,6 +813,20 @@ export function writeHead(doc, { title, description }) {
       const m = q(sel);
       if (m) m.setAttribute("content", title);
     }
+  }
+  // Share image (LINE / Facebook previews): og:image and twitter:image.
+  if (typeof image === "string") {
+    let og = q('meta[property="og:image"]');
+    if (!og) {
+      og = doc.createElement("meta");
+      og.setAttribute("property", "og:image");
+      const anchor = q('meta[property="og:description"]') || q('meta[name="description"]') || q("title");
+      if (anchor) anchor.after(doc.createTextNode("\n  "), og);
+      else doc.head.append(og);
+    }
+    og.setAttribute("content", image);
+    const tw = q('meta[name="twitter:image"]');
+    if (tw) tw.setAttribute("content", image);
   }
   if (typeof description === "string") {
     for (const sel of [

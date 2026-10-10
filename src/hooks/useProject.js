@@ -28,6 +28,18 @@ import { readSiteFields, patchSiteField } from "../site/siteData.js";
 import { readAlbum, writeAlbum, defaultCaption, albumPath } from "../site/album.js";
 import { TEXT_FILE, planRelocation } from "../site/relocate.js";
 import { TEXT_SIZE_FILES, readTextSize, writeTextSize, carryTextSize } from "../site/textSize.js";
+import {
+  ALBUMS_PATH,
+  RUNTIME_FILES,
+  emptyAlbums,
+  parseAlbums,
+  serializeAlbums,
+  albumAssetPath,
+  photoBlock,
+  albumBlock,
+  textBlock,
+  ensureBlockAssets,
+} from "../site/albums.js";
 import { directorySource, detectDevSource, urlSource, normalizePath, stagedSource, resolveFrom } from "../site/source.js";
 import { createPreviewCache, invalidatePreviewCache } from "../site/preview.js";
 import { detectCloud, cloudApi, cloudSource, redeemInviteFromUrl } from "../site/cloud.js";
@@ -91,6 +103,8 @@ export function useProject(notify) {
   const [theme, setThemeState] = useState(null);
   // Sites without css/theme.css keep their text size in the main stylesheet.
   const [textCss, setTextCss] = useState(null);
+  // The cloud album (data/albums.json); original is null while the site has none.
+  const [albumsFile, setAlbumsFile] = useState(null);
   // Skins the site can switch to, and the css/site.css being previewed:
   // { list, current, text, original, pending } or null.
   const [skin, setSkin] = useState(null);
@@ -166,7 +180,8 @@ export function useProject(notify) {
   const siteDirty = !!siteData && siteData.text !== siteData.original;
   const themeDirty =
     (!!theme && theme.text !== theme.original) || (!!skin && skin.text !== skin.original) || (!!textCss && textCss.text !== textCss.original);
-  const anyDirty = dirtyPages.length > 0 || siteDirty || themeDirty;
+  const albumsDirty = !!albumsFile && albumsFile.text !== (albumsFile.original ?? serializeAlbums(emptyAlbums()));
+  const anyDirty = dirtyPages.length > 0 || siteDirty || themeDirty || albumsDirty;
   useEffect(() => {
     const onLeave = (e) => {
       if (anyDirty) {
@@ -251,6 +266,8 @@ export function useProject(notify) {
           }
         }
       setTextCss(textFile);
+      const albumsText = await source.readText(ALBUMS_PATH).catch(() => null);
+      setAlbumsFile({ text: albumsText ?? serializeAlbums(emptyAlbums()), original: albumsText });
       setThemeState(themeFile);
       setSkin(skinState);
       setDrafts({});
@@ -409,6 +426,7 @@ export function useProject(notify) {
     setLibrary(null);
     setThemeState(null);
     setTextCss(null);
+    setAlbumsFile(null);
     setSkin(null);
     setError(null);
   }
@@ -646,6 +664,67 @@ export function useProject(notify) {
     );
     return true;
   }
+  /* ------------------------------------------------------- cloud album */
+  const albums = useMemo(() => (albumsFile ? parseAlbums(albumsFile.text) : null), [albumsFile]);
+  function setAlbums(update) {
+    setAlbumsFile((f) => (f ? { ...f, text: serializeAlbums(update(parseAlbums(f.text))) } : f));
+  }
+  // Photos for one album: compressed, staged under assets/albums/, listed in
+  // the album (in the order picked) and saved with 保存相簿.
+  async function addPhotosToAlbum(albumId, files) {
+    if (!project?.source.writable) return 0;
+    const added = [];
+    const failed = [];
+    setBusy(true);
+    try {
+      for (const file of files) {
+        try {
+          const img = await prepareImage(file);
+          const path = albumAssetPath(img.path);
+          invalidatePreviewCache(cache.current, path);
+          setStaged((st) => ({ ...st, [path]: { file: img.blob, page: ALBUMS_PATH } }));
+          added.push({ src: path, caption: defaultCaption(file) });
+        } catch (e) {
+          failed.push(e.message);
+        }
+      }
+    } finally {
+      setBusy(false);
+    }
+    if (added.length)
+      setAlbums((d) => ({ ...d, albums: d.albums.map((a) => (a.id === albumId ? { ...a, photos: [...a.photos, ...added] } : a)) }));
+    if (failed.length) setError(failed[0] + (failed.length > 1 ? `（另有 ${failed.length - 1} 張也無法加入）` : ""));
+    else if (added.length) notify(`已加入 ${added.length} 張照片，按「保存相簿」後才會存起來。`);
+    return added.length;
+  }
+  // The blocks' script and stylesheet, when the site does not have this
+  // version yet. → [{ path, text }]
+  async function missingRuntime() {
+    const out = [];
+    for (const [path, text] of Object.entries(RUNTIME_FILES)) {
+      const now = staged[path]?.file ?? (await project.source.readText(path).catch(() => null));
+      if (now !== text) out.push({ path, text });
+    }
+    return out;
+  }
+  async function saveAlbums() {
+    if (!project) return false;
+    return commitFiles({ albums: albumsDirty, site: siteDirty, extra: albumsDirty ? await missingRuntime() : [] });
+  }
+  // Inserts 單張照片 or 相簿展示 after section `afterIndex` of this page.
+  async function insertBlock(afterIndex, kind, opts) {
+    const page = current;
+    const html = kind === "album" ? albumBlock({ ...opts, pagePath: page }) : kind === "text" ? textBlock(opts) : photoBlock(opts);
+    edit((doc) => {
+      if (insertSection(doc, afterIndex, html, page)) ensureBlockAssets(doc, page, { script: kind === "album" });
+    }, "insert:" + Date.now());
+    setSelected(afterIndex + 1);
+    setFocus(null);
+    for (const f of await missingRuntime()) setStaged((st) => ({ ...st, [f.path]: { file: f.text, page } }));
+    notify(`已插入${kind === "album" ? "相簿展示" : kind === "text" ? "標題與文字" : "照片"}，在左邊改內容，保存這一頁後生效。`);
+    return true;
+  }
+
   /* ---------------------------------------------------------- text size */
   const textSize = theme
     ? { available: true, pct: readTextSize(theme.text), file: THEME_PATH }
@@ -760,11 +839,12 @@ export function useProject(notify) {
     for (const css of (await source.listFiles("css").catch(() => [])).filter((f) => f.path.endsWith(".css")))
       textOf[css.path] = await source.readText(css.path).catch(() => "");
     if (siteData) textOf[SITE_DATA] = siteData.text;
+    if (albumsFile) textOf[ALBUMS_PATH] = albumsFile.text;
     const used = referencedImages(textOf, resolveFrom);
     const saved = new Set(files.map((f) => f.path));
     // Images picked but not saved yet are listed too, so they can be reused.
     const pending = Object.entries(staged)
-      .filter(([p]) => !saved.has(p))
+      .filter(([p, st]) => !saved.has(p) && typeof st.file !== "string")
       .map(([p, st]) => ({ path: p, size: st.file.size, used: used.has(p), pending: true }));
     return [...pending, ...files.map((f) => ({ ...f, used: used.has(f.path) }))];
   }
@@ -795,6 +875,7 @@ export function useProject(notify) {
   const skinText = skin && skin.text !== skin.original ? skin.text : null;
   const siteText = siteData && siteData.text !== siteData.original ? siteData.text : null;
   const textCssPath = textCss?.path || null;
+  const albumsText = albumsDirty ? albumsFile.text : null;
   const textCssText = textCss && textCss.text !== textCss.original ? textCss.text : null;
   const previewSource = useMemo(() => {
     if (!project) return null;
@@ -805,12 +886,14 @@ export function useProject(notify) {
     if (skinText !== null) over[SITE_CSS] = skinText;
     invalidatePreviewCache(cache.current, SITE_DATA);
     if (siteText !== null) over[SITE_DATA] = siteText;
+    invalidatePreviewCache(cache.current, ALBUMS_PATH);
+    if (albumsText !== null) over[ALBUMS_PATH] = albumsText;
     if (textCssPath) {
       invalidatePreviewCache(cache.current, textCssPath);
       if (textCssText !== null) over[textCssPath] = textCssText;
     }
     return stagedSource(project.source, over);
-  }, [project, staged, themeText, skinText, siteText, textCssPath, textCssText]);
+  }, [project, staged, themeText, skinText, siteText, textCssPath, textCssText, albumsText]);
 
   /* -------------------------------------------------------------- theme */
   // Changes theme values in place ({ vars, fontUrl }); saved like any file.
@@ -847,7 +930,7 @@ export function useProject(notify) {
   /* ------------------------------------------------------------ saving */
   // Every save is one unit: the pages named, the images staged for them and
   // (optionally) js/data.js, written together — a single commit on GitHub.
-  async function commitFiles({ pages = [], site = false, themeFile = false }) {
+  async function commitFiles({ pages = [], site = false, themeFile = false, albums: saveAlbumsFile = false, extra = [] }) {
     if (!project) return false;
     if (!project.source.writable) {
       setError("網址來源無法寫回，請用「下載此頁」取得修改後的檔案。");
@@ -861,7 +944,7 @@ export function useProject(notify) {
       files.push({ path, text: html });
       for (const [target, st] of Object.entries(staged))
         if (st.page === path) {
-          files.push({ path: target, blob: st.file });
+          files.push(typeof st.file === "string" ? { path: target, text: st.file } : { path: target, blob: st.file });
           assets.push(target);
         }
     }
@@ -875,6 +958,17 @@ export function useProject(notify) {
           assets.push(target);
         }
     }
+    const savedAlbums = saveAlbumsFile && albumsFile ? albumsFile.text : null;
+    if (savedAlbums !== null) {
+      files.push({ path: ALBUMS_PATH, text: savedAlbums });
+      const listed = new Set(parseAlbums(savedAlbums).albums.flatMap((a) => a.photos.map((x) => x.src)));
+      for (const [target, st] of Object.entries(staged))
+        if (st.page === ALBUMS_PATH && listed.has(target)) {
+          files.push({ path: target, blob: st.file });
+          assets.push(target);
+        }
+    }
+    for (const f of extra) if (!files.some((x) => x.path === f.path)) files.push(f);
     const savedTheme = themeFile && theme && theme.text !== theme.original ? theme.text : null;
     if (savedTheme !== null) files.push({ path: THEME_PATH, text: savedTheme });
     const savedText = themeFile && textCss && textCss.text !== textCss.original ? textCss.text : null;
@@ -913,6 +1007,11 @@ export function useProject(notify) {
       }
       if (savedTheme !== null) setThemeState((t) => (t ? { ...t, original: savedTheme } : t));
       if (savedText !== null) setTextCss((c) => (c ? { ...c, original: savedText } : c));
+      if (savedAlbums !== null) {
+        invalidatePreviewCache(cache.current, ALBUMS_PATH);
+        setAlbumsFile((f) => (f ? { ...f, original: savedAlbums } : f));
+      }
+      for (const f of extra) invalidatePreviewCache(cache.current, f.path);
       if (savedSkin)
         setSkin((k) => (k ? { ...k, original: savedSkin.text, current: savedSkin.pending || k.current, pending: null } : k));
       const what = names.length === 1 ? names[0] : names.length + " 個檔案";
@@ -934,7 +1033,8 @@ export function useProject(notify) {
     }
   }
   const savePage = (path = current) => commitFiles({ pages: [path] });
-  const saveAll = () => commitFiles({ pages: dirtyPages, site: siteDirty, themeFile: themeDirty });
+  const saveAll = async () =>
+    commitFiles({ pages: dirtyPages, site: siteDirty, themeFile: themeDirty, albums: albumsDirty, extra: albumsDirty ? await missingRuntime() : [] });
   const saveTheme = () => commitFiles({ themeFile: true });
   function setSiteField(key, value) {
     setSiteData((s) => {
@@ -1016,6 +1116,12 @@ export function useProject(notify) {
     replaceImage,
     notify,
     album,
+    albums,
+    albumsDirty,
+    setAlbums,
+    addPhotosToAlbum,
+    saveAlbums,
+    insertBlock,
     planAddresses,
     replaceAddresses,
     setAlbumPhotos,
