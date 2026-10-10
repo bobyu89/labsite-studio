@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Desktop, DeviceMobile, ArrowsClockwise, Play } from "@phosphor-icons/react";
 import { IconButton } from "./ui";
-import { buildPreview } from "../site/preview.js";
+import { buildPreview, previewImageUrl } from "../site/preview.js";
 import { resolveFrom, isPagePath } from "../site/source.js";
 
 // Renders the real page with its own CSS and scripts. Clicking an element in
@@ -83,13 +83,21 @@ export default function SitePreview({
       } else if (m.type === "drop" && onDropImage && m.file) {
         const [s, path] = String(m.id).split("/");
         if (path) onDropImage(Number(s.slice(1)), path.split(".").map(Number), m.file);
+      } else if (m.type === "image" && typeof m.src === "string") {
+        // An image the site's script added (e.g. album photos): send its data.
+        const path = resolveFrom(pagePath, m.src);
+        const win = frame.current.contentWindow;
+        if (path && /\.(png|jpe?g|webp|gif|svg|avif|ico)$/i.test(path))
+          previewImageUrl(source, cache, path).then((url) => {
+            if (url) win?.postMessage({ source: "labsite-host", type: "image", src: m.src, url }, "*");
+          });
       } else if (m.type === "scroll") {
         scrolls[pagePath] = m.y;
       }
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [pagePath, pages, onSelect, onNavigate, onDropImage, scrolls, highlightId]);
+  }, [pagePath, pages, onSelect, onNavigate, onDropImage, scrolls, highlightId, source, cache]);
   useEffect(() => {
     frame.current?.contentWindow?.postMessage(
       { source: "labsite-host", type: "highlight", id: highlightId, scroll: true },

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Button, Badge } from "@radix-ui/themes";
 import {
   ArrowCounterClockwise,
@@ -11,6 +11,7 @@ import {
   RocketLaunch,
   ArrowSquareOut,
   Images,
+  Question,
 } from "@phosphor-icons/react";
 import { IconButton, Field, download } from "../components/ui";
 import ProjectOpen from "../components/ProjectOpen";
@@ -23,8 +24,24 @@ import CloudHistory from "../components/CloudHistory";
 import LibraryPanel, { AddToLibrary } from "../components/LibraryPanel";
 import SiteThemePanel from "../components/SiteThemePanel";
 import PhotoLibrary from "../components/PhotoLibrary";
+import AlbumPanel from "../components/AlbumPanel";
+import EditorGuide, { guideDismissed } from "../components/EditorGuide";
 import { parsePage, listSections, readHead, sectionMotion } from "../site/page.js";
 import { pageLabel } from "../hooks/useProject";
+
+// Shown above the editor; brought into view when a new error appears, since
+// the field that caused it may be far down the page.
+function ErrorMessage({ text, onClose }) {
+  const ref = useRef(null);
+  useEffect(() => ref.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }), [text]);
+  return (
+    <div className="message error" role="alert" ref={ref}>
+      <WarningCircle size={20} />
+      <span>{text}</span>
+      <button onClick={onClose}>關閉</button>
+    </div>
+  );
+}
 
 export default function Project({ p, device, setDevice, setConfirm }) {
   const [tab, setTab] = useState("blocks");
@@ -33,6 +50,26 @@ export default function Project({ p, device, setDevice, setConfirm }) {
   // Photo library: null (closed), { target: null } to manage, or
   // { target: { index, path } } to pick an image for one field.
   const [photos, setPhotos] = useState(null);
+  const [guide, setGuide] = useState(() => !guideDismissed());
+  // A photo dropped anywhere else would make the browser open the file and
+  // leave the editor; catch it and say where photos go instead.
+  useEffect(() => {
+    const hasFiles = (e) => [...(e.dataTransfer?.types || [])].includes("Files");
+    const over = (e) => {
+      if (hasFiles(e)) e.preventDefault();
+    };
+    const drop = (e) => {
+      if (!hasFiles(e) || e.defaultPrevented) return;
+      e.preventDefault();
+      p.notify("照片請拖到左邊的照片欄位、右邊預覽中的圖片上" + (p.album?.ok ? "，或「活動相簿」分頁。" : "。"));
+    };
+    window.addEventListener("dragover", over);
+    window.addEventListener("drop", drop);
+    return () => {
+      window.removeEventListener("dragover", over);
+      window.removeEventListener("drop", drop);
+    };
+  }, [p.album?.ok]);
   const parsed = useMemo(() => (p.html ? parsePage(p.html) : null), [p.html]);
   const sections = useMemo(() => (parsed ? listSections(parsed.doc) : []), [parsed]);
   const head = useMemo(() => (parsed ? readHead(parsed.doc) : null), [parsed]);
@@ -131,16 +168,28 @@ export default function Project({ p, device, setDevice, setConfirm }) {
             </Badge>
           </h1>
           <p>
-            {isCloud
-              ? p.cloudSite?.unpublished
-                ? "有已保存但尚未發布的版本。按「發布」後，網站才會更新。"
-                : "網站已是最新版本。保存會留下新版本，按「發布」後才會更新網站。"
-              : !writable
+            {isCloud ? (
+              unsavedCount > 0 ? (
+                <span className="edit-state dirty">有 {unsavedCount} 個檔案改了還沒保存</span>
+              ) : p.cloudSite?.unpublished ? (
+                <span className="edit-state pending">已保存，還沒發布：大家看到的還是舊網站</span>
+              ) : (
+                <span className="edit-state live">大家看到的就是目前這個版本</span>
+              )
+            ) : !writable
               ? "此來源無法寫回，可下載修改後的頁面。"
               : p.project.source.kind === "github"
                 ? "每次保存是一個 commit（含這一頁換的圖片）；網站的 GitHub Pages 一兩分鐘後自動更新。"
                 : "保存會直接改寫原始檔；用 git 檢視變更後再提交與推送。"}
           </p>
+          {isCloud && p.cloudSite?.url && (
+            <p className="site-address">
+              網站網址：
+              <a href={p.cloudSite.url} target="_blank" rel="noopener">
+                {p.cloudSite.url.replace(/^https?:\/\//, "")}
+              </a>
+            </p>
+          )}
         </div>
         <div className="button-row">
           {p.pair && (
@@ -167,9 +216,13 @@ export default function Project({ p, device, setDevice, setConfirm }) {
           <IconButton label="重做" onClick={p.redo} disabled={!p.canRedo}>
             <ArrowClockwise size={19} />
           </IconButton>
-          <Button onClick={() => p.savePage()} disabled={!p.dirty || !writable || p.busy}>
+          <Button variant="soft" color="gray" onClick={() => setGuide((g) => !g)} aria-expanded={guide}>
+            <Question size={18} />
+            使用說明
+          </Button>
+          <Button onClick={() => p.savePage()} disabled={!p.dirty || !writable || p.busy} title="保存這一頁的修改">
             <FloppyDisk size={18} />
-            {p.busy ? "處理中" : "保存此頁"}
+            {p.busy ? "處理中" : "保存"}
           </Button>
           {unsavedCount > 1 && (
             <Button variant="surface" onClick={p.saveAll} disabled={!writable || p.busy}>
@@ -187,15 +240,17 @@ export default function Project({ p, device, setDevice, setConfirm }) {
               發布
             </Button>
           )}
-          {isCloud && p.cloudSite?.url && (
-            <IconButton label="查看網站（新分頁）" onClick={() => window.open(p.cloudSite.url, "_blank", "noopener")}>
-              <ArrowSquareOut size={18} />
-            </IconButton>
-          )}
           {p.canListAssets && (
-            <IconButton label="照片庫" onClick={() => setPhotos({ target: null })}>
+            <Button variant="surface" onClick={() => setPhotos({ target: null })} title="網站裡所有的照片">
               <Images size={18} />
-            </IconButton>
+              照片庫
+            </Button>
+          )}
+          {isCloud && p.cloudSite?.url && (
+            <Button variant="surface" onClick={() => window.open(p.cloudSite.url, "_blank", "noopener")} title={"在新分頁打開 " + p.cloudSite.url}>
+              <ArrowSquareOut size={18} />
+              看網站
+            </Button>
           )}
           <IconButton
             label="下載此頁 HTML"
@@ -220,26 +275,24 @@ export default function Project({ p, device, setDevice, setConfirm }) {
         </div>
       </div>
       {p.error && (
-        <div className="message error" role="alert">
-          <WarningCircle size={20} />
-          <span>{p.error}</span>
-          <button onClick={() => p.setError(null)}>關閉</button>
-        </div>
+        <ErrorMessage text={p.error} onClose={() => p.setError(null)} />
       )}
+      {guide && <EditorGuide onClose={() => setGuide(false)} isCloud={isCloud} hasAlbum={!!p.album?.ok} />}
       <div className={"editor-layout project" + (tab === "pair" ? " wide-inspector" : "")}>
         <aside className="inspector">
           <div className="inspector-tabs">
             {[
-              ["blocks", "頁面區塊"],
-              ["head", "頁面資訊"],
-              ["pair", "中英對照"],
-              ["site", "網站資料"],
+              ["blocks", "編輯內容"],
+              ...(p.album?.ok ? [["album", "活動相簿"]] : []),
+              ["site", "研究室資料"],
               ...(p.theme ? [["theme", "外觀"]] : []),
+              ["pair", "中英對照"],
+              ["head", "分享設定"],
               ...(isCloud ? [["history", "版本紀錄"]] : []),
             ].map(([id, label]) => (
               <button key={id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}>
                 {label}
-                {id === "site" && p.siteDirty && <span className="unsaved-dot" aria-label="未保存" />}
+                {(id === "site" || id === "album") && p.siteDirty && <span className="unsaved-dot" aria-label="未保存" />}
                 {id === "theme" && p.theme?.dirty && <span className="unsaved-dot" aria-label="未保存" />}
                 {id === "pair" && p.pairStatus[p.current] === "diff" && <span className="unsaved-dot" aria-label="結構不同" />}
               </button>
@@ -252,6 +305,16 @@ export default function Project({ p, device, setDevice, setConfirm }) {
           ) : tab === "theme" && p.theme ? (
             <div className="inspector-body">
               <SiteThemePanel p={p} />
+            </div>
+          ) : tab === "album" && p.album?.ok ? (
+            <div className="inspector-body">
+              <AlbumPanel
+                p={p}
+                writable={writable}
+                galleryPage={p.pages.find((x) => /(^|\/)gallery\.html$/.test(x) && x.startsWith("en/") === p.current.startsWith("en/"))}
+                openPage={switchPage}
+                setConfirm={setConfirm}
+              />
             </div>
           ) : tab === "site" ? (
             <div className="inspector-body">

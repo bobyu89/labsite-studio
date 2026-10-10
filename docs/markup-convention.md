@@ -162,7 +162,10 @@ labsite/skins/<id>/theme.css
 ### 圖片
 
 - 上傳的圖片放在 `assets/`，檔名是「原檔名的英數字 + 內容雜湊前 6 碼」，例如 `assets/img-0001-1a2b3c.webp`；可轉換的格式會縮到最長邊 1600px 並轉成 WebP，SVG 與 GIF 原樣保留。
-- 照片庫判斷「使用中」時會看所有頁面的 `src`、`srcset`、`href`，所有 CSS 的 `url(...)`，以及 `js/data.js`；只有都沒有引用的圖片才能刪除。
+- 照片庫判斷「使用中」時會看所有頁面的 `src`、`srcset`、`href`，所有 CSS 的 `url(...)`，以及 `js/data.js`（含 `src:`／`thumb:` 照片清單）；只有都沒有引用的圖片才能刪除。
+- 可以上傳 JPG、PNG、WebP、GIF、SVG、AVIF，以及 iPhone 的 HEIC（Chrome／Edge 第一次遇到時從 jsDelivr 載入 heic2any 轉成 JPG，再照常縮小轉 WebP）。
+- **成員照片位置**：class 含 `avatar`、`headshot` 或 `portrait`、裡面只有 1–3 個字（通常是姓氏）的 `<span>`／`<div>`，會被當成「還沒有照片的照片欄位」。放入照片後，這個元素會變成同 class 的 `<img>`，`alt` 取附近的姓名（例如「游明勳 照片」），所以網站 CSS 要能讓 `img.avatar` 正常顯示（`object-fit: cover`）。
+- **活動相簿**：`js/data.js` 裡有 `const LOCAL_PHOTOS = [ … ];`，而且每一項都是只含 `src`、`thumb`、`caption` 字串的物件時，編輯器會出現「活動相簿」分頁：可一次加入多張照片（存到 `assets/gallery/`）、寫說明、排序、移除。存檔時整個陣列重寫成一行一張，檔案其他部分不動。照片由網站自己的腳本顯示；編輯器預覽會替這些腳本動態加入的圖片向編輯器要檔案。
 
 ## 8. 給新網站的最短檢查表
 

@@ -25,6 +25,7 @@ import { THEME_PATH, readTheme, patchTheme } from "../site/themes.js";
 import { SKINS_PATH, SITE_CSS, loadSkins, readSkin, themeForSkin, withCurrent } from "../site/skins.js";
 import { prepareImage, formatBytes, isImagePath, referencedImages } from "../site/images.js";
 import { readSiteFields, patchSiteField } from "../site/siteData.js";
+import { readAlbum, writeAlbum, defaultCaption, albumPath } from "../site/album.js";
 import { directorySource, detectDevSource, urlSource, normalizePath, stagedSource, resolveFrom } from "../site/source.js";
 import { createPreviewCache, invalidatePreviewCache } from "../site/preview.js";
 import { detectCloud, cloudApi, cloudSource, redeemInviteFromUrl } from "../site/cloud.js";
@@ -616,7 +617,7 @@ export function useProject(notify) {
     try {
       img = await prepareImage(file);
     } catch (e) {
-      notify(e.message);
+      setError(e.message); // stays on screen, unlike a toast
       return false;
     }
     invalidatePreviewCache(cache.current, img.path);
@@ -628,6 +629,48 @@ export function useProject(notify) {
         : `圖片已放入 ${img.path}，保存頁面時會一起寫入。`,
     );
     return true;
+  }
+  /* -------------------------------------------------------------- album */
+  // The activity photos listed in js/data.js (LOCAL_PHOTOS). New photos are
+  // compressed like any image, staged under assets/gallery/, and written
+  // together with js/data.js when the album is saved.
+  const album = useMemo(() => (siteData ? readAlbum(siteData.text) : null), [siteData]);
+  function setAlbumPhotos(photos) {
+    setSiteData((s) => {
+      const text = writeAlbum(s.text, photos);
+      return { ...s, text, fields: readSiteFields(text).fields };
+    });
+  }
+  async function addAlbumPhotos(files) {
+    if (!project?.source.writable || !album?.ok) return 0;
+    const added = [];
+    const failed = [];
+    setBusy(true);
+    try {
+      for (const file of files) {
+        try {
+          const img = await prepareImage(file);
+          const path = albumPath(img.path);
+          invalidatePreviewCache(cache.current, path);
+          setStaged((st) => ({ ...st, [path]: { file: img.blob, page: SITE_DATA } }));
+          added.push({ src: path, caption: defaultCaption(file) });
+        } catch (e) {
+          failed.push(e.message);
+        }
+      }
+    } finally {
+      setBusy(false);
+    }
+    if (added.length) {
+      // Newest first, like the gallery shows them.
+      setSiteData((s) => {
+        const text = writeAlbum(s.text, [...added, ...readAlbum(s.text).photos]);
+        return { ...s, text, fields: readSiteFields(text).fields };
+      });
+    }
+    if (failed.length) setError(failed[0] + (failed.length > 1 ? `（另有 ${failed.length - 1} 張也無法加入）` : ""));
+    else if (added.length) notify(`已加入 ${added.length} 張照片。填好說明後按「保存相簿」，再按「發布」。`);
+    return added.length;
   }
   const relFrom = (page, target) => "../".repeat((page.match(/\//g) || []).length) + target;
   // Uses an image already on the site (from the photo library).
@@ -680,6 +723,7 @@ export function useProject(notify) {
   // unsaved theme laid over it.
   const themeText = theme && theme.text !== theme.original ? theme.text : null;
   const skinText = skin && skin.text !== skin.original ? skin.text : null;
+  const siteText = siteData && siteData.text !== siteData.original ? siteData.text : null;
   const previewSource = useMemo(() => {
     if (!project) return null;
     invalidatePreviewCache(cache.current, THEME_PATH);
@@ -687,8 +731,10 @@ export function useProject(notify) {
     const over = Object.fromEntries(Object.entries(staged).map(([k, v]) => [k, v.file]));
     if (themeText !== null) over[THEME_PATH] = themeText;
     if (skinText !== null) over[SITE_CSS] = skinText;
+    invalidatePreviewCache(cache.current, SITE_DATA);
+    if (siteText !== null) over[SITE_DATA] = siteText;
     return stagedSource(project.source, over);
-  }, [project, staged, themeText, skinText]);
+  }, [project, staged, themeText, skinText, siteText]);
 
   /* -------------------------------------------------------------- theme */
   // Changes theme values in place ({ vars, fontUrl }); saved like any file.
@@ -742,7 +788,16 @@ export function useProject(notify) {
           assets.push(target);
         }
     }
-    if (site && siteData) files.push({ path: SITE_DATA, text: siteData.text });
+    if (site && siteData) {
+      files.push({ path: SITE_DATA, text: siteData.text });
+      // Album photos still listed in the file go with it; removed ones are dropped.
+      const listed = new Set((readAlbum(siteData.text).photos || []).map((x) => x.src));
+      for (const [target, st] of Object.entries(staged))
+        if (st.page === SITE_DATA && listed.has(target)) {
+          files.push({ path: target, blob: st.file });
+          assets.push(target);
+        }
+    }
     const savedTheme = themeFile && theme && theme.text !== theme.original ? theme.text : null;
     if (savedTheme !== null) files.push({ path: THEME_PATH, text: savedTheme });
     const savedSkin = themeFile && skin && skin.text !== skin.original ? skin : null;
@@ -877,6 +932,11 @@ export function useProject(notify) {
     closeProject,
     ...api,
     replaceImage,
+    notify,
+    album,
+    setAlbumPhotos,
+    addAlbumPhotos,
+    readStaged: (path) => staged[path]?.file || null,
     useAsset,
     listAssets,
     deleteAssets,

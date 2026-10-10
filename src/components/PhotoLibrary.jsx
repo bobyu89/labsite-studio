@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Button, Badge } from "@radix-ui/themes";
 import { Trash, UploadSimple, WarningCircle } from "@phosphor-icons/react";
 import { Modal } from "./ui";
-import { formatBytes } from "../site/images.js";
+import { formatBytes, PICKER_ACCEPT } from "../site/images.js";
 
 // Every image under assets/: pick one for an image field, upload a new one,
 // or delete the ones no page uses any more (as one saved version).
@@ -76,7 +76,7 @@ export default function PhotoLibrary({ p, open, onClose, target, setConfirm }) {
           <label className="upload-inline">
             <input
               type="file"
-              accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
+              accept={PICKER_ACCEPT}
               hidden
               onChange={async (e) => {
                 const file = e.target.files[0];

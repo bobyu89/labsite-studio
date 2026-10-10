@@ -5,9 +5,52 @@
 
 export const MAX_EDGE = 1600;
 export const MAX_INPUT_BYTES = 20 * 1024 * 1024;
-export const ACCEPTED = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/svg+xml"];
+export const ACCEPTED = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/svg+xml", "image/avif", "image/bmp"];
+// What file pickers offer: every image (so nothing is hidden in the dialog),
+// plus iPhone photos, which Windows does not label as images.
+export const PICKER_ACCEPT = "image/*,.heic,.heif";
 const IMAGE_EXT = /\.(png|jpe?g|webp|gif|svg|avif)$/i;
 export const isImagePath = (p) => IMAGE_EXT.test(p);
+const HEIC = /\.(heic|heif)$/i;
+export const isHeic = (file) => /^image\/hei[cf]/.test(file.type) || HEIC.test(file.name || "");
+// Chrome and Edge cannot decode HEIC, so a small converter is loaded from the
+// CDN the first time someone picks an iPhone photo (Safari decodes it itself).
+const HEIC_LIB = "https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js";
+let heicLib = null;
+function loadHeicLib() {
+  if (globalThis.heic2any) return Promise.resolve(globalThis.heic2any);
+  heicLib ||= new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = HEIC_LIB;
+    s.onload = () => (globalThis.heic2any ? resolve(globalThis.heic2any) : reject(new Error("heic2any")));
+    s.onerror = () => {
+      heicLib = null;
+      reject(new Error("heic2any"));
+    };
+    document.head.appendChild(s);
+  });
+  return heicLib;
+}
+const HEIC_HELP =
+  "這張是 iPhone 的 HEIC 照片，瀏覽器無法讀取。請在 iPhone「設定 › 相機 › 格式」選「最相容」，或把照片另存成 JPG 後再上傳。";
+// HEIC → JPEG File, so the rest of the pipeline sees an ordinary photo.
+async function fromHeic(file) {
+  try {
+    const bitmap = await createImageBitmap(file);
+    bitmap.close?.();
+    return file; // Safari: decodable as is
+  } catch {
+    /* convert below */
+  }
+  try {
+    const convert = await loadHeicLib();
+    const out = await convert({ blob: file, toType: "image/jpeg", quality: 0.9 });
+    const blob = Array.isArray(out) ? out[0] : out;
+    return new File([blob], (file.name || "photo").replace(HEIC, "") + ".jpg", { type: "image/jpeg" });
+  } catch {
+    throw new Error(HEIC_HELP);
+  }
+}
 
 // "IMG 0001 (2).JPG" + hash → "img-0001-2-1a2b3c.webp". Non-Latin names keep
 // their letters (Chinese file names are fine on every source).
@@ -37,8 +80,10 @@ export function fitWithin(width, height, maxEdge = MAX_EDGE) {
 // SVG and GIF (possibly animated) are kept as they are; everything else is
 // scaled and re-encoded as WebP, unless that would come out larger.
 export async function prepareImage(file, { maxEdge = MAX_EDGE } = {}) {
-  if (!ACCEPTED.includes(file.type)) throw new Error("請使用 JPG、PNG、WebP、GIF 或 SVG 圖片。");
   if (file.size > MAX_INPUT_BYTES) throw new Error("圖片超過 20 MB，請先用手機或電腦縮小一點。");
+  if (isHeic(file)) file = await fromHeic(file);
+  if (!ACCEPTED.includes(file.type))
+    throw new Error(`「${file.name || "這個檔案"}」不是可以用的圖片。請用 JPG、PNG、WebP、GIF、SVG，或 iPhone 的 HEIC 照片。`);
   const original = new Uint8Array(await file.arrayBuffer());
   const keep = async () => {
     const ext = (file.name.match(/\.([a-z0-9]+)$/i)?.[1] || file.type.split("/")[1]).toLowerCase().replace("jpeg", "jpg").replace("svg+xml", "svg");
@@ -85,6 +130,11 @@ export function referencedImages(pages, resolve) {
     }
     const html = text;
     for (const m of String(html).matchAll(/\s(?:src|poster|href)=["']([^"']+)["']/gi)) {
+      const p = resolve(pagePath, m[1]);
+      if (p) used.add(p);
+    }
+    // Photo lists in js/data.js: { src: "assets/…", thumb: "…" }
+    for (const m of String(html).matchAll(/\b(?:src|thumb)\s*:\s*["']([^"']+)["']/g)) {
       const p = resolve(pagePath, m[1]);
       if (p) used.add(p);
     }

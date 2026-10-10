@@ -502,6 +502,26 @@ function describe(el) {
   const hint = cls ? hints.find(([k]) => cls.includes(k))?.[1] : "";
   return hint || TAG_LABELS[tag] || tag;
 }
+// A photo slot that has no photo yet: a member card's round "avatar" showing
+// an initial (<span class="avatar">游</span>). It is offered as an image
+// field; putting a photo in turns the element into an <img> with the same
+// classes, which these sites already style (img.avatar { object-fit: cover }).
+const PHOTO_SLOT = /avatar|headshot|portrait/i;
+export function isPhotoSlot(el) {
+  if (!el || el.nodeType !== 1 || el.children.length) return false;
+  const tag = el.tagName.toLowerCase();
+  if (!["span", "div", "i", "b", "figure"].includes(tag)) return false;
+  return [...el.classList].some((c) => PHOTO_SLOT.test(c)) && el.textContent.trim().length <= 3;
+}
+// "游明勳 照片": the nearest name or heading around a photo slot.
+function photoAlt(el) {
+  for (let up = el.parentElement, i = 0; up && i < 4; up = up.parentElement, i++) {
+    const named = [...up.querySelectorAll("[class*=name], h3, h4, h2")].find((n) => n !== el && n.textContent.trim());
+    if (named) return collapse(named.textContent) + " 照片";
+  }
+  return (el.textContent.trim() || "成員") + " 照片";
+}
+
 // Walks an element and returns editable leaves: text nodes, images and links.
 // Paths are relative to `section` so they stay valid after re-parsing.
 export function collectFields(root, section = root) {
@@ -517,6 +537,19 @@ export function collectFields(root, section = root) {
         label: (context ? context + " › " : "") + "圖片",
         src: el.getAttribute("src") || "",
         alt: el.getAttribute("alt") || "",
+      });
+      return;
+    }
+    if (isPhotoSlot(el)) {
+      fields.push({
+        kind: "image",
+        slot: true,
+        path: pathOf(el, section),
+        elementPath: pathOf(el, section),
+        label: (context ? context + " › " : "") + "照片",
+        src: "",
+        alt: "",
+        initial: el.textContent.trim(),
       });
       return;
     }
@@ -571,6 +604,14 @@ export function setAttribute(section, path, name, value) {
   const el = nodeAt(section, path);
   if (!el || el.nodeType !== 1) return false;
   if (!["src", "alt", "href", "title"].includes(name)) return false;
+  if (name === "src" && isPhotoSlot(el)) {
+    const img = el.ownerDocument.createElement("img");
+    for (const a of [...el.attributes]) img.setAttribute(a.name, a.value);
+    img.setAttribute("src", value);
+    img.setAttribute("alt", photoAlt(el));
+    el.replaceWith(img);
+    return true;
+  }
   el.setAttribute(name, value);
   return true;
 }

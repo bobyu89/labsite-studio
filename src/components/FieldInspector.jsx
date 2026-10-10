@@ -12,6 +12,7 @@ import {
   ArrowDown,
 } from "@phosphor-icons/react";
 import { Field, IconButton } from "./ui";
+import { PICKER_ACCEPT } from "../site/images.js";
 import { parsePage, sectionElements, describeNode, describeItem } from "../site/page.js";
 import { useDragReorder } from "../hooks/useDragReorder";
 
@@ -46,15 +47,21 @@ function ImageField({ f, k, cls, index, setFocus, setAttr, replaceImage, openLib
       <span className="field-image-label">
         <ImageIcon size={14} /> {f.label}
       </span>
-      <code className="field-image-src" title={f.src}>
-        {f.src || "（尚未設定）"}
-      </code>
-      <Field label="替代文字（給讀者與搜尋引擎）" value={f.alt} onChange={(v) => setAttr(index, f.path, "alt", v)} />
+      {f.slot ? (
+        <span className="small-note">目前顯示「{f.initial}」字，還沒有照片。放入照片後會換成圓形照片。</span>
+      ) : (
+        <>
+          <code className="field-image-src" title={f.src}>
+            {f.src || "（尚未設定）"}
+          </code>
+          <Field label="替代文字（給讀者與搜尋引擎）" value={f.alt} onChange={(v) => setAttr(index, f.path, "alt", v)} />
+        </>
+      )}
       <div className="field-image-actions">
         <label className="upload-inline">
           <input
             type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
+            accept={PICKER_ACCEPT}
             hidden
             disabled={!accepts}
             onChange={(e) => {
@@ -64,7 +71,7 @@ function ImageField({ f, k, cls, index, setFocus, setAttr, replaceImage, openLib
             }}
           />
           <Button asChild variant="surface" size="1" disabled={!accepts}>
-            <span>{writable ? "上傳新圖片" : "此來源無法更換圖片"}</span>
+            <span>{!writable ? "此來源無法更換圖片" : f.slot ? "放入照片" : "換一張照片"}</span>
           </Button>
         </label>
         {openLibrary && (
@@ -73,7 +80,7 @@ function ImageField({ f, k, cls, index, setFocus, setAttr, replaceImage, openLib
           </Button>
         )}
       </div>
-      {writable && <span className="small-note">也可以把照片直接拖到這裡，或拖到右側預覽的圖片上。會自動縮小並轉成 WebP。</span>}
+      {writable && <span className="small-note">也可以把照片直接拖到這裡，或拖到右邊預覽的圖片上。手機照片（含 iPhone）會自動縮小。</span>}
     </div>
   );
 }
@@ -118,7 +125,8 @@ function Fields({ fields, index, focus, setFocus, setText, setAttr, replaceImage
             openLibrary={openLibrary}
             writable={writable}
             busy={busy}
-          />        );
+          />
+        );
       })}
     </div>
   );
