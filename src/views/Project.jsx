@@ -25,6 +25,7 @@ import LibraryPanel, { AddToLibrary } from "../components/LibraryPanel";
 import SiteThemePanel from "../components/SiteThemePanel";
 import PhotoLibrary from "../components/PhotoLibrary";
 import AlbumPanel from "../components/AlbumPanel";
+import RelocatePanel from "../components/RelocatePanel";
 import EditorGuide, { guideDismissed } from "../components/EditorGuide";
 import { parsePage, listSections, readHead, sectionMotion } from "../site/page.js";
 import { pageLabel } from "../hooks/useProject";
@@ -326,6 +327,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
                 writable={writable}
                 busy={p.busy}
               />
+              {p.canListAssets && writable && <RelocatePanel p={p} writable={writable} setConfirm={setConfirm} />}
             </div>
           ) : tab === "pair" ? (
             <>

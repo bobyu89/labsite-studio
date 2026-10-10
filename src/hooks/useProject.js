@@ -26,6 +26,7 @@ import { SKINS_PATH, SITE_CSS, loadSkins, readSkin, themeForSkin, withCurrent } 
 import { prepareImage, formatBytes, isImagePath, referencedImages } from "../site/images.js";
 import { readSiteFields, patchSiteField } from "../site/siteData.js";
 import { readAlbum, writeAlbum, defaultCaption, albumPath } from "../site/album.js";
+import { TEXT_FILE, planRelocation } from "../site/relocate.js";
 import { directorySource, detectDevSource, urlSource, normalizePath, stagedSource, resolveFrom } from "../site/source.js";
 import { createPreviewCache, invalidatePreviewCache } from "../site/preview.js";
 import { detectCloud, cloudApi, cloudSource, redeemInviteFromUrl } from "../site/cloud.js";
@@ -630,6 +631,49 @@ export function useProject(notify) {
     );
     return true;
   }
+  /* ----------------------------------------------------------- relocate */
+  // Site moved to a new address: find, then replace, old addresses in every
+  // saved text file. Only with nothing unsaved, so the result is one clean
+  // version and the open pages can simply be reloaded afterwards.
+  async function planAddresses(pairs) {
+    const source = project?.source;
+    if (!source?.listFiles) throw new Error("這個來源無法列出檔案。");
+    const files = [];
+    for (const f of (await source.listFiles("")).filter((x) => TEXT_FILE.test(x.path)))
+      files.push({ path: f.path, text: await source.readText(f.path).catch(() => null) });
+    return planRelocation(files, pairs);
+  }
+  async function replaceAddresses(pairs) {
+    if (!project?.source.writable) return null;
+    if (anyDirty) {
+      setError("請先保存或還原目前的修改，再更換網址。");
+      return null;
+    }
+    setBusy(true);
+    try {
+      const plan = await planAddresses(pairs);
+      if (!plan.length) {
+        notify("沒有找到要更換的網址。");
+        return plan;
+      }
+      const total = plan.reduce((n, f) => n + f.count, 0);
+      await project.source.writeFiles(
+        plan.map((f) => ({ path: f.path, text: f.text })),
+        `更換網址：${pairs.map((x) => x.from + " → " + x.to).join("；")}（${plan.length} 個檔案、${total} 處）`.slice(0, 200),
+      );
+      setBusy(false);
+      await openSource(project.source, current);
+      notify(`已在 ${plan.length} 個檔案更換 ${total} 處網址並保存。` + (project.source.kind === "cloud" ? "按「發布」後網站才會更新。" : ""));
+      if (project.source.kind === "cloud") refreshCloud();
+      return plan;
+    } catch (e) {
+      setError("更換網址失敗：" + e.message);
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  }
+
   /* -------------------------------------------------------------- album */
   // The activity photos listed in js/data.js (LOCAL_PHOTOS). New photos are
   // compressed like any image, staged under assets/gallery/, and written
@@ -934,6 +978,8 @@ export function useProject(notify) {
     replaceImage,
     notify,
     album,
+    planAddresses,
+    replaceAddresses,
     setAlbumPhotos,
     addAlbumPhotos,
     readStaged: (path) => staged[path]?.file || null,
