@@ -26,6 +26,7 @@ import SiteThemePanel from "../components/SiteThemePanel";
 import PhotoLibrary from "../components/PhotoLibrary";
 import AlbumPanel from "../components/AlbumPanel";
 import RelocatePanel from "../components/RelocatePanel";
+import TextSizePanel from "../components/TextSizePanel";
 import EditorGuide, { guideDismissed } from "../components/EditorGuide";
 import { parsePage, listSections, readHead, sectionMotion } from "../site/page.js";
 import { pageLabel } from "../hooks/useProject";
@@ -77,7 +78,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
   const selected = Math.min(p.selected, Math.max(0, sections.length - 1));
   const writable = !!p.project?.source.writable;
   const isCloud = p.project?.source.kind === "cloud";
-  const unsavedCount = p.dirtyPages.length + (p.siteDirty ? 1 : 0) + (p.theme?.dirty ? 1 : 0);
+  const unsavedCount = p.dirtyPages.length + (p.siteDirty ? 1 : 0) + (p.textSize?.dirty ? 1 : 0);
   const onPublish = () =>
     setConfirm(
       p.anyDirty
@@ -286,7 +287,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
               ["blocks", "編輯內容"],
               ...(p.album?.ok ? [["album", "活動相簿"]] : []),
               ["site", "研究室資料"],
-              ...(p.theme ? [["theme", "外觀"]] : []),
+              ...(p.theme || p.textSize?.available ? [["theme", "外觀"]] : []),
               ["pair", "中英對照"],
               ["head", "分享設定"],
               ...(isCloud ? [["history", "版本紀錄"]] : []),
@@ -294,7 +295,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
               <button key={id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}>
                 {label}
                 {(id === "site" || id === "album") && p.siteDirty && <span className="unsaved-dot" aria-label="未保存" />}
-                {id === "theme" && p.theme?.dirty && <span className="unsaved-dot" aria-label="未保存" />}
+                {id === "theme" && p.textSize?.dirty && <span className="unsaved-dot" aria-label="未保存" />}
                 {id === "pair" && p.pairStatus[p.current] === "diff" && <span className="unsaved-dot" aria-label="結構不同" />}
               </button>
             ))}
@@ -303,9 +304,10 @@ export default function Project({ p, device, setDevice, setConfirm }) {
             <div className="inspector-body">
               <CloudHistory p={p} setConfirm={setConfirm} />
             </div>
-          ) : tab === "theme" && p.theme ? (
+          ) : tab === "theme" && (p.theme || p.textSize?.available) ? (
             <div className="inspector-body">
-              <SiteThemePanel p={p} />
+              <TextSizePanel p={p} writable={writable} />
+              {p.theme && <SiteThemePanel p={p} />}
             </div>
           ) : tab === "album" && p.album?.ok ? (
             <div className="inspector-body">

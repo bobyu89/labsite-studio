@@ -21,6 +21,7 @@ import {
 } from "@phosphor-icons/react";
 import { Field } from "../components/ui";
 import Project from "./Project";
+import UiSize from "../components/UiSize";
 
 const fmt = (t) => (t ? new Intl.DateTimeFormat("zh-TW", { dateStyle: "medium", timeStyle: "short" }).format(t) : "");
 
@@ -384,6 +385,7 @@ export default function CloudShell({ p, notice, setNotice, device, setDevice }) 
         </a>
         {me && (
           <div className="cloud-user">
+            <UiSize />
             <span>{me.email}</span>
             {me.admin && (
               <Badge variant="soft" color="gray">

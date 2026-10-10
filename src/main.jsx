@@ -4,6 +4,8 @@ import { Theme } from "@radix-ui/themes";
 import "@radix-ui/themes/styles.css";
 import App from "./App.jsx";
 import "./styles.css";
+import { applyUiSize } from "./components/UiSize.jsx";
+applyUiSize();
 createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <Theme

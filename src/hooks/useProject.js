@@ -27,6 +27,7 @@ import { prepareImage, formatBytes, isImagePath, referencedImages } from "../sit
 import { readSiteFields, patchSiteField } from "../site/siteData.js";
 import { readAlbum, writeAlbum, defaultCaption, albumPath } from "../site/album.js";
 import { TEXT_FILE, planRelocation } from "../site/relocate.js";
+import { TEXT_SIZE_FILES, readTextSize, writeTextSize, carryTextSize } from "../site/textSize.js";
 import { directorySource, detectDevSource, urlSource, normalizePath, stagedSource, resolveFrom } from "../site/source.js";
 import { createPreviewCache, invalidatePreviewCache } from "../site/preview.js";
 import { detectCloud, cloudApi, cloudSource, redeemInviteFromUrl } from "../site/cloud.js";
@@ -88,6 +89,8 @@ export function useProject(notify) {
   const [library, setLibrary] = useState(null);
   // css/theme.css of template-based sites: { text, original }, or null.
   const [theme, setThemeState] = useState(null);
+  // Sites without css/theme.css keep their text size in the main stylesheet.
+  const [textCss, setTextCss] = useState(null);
   // Skins the site can switch to, and the css/site.css being previewed:
   // { list, current, text, original, pending } or null.
   const [skin, setSkin] = useState(null);
@@ -161,7 +164,8 @@ export function useProject(notify) {
     (p) => drafts[p].present !== originals[p],
   );
   const siteDirty = !!siteData && siteData.text !== siteData.original;
-  const themeDirty = (!!theme && theme.text !== theme.original) || (!!skin && skin.text !== skin.original);
+  const themeDirty =
+    (!!theme && theme.text !== theme.original) || (!!skin && skin.text !== skin.original) || (!!textCss && textCss.text !== textCss.original);
   const anyDirty = dirtyPages.length > 0 || siteDirty || themeDirty;
   useEffect(() => {
     const onLeave = (e) => {
@@ -237,6 +241,16 @@ export function useProject(notify) {
         }
       }
       setLibrary(lib);
+      let textFile = null;
+      if (!themeFile)
+        for (const path of TEXT_SIZE_FILES) {
+          const text = await source.readText(path).catch(() => null);
+          if (text !== null) {
+            textFile = { path, text, original: text };
+            break;
+          }
+        }
+      setTextCss(textFile);
       setThemeState(themeFile);
       setSkin(skinState);
       setDrafts({});
@@ -394,6 +408,7 @@ export function useProject(notify) {
     setSiteData(null);
     setLibrary(null);
     setThemeState(null);
+    setTextCss(null);
     setSkin(null);
     setError(null);
   }
@@ -631,6 +646,17 @@ export function useProject(notify) {
     );
     return true;
   }
+  /* ---------------------------------------------------------- text size */
+  const textSize = theme
+    ? { available: true, pct: readTextSize(theme.text), file: THEME_PATH }
+    : textCss
+      ? { available: true, pct: readTextSize(textCss.text), file: textCss.path }
+      : { available: false, pct: 100 };
+  function setTextSize(pct) {
+    if (theme) setThemeState((t) => ({ ...t, text: writeTextSize(t.text, pct) }));
+    else setTextCss((c) => (c ? { ...c, text: writeTextSize(c.text, pct) } : c));
+  }
+
   /* ----------------------------------------------------------- relocate */
   // Site moved to a new address: find, then replace, old addresses in every
   // saved text file. Only with nothing unsaved, so the result is one clean
@@ -768,6 +794,8 @@ export function useProject(notify) {
   const themeText = theme && theme.text !== theme.original ? theme.text : null;
   const skinText = skin && skin.text !== skin.original ? skin.text : null;
   const siteText = siteData && siteData.text !== siteData.original ? siteData.text : null;
+  const textCssPath = textCss?.path || null;
+  const textCssText = textCss && textCss.text !== textCss.original ? textCss.text : null;
   const previewSource = useMemo(() => {
     if (!project) return null;
     invalidatePreviewCache(cache.current, THEME_PATH);
@@ -777,8 +805,12 @@ export function useProject(notify) {
     if (skinText !== null) over[SITE_CSS] = skinText;
     invalidatePreviewCache(cache.current, SITE_DATA);
     if (siteText !== null) over[SITE_DATA] = siteText;
+    if (textCssPath) {
+      invalidatePreviewCache(cache.current, textCssPath);
+      if (textCssText !== null) over[textCssPath] = textCssText;
+    }
     return stagedSource(project.source, over);
-  }, [project, staged, themeText, skinText, siteText]);
+  }, [project, staged, themeText, skinText, siteText, textCssPath, textCssText]);
 
   /* -------------------------------------------------------------- theme */
   // Changes theme values in place ({ vars, fontUrl }); saved like any file.
@@ -794,6 +826,7 @@ export function useProject(notify) {
   }
   const revertTheme = () => {
     setThemeState((t) => (t ? { ...t, text: t.original } : t));
+    setTextCss((c) => (c ? { ...c, text: c.original } : c));
     setSkin((k) => (k ? { ...k, text: k.original, pending: null } : k));
   };
   // Previews another skin: its site.css and its theme (or the skin's theme
@@ -803,7 +836,7 @@ export function useProject(notify) {
     try {
       const files = await readSkin(project.source, id);
       setSkin((k) => ({ ...k, text: files.site, pending: id }));
-      setThemeState((t) => ({ ...t, text: themeForSkin(files.theme, t.original, { keepColors }) }));
+      setThemeState((t) => ({ ...t, text: carryTextSize(t.text, themeForSkin(files.theme, t.original, { keepColors })) }));
       return true;
     } catch (e) {
       setError("無法載入版型：" + e.message);
@@ -844,6 +877,8 @@ export function useProject(notify) {
     }
     const savedTheme = themeFile && theme && theme.text !== theme.original ? theme.text : null;
     if (savedTheme !== null) files.push({ path: THEME_PATH, text: savedTheme });
+    const savedText = themeFile && textCss && textCss.text !== textCss.original ? textCss.text : null;
+    if (savedText !== null) files.push({ path: textCss.path, text: savedText });
     const savedSkin = themeFile && skin && skin.text !== skin.original ? skin : null;
     if (savedSkin) {
       files.push({ path: SITE_CSS, text: savedSkin.text });
@@ -877,6 +912,7 @@ export function useProject(notify) {
         setSiteData((sd) => ({ ...sd, original: sd.text }));
       }
       if (savedTheme !== null) setThemeState((t) => (t ? { ...t, original: savedTheme } : t));
+      if (savedText !== null) setTextCss((c) => (c ? { ...c, original: savedText } : c));
       if (savedSkin)
         setSkin((k) => (k ? { ...k, original: savedSkin.text, current: savedSkin.pending || k.current, pending: null } : k));
       const what = names.length === 1 ? names[0] : names.length + " 個檔案";
@@ -932,6 +968,8 @@ export function useProject(notify) {
     siteDirty,
     library,
     theme: theme ? { ...readTheme(theme.text), dirty: themeDirty } : null,
+    textSize: { ...textSize, dirty: themeDirty },
+    setTextSize,
     skins: skin ? { list: skin.list, current: skin.current, pending: skin.pending } : null,
     ai: { available: aiAvailable, generate: generateAiThemes },
     previewSkin,

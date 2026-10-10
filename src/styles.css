@@ -96,7 +96,7 @@ a {
   color: white;
 }
 .brand-studio {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 3.5px;
   display: block;
   line-height: 1.6;
@@ -128,22 +128,22 @@ a {
   min-width: 0;
 }
 .workspace strong {
-  font-size: 13px;
+  font-size: 14px;
   display: block;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .workspace div > span {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--muted);
 }
 .workspace .rt-Badge {
-  font-size: 10px;
+  font-size: 11px;
   padding: 1px 4px;
 }
 .nav-label {
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 1.5px;
   color: #77857e;
   padding: 0 14px;
@@ -177,7 +177,7 @@ a {
   font-weight: 600;
 }
 .nav-new {
-  font-size: 10px;
+  font-size: 11px;
   margin-left: auto;
   border: 1px solid #e0e8e3;
   padding: 1px 5px;
@@ -206,11 +206,11 @@ a {
   margin-bottom: 10px;
 }
 .help-card strong {
-  font-size: 12px;
+  font-size: 13px;
   display: block;
 }
 .help-card p {
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.8;
   color: var(--muted);
   margin: 8px 0 13px;
@@ -219,7 +219,7 @@ a {
   border: 0;
   background: none;
   color: var(--accent);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   padding: 0;
   display: flex;
@@ -240,18 +240,18 @@ a {
   border-radius: 50%;
   width: 32px;
   height: 32px;
-  font-size: 13px;
+  font-size: 14px;
 }
 .profile strong {
-  font-size: 11px;
+  font-size: 12px;
   display: block;
 }
 .profile small {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--muted);
 }
 .owner {
-  font-size: 10px;
+  font-size: 11px;
   margin-left: auto;
   color: var(--muted);
 }
@@ -271,7 +271,7 @@ a {
   display: flex;
   align-items: center;
   gap: 15px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--muted);
 }
 .breadcrumb strong {
@@ -287,7 +287,7 @@ a {
   gap: 22px;
 }
 .save-status {
-  font-size: 12px;
+  font-size: 13px;
   color: #62776b;
   display: flex;
   align-items: center;
@@ -306,7 +306,7 @@ a {
   background: #a9834b;
 }
 .top-actions .rt-Badge {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 400;
 }
 .main-content {
@@ -323,7 +323,7 @@ a {
 }
 .eyebrow {
   color: #6a8376;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 1.8px;
   margin-bottom: 12px;
@@ -349,13 +349,13 @@ h3 {
 }
 .page-heading p,
 .editor-heading p {
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.8;
   color: var(--muted);
   margin: 9px 0 0;
 }
 .page-heading > .rt-Button {
-  font-size: 13px;
+  font-size: 14px;
   box-shadow: 0 3px 6px #0d655716;
   height: 42px;
   padding: 0 18px;
@@ -385,14 +385,14 @@ h3 {
   color: var(--muted);
 }
 .card-heading .muted {
-  font-size: 12px;
+  font-size: 13px;
 }
 .separator {
   padding: 0 5px;
   color: #a4afa8;
 }
 .card-heading .rt-Badge {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 400;
 }
 .site-thumbnail {
@@ -431,7 +431,7 @@ h3 {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
+  font-size: 13px;
   transition: opacity 0.15s;
   white-space: nowrap;
 }
@@ -461,18 +461,18 @@ h3 {
   color: #6c897b;
 }
 .draft-meta strong {
-  font-size: 12px;
+  font-size: 13px;
   display: block;
   font-weight: 500;
 }
 .draft-meta div > span {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--muted);
   display: block;
   margin-top: 4px;
 }
 .site-card-footer .rt-Button {
-  font-size: 12px;
+  font-size: 13px;
   background: white;
 }
 .setup-panel {
@@ -484,7 +484,7 @@ h3 {
   flex-direction: column;
 }
 .label-icon {
-  font-size: 11px;
+  font-size: 12px;
   display: flex;
   align-items: center;
   gap: 7px;
@@ -497,7 +497,7 @@ h3 {
   letter-spacing: -0.5px;
 }
 .setup-panel > p {
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.9;
   color: #697f70;
   margin: 10px 0 18px;
@@ -530,7 +530,7 @@ h3 {
   width: 23px;
   height: 23px;
   border-radius: 50%;
-  font-size: 11px;
+  font-size: 12px;
   border: 1px solid #cad6ca;
   color: #859385;
   background: #edf3ee;
@@ -549,11 +549,11 @@ h3 {
 .setup-list strong {
   display: block;
   font-weight: 500;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.6;
 }
 .setup-list small {
-  font-size: 10px;
+  font-size: 11px;
   color: #728775;
   display: block;
   margin-top: 3px;
@@ -566,7 +566,7 @@ h3 {
   background: none;
   padding: 0;
   color: var(--accent);
-  font-size: 12px;
+  font-size: 13px;
   text-decoration: none;
 }
 .setup-panel > .text-link {
@@ -584,7 +584,7 @@ h3 {
   font-size: 16px;
 }
 .section-heading > span {
-  font-size: 11px;
+  font-size: 12px;
   color: #849087;
 }
 .quick-grid {
@@ -624,7 +624,7 @@ h3 {
   margin-bottom: 7px;
 }
 .quick-action > span:last-of-type {
-  font-size: 11px;
+  font-size: 12px;
   color: #7c897f;
   line-height: 1.8;
 }
@@ -661,18 +661,18 @@ h3 {
   border-radius: 8px;
 }
 .recent-row strong {
-  font-size: 12px;
+  font-size: 13px;
   display: block;
   font-weight: 500;
 }
 .recent-row small {
-  font-size: 10px;
+  font-size: 11px;
   display: block;
   margin-top: 5px;
   color: var(--muted);
 }
 .recent-row time {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--muted);
   margin-left: auto;
 }
@@ -692,7 +692,7 @@ h3 {
   flex: 1;
 }
 .academy-banner div > span {
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 1.6px;
 }
 .academy-banner h3 {
@@ -702,12 +702,12 @@ h3 {
   line-height: 1.8;
 }
 .academy-banner p {
-  font-size: 10px;
+  font-size: 11px;
   margin: 0;
   color: #7a8b7d;
 }
 .local-note {
-  font-size: 10px;
+  font-size: 11px;
   color: #8b968d;
   display: flex;
   justify-content: space-between;
@@ -752,7 +752,7 @@ h3 {
   border: 1px solid #dce7de;
   background: #eef5ef;
   border-radius: 7px;
-  font-size: 13px;
+  font-size: 14px;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -773,7 +773,7 @@ h3 {
   text-decoration: underline;
   color: inherit;
   white-space: nowrap;
-  font-size: 12px;
+  font-size: 13px;
 }
 .message span {
   flex: 1;
@@ -796,14 +796,14 @@ h3 {
   font-size: 24px;
 }
 .editor-heading p {
-  font-size: 12px;
+  font-size: 13px;
   margin-top: 5px;
 }
 .editor-heading .button-row {
   gap: 8px;
 }
 .editor-heading .rt-Button {
-  font-size: 12px;
+  font-size: 13px;
 }
 .editor-layout {
   border: 1px solid #dde5df;
@@ -827,7 +827,7 @@ h3 {
   border: 0;
   background: none;
   padding: 18px 0;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--muted);
 }
 .inspector-tabs button.active {
@@ -840,7 +840,7 @@ h3 {
   align-items: center;
   gap: 8px;
   padding: 20px;
-  font-size: 12px;
+  font-size: 13px;
 }
 .page-label span {
   margin-left: auto;
@@ -870,7 +870,7 @@ h3 {
   flex: 1;
   min-width: 0;
   text-align: left;
-  font-size: 12px;
+  font-size: 13px;
 }
 .block-row > button span:last-child {
   overflow: hidden;
@@ -878,13 +878,13 @@ h3 {
   white-space: nowrap;
 }
 .block-index {
-  font-size: 10px;
+  font-size: 11px;
   color: #83998b;
 }
 .add-block {
   margin: 12px;
   width: calc(100% - 24px);
-  font-size: 12px !important;
+  font-size: 13px !important;
   justify-content: center;
 }
 .block-editor {
@@ -898,7 +898,7 @@ h3 {
   margin-bottom: 20px;
 }
 .inspector-title h3 {
-  font-size: 12px;
+  font-size: 13px;
 }
 .inspector-title .button-row {
   gap: 0;
@@ -915,7 +915,7 @@ h3 {
   min-width: 0;
 }
 .field > span {
-  font-size: 12px;
+  font-size: 13px;
   color: #596f61;
 }
 .field input,
@@ -928,7 +928,7 @@ h3 {
   background: white;
   padding: 10px 11px;
   color: var(--ink);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.65;
   outline: 0;
 }
@@ -950,10 +950,10 @@ h3 {
 .field .rt-SelectTrigger {
   width: 100%;
   justify-content: space-between;
-  font-size: 12px;
+  font-size: 13px;
 }
 .small-note {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--muted);
   line-height: 1.9;
   margin: 0 0 18px;
@@ -989,7 +989,7 @@ h3 {
   gap: 12px;
 }
 .canvas-toolbar > span {
-  font-size: 11px;
+  font-size: 12px;
   color: #697c70;
   display: flex;
   align-items: center;
@@ -1036,7 +1036,7 @@ h3 {
   border: 6px solid #d6e0d8;
 }
 .canvas-caption {
-  font-size: 10px;
+  font-size: 11px;
   color: #819387;
   text-align: center;
   padding: 0 15px 5px;
@@ -1070,7 +1070,7 @@ h3 {
 }
 .tab-row button span {
   padding: 0 6px;
-  font-size: 11px;
+  font-size: 12px;
   border-radius: 4px;
   background: #e9eeea;
 }
@@ -1135,7 +1135,7 @@ h3 {
   align-items: center;
 }
 .sticky-save > span {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--muted);
 }
 .upload-zone {
@@ -1152,7 +1152,7 @@ h3 {
   color: var(--ink);
 }
 .upload-zone p {
-  font-size: 12px;
+  font-size: 13px;
   margin: 7px 0 20px;
 }
 .media-grid {
@@ -1178,7 +1178,7 @@ h3 {
   padding: 17px;
 }
 .media-card strong {
-  font-size: 13px;
+  font-size: 14px;
   display: block;
   margin-bottom: 18px;
   overflow-wrap: anywhere;
@@ -1209,7 +1209,7 @@ h3 {
   border-radius: 7px;
   min-width: 46px;
   text-align: center;
-  font-size: 13px;
+  font-size: 14px;
 }
 .history-row > div {
   flex: 1;
@@ -1223,11 +1223,11 @@ h3 {
 .history-row p {
   margin: 5px 0;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
 }
 .history-row small {
   color: #809085;
-  font-size: 11px;
+  font-size: 12px;
 }
 .empty {
   padding: 70px 25px;
@@ -1244,7 +1244,7 @@ h3 {
   color: var(--ink);
 }
 .empty p {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--muted);
   margin-bottom: 22px;
 }
@@ -1279,12 +1279,12 @@ h3 {
   font-size: 18px;
 }
 .lesson-card p {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--muted);
   margin-bottom: 0;
 }
 .lesson-card > span:last-of-type {
-  font-size: 12px;
+  font-size: 13px;
 }
 .academy-note {
   display: flex;
@@ -1297,7 +1297,7 @@ h3 {
   color: #53785f;
 }
 .academy-note p {
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.9;
   margin-bottom: 0;
   color: var(--muted);
@@ -1310,7 +1310,7 @@ h3 {
   border-top: 1px solid var(--line);
 }
 .settings-section p {
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.9;
   color: var(--muted);
 }
@@ -1408,7 +1408,7 @@ h3 {
   font-size: 14px;
 }
 .check-row p {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--muted);
   line-height: 1.8;
   margin: 5px 0;
@@ -1427,11 +1427,11 @@ h3 {
   display: flex;
   gap: 9px;
   align-items: center;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 2.2;
 }
 .rehearsal p {
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.8;
 }
 .step-dot {
@@ -1469,7 +1469,7 @@ h3 {
   max-width: calc(100% - 40px);
   background: #254e3e;
   color: white;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.8;
   box-shadow: 0 5px 25px #15392330;
   border: 1px solid #436b58;
@@ -1570,7 +1570,7 @@ h3 {
     padding: 18px;
   }
   .quick-action > span:last-of-type {
-    font-size: 10px;
+    font-size: 11px;
   }
   .editor-main {
     padding: 25px 18px;
@@ -1625,7 +1625,7 @@ h3 {
   }
   .nav-item {
     padding: 11px;
-    font-size: 13px;
+    font-size: 14px;
   }
   .main-content {
     padding: 28px 22px;
@@ -1634,7 +1634,7 @@ h3 {
     align-items: flex-start;
   }
   .page-heading > .rt-Button {
-    font-size: 12px;
+    font-size: 13px;
   }
   .page-heading p {
     max-width: 310px;
@@ -1698,7 +1698,7 @@ h3 {
     margin: 10px;
   }
   .canvas-toolbar > span {
-    font-size: 10px;
+    font-size: 11px;
   }
   .canvas-toolbar {
     padding: 0 9px;
@@ -1761,7 +1761,7 @@ h3 {
   }
   .breadcrumb {
     gap: 8px;
-    font-size: 11px;
+    font-size: 12px;
   }
   .breadcrumb > span:first-of-type,
   .breadcrumb .slash {
@@ -1774,7 +1774,7 @@ h3 {
     gap: 8px;
   }
   .save-status {
-    font-size: 10px;
+    font-size: 11px;
   }
   .main-content {
     padding: 27px 18px;
@@ -1788,14 +1788,14 @@ h3 {
     font-size: 28px;
   }
   .page-heading p {
-    font-size: 13px;
+    font-size: 14px;
     max-width: none;
   }
   .page-heading > .rt-Button {
-    font-size: 13px;
+    font-size: 14px;
   }
   .eyebrow {
-    font-size: 9px;
+    font-size: 11px;
   }
   .site-thumbnail {
     height: 240px;
@@ -1811,10 +1811,10 @@ h3 {
     font-size: 16px;
   }
   .card-heading .muted {
-    font-size: 10px;
+    font-size: 11px;
   }
   .card-heading .rt-Badge {
-    font-size: 10px;
+    font-size: 11px;
   }
   .site-card-footer {
     padding: 18px;
@@ -1823,10 +1823,10 @@ h3 {
     gap: 9px;
   }
   .draft-meta strong {
-    font-size: 11px;
+    font-size: 12px;
   }
   .draft-meta div > span {
-    font-size: 10px;
+    font-size: 11px;
   }
   .status-icon {
     width: 30px;
@@ -1840,23 +1840,23 @@ h3 {
     font-size: 21px;
   }
   .setup-panel > p {
-    font-size: 11px;
+    font-size: 12px;
   }
   .setup-list strong {
-    font-size: 11px;
+    font-size: 12px;
   }
   .setup-list small {
-    font-size: 9px;
+    font-size: 11px;
   }
   .setup-list li {
     gap: 9px;
     padding-bottom: 19px;
   }
   .label-icon {
-    font-size: 10px;
+    font-size: 11px;
   }
   .setup-panel > .text-link {
-    font-size: 10px;
+    font-size: 11px;
   }
   .section-heading > span {
     display: none;
@@ -1881,7 +1881,7 @@ h3 {
     padding-right: 20px;
   }
   .quick-action > span:last-of-type {
-    font-size: 11px;
+    font-size: 12px;
   }
   .quick-arrow {
     right: 19px;
@@ -1895,15 +1895,15 @@ h3 {
     gap: 13px;
   }
   .academy-banner h3 {
-    font-size: 12px;
+    font-size: 13px;
   }
   .academy-banner p {
-    font-size: 10px;
+    font-size: 11px;
   }
   .local-note {
     flex-direction: column;
     gap: 4px;
-    font-size: 9px;
+    font-size: 11px;
   }
   .editor-main {
     padding: 23px 13px;
@@ -1921,7 +1921,7 @@ h3 {
   }
   .block-row > button {
     padding: 10px 6px;
-    font-size: 11px;
+    font-size: 12px;
     gap: 7px;
   }
   .block-editor {
@@ -1946,13 +1946,13 @@ h3 {
     padding: 0 18px;
   }
   .canvas-toolbar > span {
-    font-size: 11px;
+    font-size: 12px;
   }
   .editor-heading .button-row {
     gap: 5px;
   }
   .editor-heading .rt-Button {
-    font-size: 11px;
+    font-size: 12px;
     padding: 0 10px;
   }
   .content-toolbar {
@@ -1966,7 +1966,7 @@ h3 {
     justify-content: space-between;
   }
   .tab-row button {
-    font-size: 13px;
+    font-size: 14px;
   }
   .search {
     max-width: none;
@@ -1980,14 +1980,14 @@ h3 {
     padding-top: 22px;
   }
   .field > span {
-    font-size: 13px;
+    font-size: 14px;
   }
   .field input,
   .field textarea {
     font-size: 14px;
   }
   .sticky-save > span {
-    font-size: 11px;
+    font-size: 12px;
   }
   .sticky-save {
     gap: 12px;
@@ -2004,7 +2004,7 @@ h3 {
   }
   .history-row .rt-Button {
     margin-left: 60px;
-    font-size: 12px;
+    font-size: 13px;
   }
   .history-row h3 {
     font-size: 14px;
@@ -2030,7 +2030,7 @@ h3 {
     font-size: 15px;
   }
   .lesson-card p {
-    font-size: 12px;
+    font-size: 13px;
   }
   .academy-note {
     padding: 20px 17px;
@@ -2043,7 +2043,7 @@ h3 {
     font-size: 14px;
   }
   .academy-note p {
-    font-size: 12px;
+    font-size: 13px;
   }
   .settings-section {
     grid-template-columns: 1fr;
@@ -2059,7 +2059,7 @@ h3 {
     padding: 18px;
   }
   .preview-toolbar .rt-Button {
-    font-size: 11px;
+    font-size: 12px;
     padding: 0 10px;
   }
   .full-preview {
@@ -2073,19 +2073,19 @@ h3 {
     flex-wrap: wrap;
   }
   .dialog-actions .rt-Button {
-    font-size: 12px;
+    font-size: 13px;
   }
   .toast {
     left: 50%;
     bottom: 16px;
     width: max-content;
     max-width: calc(100% - 25px);
-    font-size: 12px;
+    font-size: 13px;
     padding: 12px 15px;
   }
   .message {
     flex-wrap: wrap;
-    font-size: 12px;
+    font-size: 13px;
     padding: 13px;
   }
   .message span {
@@ -2135,7 +2135,7 @@ h3 {
   margin-top: 12px;
 }
 .import-summary > p {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--muted);
   overflow-wrap: anywhere;
 }
@@ -2146,7 +2146,7 @@ h3 {
   margin: 22px 0;
 }
 .import-summary dt {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--muted);
 }
 .import-summary dd {
@@ -2181,7 +2181,7 @@ h3 {
 .recent-row small,
 .local-note,
 .save-status {
-  font-size: 12px;
+  font-size: 13px;
 }
 .setup-panel {
   min-width: 0;
@@ -2225,29 +2225,29 @@ h3 {
     font-size: 14px;
   }
   .setup-list small {
-    font-size: 12px;
+    font-size: 13px;
   }
   .setup-panel > .text-link {
     font-size: 14px;
   }
   .local-note {
-    font-size: 11px;
+    font-size: 12px;
   }
   .block-row > button {
-    font-size: 12px;
+    font-size: 13px;
   }
   .top-actions .save-status {
-    font-size: 11px;
+    font-size: 12px;
   }
   .editor-heading .rt-Button {
-    font-size: 12px;
+    font-size: 13px;
   }
   .inspector-title {
     flex-wrap: wrap;
     gap: 10px;
   }
   .quick-action > span:last-of-type {
-    font-size: 12px;
+    font-size: 13px;
   }
   .lesson-card > div {
     min-width: 0;
@@ -2286,12 +2286,12 @@ h3 {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--muted);
 }
 .page-picker select {
   font: inherit;
-  font-size: 13px;
+  font-size: 14px;
   padding: 7px 10px;
   border: 1px solid #d3ddd6;
   border-radius: 6px;
@@ -2318,7 +2318,7 @@ h3 {
   gap: 10px;
 }
 .inspector-subtitle .muted {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 400;
 }
 .section-list {
@@ -2379,7 +2379,7 @@ h3 {
   flex: 1;
   min-width: 0;
   text-align: left;
-  font-size: 13px;
+  font-size: 14px;
 }
 .section-title {
   overflow: hidden;
@@ -2388,7 +2388,7 @@ h3 {
   flex: 1;
 }
 .section-kind {
-  font-size: 10px;
+  font-size: 11px;
   color: #83998b;
   border: 1px solid #dbe5de;
   border-radius: 999px;
@@ -2428,7 +2428,7 @@ h3 {
   border-bottom: 1px dashed var(--line);
 }
 .field-image-label {
-  font-size: 12px;
+  font-size: 13px;
   color: #596f61;
   display: flex;
   align-items: center;
@@ -2437,7 +2437,7 @@ h3 {
 }
 .field-image-src {
   display: block;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--muted);
   background: #f4f7f5;
   border-radius: 5px;
@@ -2490,13 +2490,13 @@ h3 {
 }
 .open-card p {
   margin: 0;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.8;
   color: var(--muted);
   flex: 1;
 }
 .open-card code {
-  font-size: 12px;
+  font-size: 13px;
   background: #f1f5f2;
   padding: 1px 5px;
   border-radius: 4px;
@@ -2522,7 +2522,7 @@ h3 {
 .url-row select,
 .url-row input {
   font: inherit;
-  font-size: 13px;
+  font-size: 14px;
   padding: 8px 10px;
   border: 1px solid #d3ddd6;
   border-radius: 6px;
@@ -2549,7 +2549,7 @@ h3 {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 13px;
+  font-size: 14px;
 }
 .gh-user img {
   border-radius: 50%;
@@ -2590,11 +2590,11 @@ h3 {
   justify-content: space-between;
   padding: 8px 10px 8px 12px;
   border-bottom: 1px solid #e6ece8;
-  font-size: 13px;
+  font-size: 14px;
 }
 .item-list-head .muted {
   font-weight: 400;
-  font-size: 11px;
+  font-size: 12px;
   margin-left: 8px;
 }
 .item-row {
@@ -2642,7 +2642,7 @@ h3 {
   align-items: center;
   gap: 8px;
   padding: 9px 6px 9px 2px;
-  font-size: 12.5px;
+  font-size: 13px;
   text-align: left;
   color: var(--ink);
 }
@@ -2686,7 +2686,7 @@ h3 {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
+  font-size: 13px;
   color: #596f61;
 }
 .pair-row {
@@ -2704,13 +2704,13 @@ h3 {
 }
 .pair-panel .text-link {
   margin-left: 8px;
-  font-size: 12px;
+  font-size: 13px;
 }
 .editor-layout.project.wide-inspector {
   grid-template-columns: 520px minmax(0, 1fr);
 }
 .lang-switch-btn {
-  font-size: 12px;
+  font-size: 13px;
 }
 @media (max-width: 1023px) {
   .editor-layout.project.wide-inspector {
@@ -2745,7 +2745,7 @@ h3 {
   display: flex;
   align-items: center;
   gap: 12px;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--muted);
 }
 .icon-link {
@@ -2778,7 +2778,7 @@ h3 {
   width: 100%;
 }
 .cloud-site-url {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--accent);
   text-decoration: none;
   display: inline-flex;
@@ -2791,7 +2791,7 @@ h3 {
 }
 .open-card p.cloud-backup {
   flex: 0;
-  font-size: 12px;
+  font-size: 13px;
   display: flex;
   gap: 6px;
   align-items: flex-start;
@@ -2806,7 +2806,7 @@ h3 {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  font-size: 13px;
+  font-size: 14px;
 }
 .cloud-members strong {
   display: flex;
@@ -2834,7 +2834,7 @@ h3 {
   border: 1px solid #d6dfda;
   border-radius: 7px;
   padding: 6px 10px;
-  font-size: 13px;
+  font-size: 14px;
 }
 .cloud-form {
   display: flex;
@@ -2880,15 +2880,15 @@ h3 {
   flex-wrap: wrap;
   gap: 6px;
   align-items: center;
-  font-size: 13px;
+  font-size: 14px;
 }
 .history-meta {
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--muted);
   overflow-wrap: anywhere;
 }
 .history-item details {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--muted);
 }
 .history-item details ul {
@@ -2903,7 +2903,7 @@ h3 {
 .chg {
   display: inline-block;
   min-width: 2.6em;
-  font-size: 11px;
+  font-size: 12px;
   border-radius: 4px;
   padding: 0 4px;
   margin-right: 4px;
@@ -2925,7 +2925,8 @@ h3 {
   .cloud-topbar {
     padding: 0 16px;
   }
-  .cloud-user > span:first-child {
+  .cloud-user > span:first-of-type,
+  .ui-size > span {
     display: none;
   }
   .cloud-grid {
@@ -2954,12 +2955,12 @@ h3 {
   border: 1px solid #d6dfda;
   border-radius: 7px;
   padding: 6px 10px;
-  font-size: 12px;
+  font-size: 13px;
   background: #f8faf9;
 }
 .invite-email {
   flex: none;
-  font-size: 13px;
+  font-size: 14px;
   background: #fff;
 }
 .cloud-members li {
@@ -2997,7 +2998,7 @@ h3 {
   border-radius: 6px;
   background: transparent;
   color: var(--accent);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
 }
 .section-add:hover {
@@ -3021,7 +3022,7 @@ h3 {
 }
 .library-group h4 {
   margin: 0 0 6px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--muted);
 }
@@ -3035,11 +3036,11 @@ h3 {
   border-radius: 6px;
   background: transparent;
   padding: 8px 10px;
-  font-size: 13px;
+  font-size: 14px;
 }
 .library-item span {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.5;
 }
 .library-item:hover {
@@ -3098,7 +3099,7 @@ h3 {
 }
 .theme-block h4 {
   margin: 0;
-  font-size: 13px;
+  font-size: 14px;
 }
 .theme-block-head {
   display: flex;
@@ -3119,7 +3120,7 @@ h3 {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
-  font-size: 12px;
+  font-size: 13px;
 }
 .theme-card:hover {
   border-color: #b9cdc1;
@@ -3141,7 +3142,7 @@ h3 {
   justify-self: start;
   padding: 2px 8px;
   border: 1.5px solid currentColor;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
 }
 .theme-colors {
@@ -3153,7 +3154,7 @@ h3 {
   grid-template-columns: 34px 1fr auto;
   align-items: center;
   gap: 10px;
-  font-size: 13px;
+  font-size: 14px;
 }
 .theme-color input[type="color"] {
   width: 34px;
@@ -3165,7 +3166,7 @@ h3 {
 }
 .theme-color code {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
 }
 .theme-ok {
   display: flex;
@@ -3184,7 +3185,7 @@ h3 {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
-  font-size: 13px;
+  font-size: 14px;
 }
 .skin-card strong {
   display: flex;
@@ -3192,13 +3193,13 @@ h3 {
   gap: 8px;
 }
 .skin-card strong .muted {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 400;
   color: var(--muted);
 }
 .skin-card span {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.6;
 }
 .skin-card:hover {
@@ -3212,7 +3213,7 @@ h3 {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: 14px;
 }
 .ai-form {
   display: grid;
@@ -3225,7 +3226,7 @@ h3 {
   border-radius: 6px;
   padding: 9px 11px;
   font: inherit;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.6;
 }
 .ai-form textarea:focus {
@@ -3238,7 +3239,7 @@ h3 {
 }
 .theme-why {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.55;
 }
 
@@ -3293,7 +3294,7 @@ h3 {
   place-items: center;
   overflow: hidden;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
 }
 .photo-thumb img {
   width: 100%;
@@ -3303,7 +3304,7 @@ h3 {
 .photo-meta {
   display: grid;
   gap: 2px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--muted);
 }
 .photo-meta code {
@@ -3323,7 +3324,7 @@ h3 {
   border: 0;
   background: #fff;
   padding: 7px 14px;
-  font-size: 13px;
+  font-size: 14px;
 }
 .segmented button + button {
   border-left: 1px solid #d3ddd6;
@@ -3454,7 +3455,7 @@ h3 {
   margin-bottom: 12px;
 }
 .album-drop span {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--muted);
   margin-bottom: 4px;
 }
@@ -3510,7 +3511,7 @@ h3 {
 }
 .editor-heading p.site-address {
   margin-top: 4px;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--muted);
 }
 .site-address a {
@@ -3540,13 +3541,13 @@ h3 {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--muted);
 }
 .relocate-pairs input:not([type="checkbox"]) {
   grid-column: 1;
   width: 100%;
-  font-size: 12px;
+  font-size: 13px;
   padding: 6px 8px;
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -3561,6 +3562,47 @@ h3 {
 .relocate-plan ul {
   margin: 0;
   padding-left: 18px;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.8;
+}
+.text-size-panel {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 22px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+.text-size-panel .inspector-subtitle,
+.text-size-panel .small-note {
+  margin: 0;
+}
+.text-size-panel .rt-Button {
+  justify-self: start;
+}
+
+/* Editor text size (標準／大／特大, top right). The whole editor is zoomed,
+   dialogs included; the preview is zoomed back so the site shows at its real
+   size. */
+:root[data-ui-size="large"] body {
+  zoom: 1.12;
+}
+:root[data-ui-size="large"] .canvas-frame {
+  zoom: calc(1 / 1.12);
+}
+:root[data-ui-size="xlarge"] body {
+  zoom: 1.25;
+}
+:root[data-ui-size="xlarge"] .canvas-frame {
+  zoom: calc(1 / 1.25);
+}
+.ui-size {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.ui-size .segmented button {
+  padding: 3px 9px;
+  line-height: 1.4;
 }
