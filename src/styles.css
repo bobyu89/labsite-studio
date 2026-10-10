@@ -3897,3 +3897,47 @@ h3 {
   justify-items: start;
   margin-top: 12px;
 }
+/* Photos reorder by dragging the picture itself. */
+.ca-drag {
+  cursor: grab;
+  touch-action: none;
+  border-radius: 6px;
+}
+.ca-drag:active {
+  cursor: grabbing;
+}
+.ca-drag.off {
+  cursor: default;
+}
+.ca-tile.dragging,
+.album-list li.dragging {
+  opacity: 0.45;
+}
+.ca-tile.drop-before::before,
+.ca-tile.drop-after::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+.ca-tile.drop-before::before {
+  left: -9px;
+}
+.ca-tile.drop-after::after {
+  right: -9px;
+}
+.album-list li.drop-before {
+  box-shadow: inset 0 3px 0 var(--accent);
+}
+.album-list li.drop-after {
+  box-shadow: inset 0 -3px 0 var(--accent);
+}
+.album-list li.album-hint {
+  display: block;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}

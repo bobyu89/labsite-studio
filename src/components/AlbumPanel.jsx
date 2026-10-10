@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Button } from "@radix-ui/themes";
 import { ImagesSquare, ArrowUp, ArrowDown, Trash, FloppyDisk, UploadSimple, ArrowSquareOut } from "@phosphor-icons/react";
 import { PICKER_ACCEPT } from "../site/images.js";
+import { useDragReorder } from "../hooks/useDragReorder";
 
 export function Thumb({ p, src }) {
   const [url, setUrl] = useState(null);
@@ -37,11 +38,14 @@ export default function AlbumPanel({ p, writable, galleryPage, openPage, setConf
     if (files.length) p.addAlbumPhotos(files);
   };
   const update = (i, patch) => p.setAlbumPhotos(photos.map((x, j) => (j === i ? { ...x, ...patch } : x)));
-  const move = (i, d) => {
+  const reorder = (from, to) => {
     const next = photos.slice();
-    [next[i], next[i + d]] = [next[i + d], next[i]];
+    next.splice(to, 0, next.splice(from, 1)[0]);
     p.setAlbumPhotos(next);
   };
+  const move = (i, d) => reorder(i, i + d);
+  const listRef = useRef(null);
+  const { start, rowClass } = useDragReorder(listRef, reorder);
   return (
     <div className="album-panel">
       <p className="small-note">
@@ -96,10 +100,17 @@ export default function AlbumPanel({ p, writable, galleryPage, openPage, setConf
       {photos.length === 0 ? (
         <p className="small-note">相簿還是空的；網站目前顯示的是範例圖。加入第一張照片後，範例圖就會換成你的照片。</p>
       ) : (
-        <ol className="album-list">
+        <ol className="album-list" ref={listRef} data-list>
+          {photos.length > 1 && writable && <li className="album-hint small-note">用滑鼠按住照片拖曳，就能調整順序。</li>}
           {photos.map((photo, i) => (
-            <li key={photo.src + i}>
-              <Thumb p={p} src={photo.thumb || photo.src} />
+            <li key={photo.src + i} data-row className={rowClass(i, photos.length)}>
+              <div
+                className={"ca-drag" + (writable ? "" : " off")}
+                title={writable ? "按住拖曳可以調整順序" : undefined}
+                onPointerDown={writable ? (e) => start(e, i) : undefined}
+              >
+                <Thumb p={p} src={photo.thumb || photo.src} />
+              </div>
               <div className="album-fields">
                 <label className="field">
                   <span>照片說明</span>

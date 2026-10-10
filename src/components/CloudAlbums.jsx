@@ -19,6 +19,7 @@ import { Modal } from "./ui";
 import { Thumb } from "./AlbumPanel";
 import { formatBytes, PICKER_ACCEPT } from "../site/images.js";
 import { newAlbumId, coverOf } from "../site/albums.js";
+import { useDragReorder } from "../hooks/useDragReorder";
 
 const ALL = "__all";
 const ACTIVITY = "__activity";
@@ -64,23 +65,34 @@ function DropZone({ disabled, onFiles, children }) {
 
 // The photos of one album, editable (or pickable).
 function PhotoGrid({ p, photos, onChange, pick, onPick, cover, onCover, moveTargets, onMove, writable }) {
-  const swap = (i, d) => {
+  const listRef = useRef(null);
+  const reorder = (from, to) => {
     const next = photos.slice();
-    [next[i], next[i + d]] = [next[i + d], next[i]];
+    next.splice(to, 0, next.splice(from, 1)[0]);
     onChange(next);
   };
+  const { start, rowClass } = useDragReorder(listRef, reorder, { grid: true });
+  const swap = (i, d) => reorder(i, i + d);
   if (!photos.length) return <p className="small-note">這本相簿還沒有照片。</p>;
   return (
-    <ul className="ca-grid">
+    <>
+      {!pick && writable && photos.length > 1 && <p className="small-note">用滑鼠按住照片拖曳，就能調整順序。</p>}
+    <ul className="ca-grid" ref={listRef} data-list>
       {photos.map((ph, i) => (
-        <li key={ph.src + i} className="ca-tile">
+        <li key={ph.src + i} className={"ca-tile" + rowClass(i, photos.length)} data-row>
           {pick ? (
             <button type="button" className="ca-pick" onClick={() => onPick(ph.src)} aria-label={"使用「" + (ph.caption || ph.src) + "」"}>
               <Thumb p={p} src={ph.src} />
               <span>使用這張</span>
             </button>
           ) : (
-            <Thumb p={p} src={ph.src} />
+            <div
+              className={"ca-drag" + (writable ? "" : " off")}
+              title={writable ? "按住拖曳可以調整順序" : undefined}
+              onPointerDown={writable ? (e) => start(e, i) : undefined}
+            >
+              <Thumb p={p} src={ph.src} />
+            </div>
           )}
           {cover === ph.src && <span className="ca-cover">封面</span>}
           {!pick && (
@@ -136,6 +148,7 @@ function PhotoGrid({ p, photos, onChange, pick, onPick, cover, onCover, moveTarg
         </li>
       ))}
     </ul>
+    </>
   );
 }
 

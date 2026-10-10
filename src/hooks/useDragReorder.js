@@ -1,9 +1,10 @@
 import { useRef, useState } from "react";
 
-// Pointer-based reordering for a vertical list (mouse, pen, touch). Rows are
-// found with `[data-row]` inside `listRef`. The move fires exactly once on
-// release; state only drives the drop indicator.
-export function useDragReorder(listRef, onMove) {
+// Pointer-based reordering for a vertical list or, with { grid: true }, a
+// wrapping grid of tiles (mouse, pen, touch). Rows are found with `[data-row]`
+// inside `listRef`. The move fires exactly once on release; state only drives
+// the drop indicator.
+export function useDragReorder(listRef, onMove, { grid = false } = {}) {
   const dragRef = useRef(null);
   const [drag, setDrag] = useState(null);
   const update = (next) => {
@@ -14,10 +15,27 @@ export function useDragReorder(listRef, onMove) {
     if (e.button !== undefined && e.button !== 0) return;
     e.preventDefault();
     const target = e.currentTarget;
-    target.setPointerCapture?.(e.pointerId);
+    try {
+      target.setPointerCapture?.(e.pointerId);
+    } catch {
+      /* synthetic or already-released pointer */
+    }
     update({ from: index, over: index });
     const rows = () => [...listRef.current.querySelectorAll(":scope [data-row]")].filter((r) => r.closest("[data-list]") === listRef.current);
-    const overAt = (y) => {
+    // Grid: the slot before or after the tile under the pointer (or nearest).
+    const overAtGrid = (x, y) => {
+      const list = rows();
+      let best = null;
+      list.forEach((row, i) => {
+        const r = row.getBoundingClientRect();
+        const inside = x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+        const d = inside ? -1 : Math.hypot(x - (r.left + r.width / 2), y - (r.top + r.height / 2));
+        if (!best || d < best.d) best = { d, slot: x < r.left + r.width / 2 ? i : i + 1 };
+      });
+      return best ? best.slot : 0;
+    };
+    const overAt = (y, x) => {
+      if (grid) return overAtGrid(x, y);
       const list = rows();
       let over = list.length;
       list.some((row, i) => {
@@ -31,7 +49,7 @@ export function useDragReorder(listRef, onMove) {
       return over;
     };
     const move = (ev) => {
-      if (dragRef.current) update({ ...dragRef.current, over: overAt(ev.clientY) });
+      if (dragRef.current) update({ ...dragRef.current, over: overAt(ev.clientY, ev.clientX) });
     };
     const end = (ev) => {
       target.removeEventListener("pointermove", move);
@@ -40,7 +58,7 @@ export function useDragReorder(listRef, onMove) {
       const d = dragRef.current;
       update(null);
       if (!d) return;
-      const slot = ev.type === "pointerup" && Number.isFinite(ev.clientY) ? overAt(ev.clientY) : d.over;
+      const slot = ev.type === "pointerup" && Number.isFinite(ev.clientY) ? overAt(ev.clientY, ev.clientX) : d.over;
       if (slot !== d.from) {
         const to = slot > d.from ? slot - 1 : slot;
         if (to !== d.from) onMove(d.from, to);
