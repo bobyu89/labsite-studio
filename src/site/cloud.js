@@ -47,6 +47,7 @@ export function cloudApi(fetchImpl = (...a) => fetch(...a)) {
     me: () => call("GET", "/me"),
     logout: () => call("POST", "/logout", {}),
     createInvite: (email) => call("POST", "/invites", { email }),
+    deviceLink: () => call("POST", "/invites/self", {}),
     importSite: (body) => call("POST", "/sites", body),
     site: (id) => call("GET", site(id)),
     history: (id, limit = 50) => call("GET", site(id) + "/history?limit=" + limit),

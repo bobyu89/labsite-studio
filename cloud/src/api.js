@@ -2,7 +2,7 @@
 // Cloudflare Access. Bindings: DB (D1), BLOBS (R2), ASSETS (editor build).
 import { Hono } from "hono";
 import { currentUser } from "./auth.js";
-import { COOKIE, SESSION_TTL, createInvite, redeemInvite, endSession, sessionCookie, readCookie } from "./sessions.js";
+import { COOKIE, SESSION_TTL, DEVICE_LINK_TTL, createInvite, redeemInvite, endSession, sessionCookie, readCookie } from "./sessions.js";
 import { fromBase64, enc } from "./bytes.js";
 import { contentType } from "./mime.js";
 import { zip } from "./zip.js";
@@ -98,7 +98,11 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
   app.post("/api/login", async (c) => {
     const body = await c.req.json().catch(() => ({}));
     const r = await redeemInvite(c.env, body.invite);
-    if (!r) return c.json({ error: "這個登入連結無效、已經用過或已過期，請向管理者索取新的連結。" }, 401);
+    if (!r)
+      return c.json(
+        { error: "這個登入連結無效、已經用過或已過期。如果你在別的電腦或手機已經登入，請在那裡按右上角「其他裝置登入」產生新的連結；否則請向管理者索取。" },
+        401,
+      );
     const secure = new URL(c.req.url).protocol === "https:";
     c.header("Set-Cookie", sessionCookie(r.session, { maxAge: Math.floor(SESSION_TTL / 1000), secure }));
     return c.json({ email: r.email });
@@ -107,6 +111,12 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
   app.use("/api/*", async (c, next) => {
     const user = await currentUser(c.req.raw, c.env, fetchImpl);
     if (!user) return c.json({ error: "請先登入。" }, 401);
+    // A session used today keeps going for another 90 days: refresh the cookie too.
+    if (user.renewedSession) {
+      const secure = new URL(c.req.url).protocol === "https:";
+      c.header("Set-Cookie", sessionCookie(user.renewedSession, { maxAge: Math.floor(SESSION_TTL / 1000), secure }));
+      delete user.renewedSession;
+    }
     user.admin = isAdmin(c.env, user.email);
     c.set("user", user);
     c.header("Cache-Control", "no-store");
@@ -155,6 +165,14 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
     const { token, expiresAt } = await createInvite(c.env, email, c.get("user").email);
     const url = new URL(c.req.url).origin + "/?invite=" + token;
     return c.json({ email, url, expiresAt });
+  });
+
+  // Sign in on another device: a 15-minute one-time link for yourself.
+  app.post("/api/invites/self", async (c) => {
+    const user = c.get("user");
+    if (user.via === "access") throw new RepoError(400, "這個網站用 Cloudflare Access 登入，請在新裝置直接用 Email 登入。");
+    const { token, expiresAt } = await createInvite(c.env, user.email, user.email, Date.now(), DEVICE_LINK_TTL);
+    return c.json({ email: user.email, url: new URL(c.req.url).origin + "/?invite=" + token, expiresAt });
   });
 
   /* --------------------------------------------------------- sites */

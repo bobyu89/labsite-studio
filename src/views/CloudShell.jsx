@@ -22,6 +22,7 @@ import {
 import { Field } from "../components/ui";
 import Project from "./Project";
 import UiSize from "../components/UiSize";
+import DeviceLogin from "../components/DeviceLogin";
 
 const fmt = (t) => (t ? new Intl.DateTimeFormat("zh-TW", { dateStyle: "medium", timeStyle: "short" }).format(t) : "");
 
@@ -61,7 +62,7 @@ function InviteLink({ p, email, label = "登入連結" }) {
             </Button>
           </div>
           <span className="small-note">
-            把連結傳給 {link.email}。只能用一次，{fmt(link.expiresAt)} 前有效；登入後 30 天內不用再登入。
+            把連結傳給 {link.email}。只能用一次，{fmt(link.expiresAt)} 前有效。登入後持續使用不會被登出；換裝置時，老師可以自己按「其他裝置登入」。
           </span>
         </>
       )}
@@ -386,6 +387,7 @@ export default function CloudShell({ p, notice, setNotice, device, setDevice }) 
         {me && (
           <div className="cloud-user">
             <UiSize />
+            {me.via !== "access" && <DeviceLogin p={p} />}
             <span>{me.email}</span>
             {me.admin && (
               <Badge variant="soft" color="gray">
@@ -414,10 +416,12 @@ export default function CloudShell({ p, notice, setNotice, device, setDevice }) 
         {signedOut ? (
           <div className="signed-out">
             <h1>請用登入連結開啟</h1>
+            <p>LabSite 不用密碼。請打開管理者傳給你的登入連結；登入後只要持續使用，就不會被登出。</p>
             <p>
-              LabSite 不用密碼。請打開管理者傳給你的登入連結，登入後 30 天內都不用再登入。
-              連結只能用一次；用過或過期了，請向管理者索取新的。
+              <strong>換了電腦或手機？</strong>在已經登入的那台裝置上，按右上角「其他裝置登入」，用新裝置的相機掃 QR code
+              （或打開那條連結）就能登入，不用再找管理者。
             </p>
+            <p className="small-note">連結只能用一次；如果所有裝置都沒有登入，再請管理者傳一條新的。</p>
             {p.cloud.error && p.cloud.error !== "請先登入。" && (
               <div className="message error" role="alert">
                 <WarningCircle size={20} />

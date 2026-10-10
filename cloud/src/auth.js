@@ -60,7 +60,7 @@ export async function verifyAccessJwt(token, { team, aud, now = Date.now(), fetc
 
 const isLocal = (request) => /^(localhost|127\.0\.0\.1|\[::1\])$/.test(new URL(request.url).hostname);
 
-// → { email, via: "dev" | "access" | "session" } or null.
+// → { email, via: "dev" | "access" | "session", renewedSession? } or null.
 export async function currentUser(request, env, fetchImpl = fetch) {
   if (env.DEV_AUTH === "on" && env.DEV_USER_EMAIL && isLocal(request))
     return { email: String(request.headers.get("X-Dev-Email") || env.DEV_USER_EMAIL).toLowerCase(), via: "dev" };
@@ -81,7 +81,7 @@ export async function currentUser(request, env, fetchImpl = fetch) {
   const session = readCookie(request, COOKIE);
   if (session && env.DB) {
     const user = await sessionUser(env, session);
-    if (user) return { email: user.email, via: "session" };
+    if (user) return { email: user.email, via: "session", ...(user.renewed ? { renewedSession: session } : {}) };
   }
   return null;
 }

@@ -3941,3 +3941,44 @@ h3 {
   padding: 0;
   margin: 0;
 }
+.device-login-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+@media (max-width: 1000px) {
+  .device-login-btn span {
+    display: none;
+  }
+}
+.device-login {
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+  margin-top: 12px;
+}
+.device-qr {
+  width: min(240px, 70vw);
+  padding: 8px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.device-qr svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.device-login .invite-row {
+  width: 100%;
+}
+.device-login .small-note {
+  margin: 0;
+  text-align: center;
+}
+.icon-link.device-login-btn {
+  width: auto;
+  padding: 0 8px;
+}

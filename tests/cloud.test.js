@@ -568,7 +568,7 @@ test("without R2, file contents live in D1 chunks and behave the same", async ()
 });
 
 /* ======================================================== invite links */
-test("invite links: one use, expiry, 30-day session, logout", async () => {
+test("invite links: one use, expiry, 90-day session renewed while used, logout", async () => {
   const s = await import("../cloud/src/sessions.js");
   const env = fakeEnv();
   const now = T0;
@@ -579,8 +579,13 @@ test("invite links: one use, expiry, 30-day session, logout", async () => {
   const r = await s.redeemInvite(env, token, now + 1000);
   assert.equal(r.email, "teacher@lab.tw");
   assert.equal(await s.redeemInvite(env, token, now + 2000), null, "a link works once");
-  assert.deepEqual(await s.sessionUser(env, r.session, now + 5000), { email: "teacher@lab.tw" });
-  assert.equal(await s.sessionUser(env, r.session, now + 1000 + s.SESSION_TTL + 1), null, "sessions expire");
+  assert.deepEqual(await s.sessionUser(env, r.session, now + 5000), { email: "teacher@lab.tw" }, "fresh: no renewal write");
+  // Used 60 days later: extended to 90 days from then.
+  const later = now + 60 * 24 * 3600 * 1000;
+  assert.deepEqual(await s.sessionUser(env, r.session, later), { email: "teacher@lab.tw", renewed: later + s.SESSION_TTL });
+  const again = now + s.SESSION_TTL + 1000;
+  assert.ok(await s.sessionUser(env, r.session, again), "still valid past the first 90 days (and renewed again)");
+  assert.equal(await s.sessionUser(env, r.session, again + s.SESSION_TTL + 1), null, "90 days without use: expired");
   await s.endSession(env, r.session);
   assert.equal(await s.sessionUser(env, r.session, now + 5000), null, "logout ends the session");
   const old = await s.createInvite(env, "t2@lab.tw", "a", now);
@@ -618,7 +623,7 @@ test("API sign-in by invite link: admin makes a link, teacher opens it, cookie s
   const login = await req("POST", "/api/login", { body: { invite: boot.token } });
   assert.equal(login.status, 200);
   const setCookie = login.headers.get("Set-Cookie");
-  assert.match(setCookie, /^ls_session=[0-9a-f]{64}; Path=\/; HttpOnly; SameSite=Lax; Max-Age=2592000; Secure$/);
+  assert.match(setCookie, /^ls_session=[0-9a-f]{64}; Path=\/; HttpOnly; SameSite=Lax; Max-Age=7776000; Secure$/);
   const admin = setCookie.split(";")[0];
   const me = await (await req("GET", "/api/me", { cookie: admin })).json();
   assert.deepEqual([me.email, me.admin, me.via], ["admin@lab.tw", true, "session"]);
@@ -634,6 +639,18 @@ test("API sign-in by invite link: admin makes a link, teacher opens it, cookie s
   const tme = await (await req("GET", "/api/me", { cookie: teacher })).json();
   assert.deepEqual([tme.email, tme.admin, tme.sites.map((x) => x.slug)], ["teacher@lab.tw", false, ["sung"]]);
   assert.equal((await req("POST", "/api/invites", { cookie: teacher, body: { email: "x@lab.tw" } })).status, 403, "teachers cannot invite");
+
+  // The teacher signs in on a phone with a link they make themselves.
+  const dev = await req("POST", "/api/invites/self", { cookie: teacher, body: {} });
+  assert.equal(dev.status, 200);
+  const d = await dev.json();
+  assert.equal(d.email, "teacher@lab.tw", "always for yourself");
+  assert.ok(d.expiresAt - Date.now() <= 15 * 60 * 1000 && d.expiresAt > Date.now());
+  const phone = await req("POST", "/api/login", { body: { invite: new URL(d.url).searchParams.get("invite") } });
+  assert.equal(phone.status, 200);
+  const phoneMe = await (await req("GET", "/api/me", { cookie: phone.headers.get("Set-Cookie").split(";")[0] })).json();
+  assert.equal(phoneMe.email, "teacher@lab.tw");
+  assert.equal((await req("POST", "/api/invites/self", { body: {} })).status, 401, "only when signed in");
 
   // Used link, cross-site login attempt, logout.
   assert.equal((await req("POST", "/api/login", { body: { invite: new URL(url).searchParams.get("invite") } })).status, 401);
