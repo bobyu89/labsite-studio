@@ -316,4 +316,11 @@ test("version messages name pages the way teachers know them", async () => {
   assert.equal(saveMessage([{ path: "js/data.js" }]), "修改 網站資料");
   assert.equal(saveMessage([{ path: "assets/x.png" }]), "換 1 張圖片");
   assert.equal(saveMessage([{ path: "custom.html" }]), "修改 custom");
+  // Not everything that is not a page is a picture.
+  assert.equal(
+    saveMessage([{ path: "data/albums.json" }, { path: "js/labsite-albums.js" }, { path: "css/labsite-blocks.css" }, { path: "assets/albums/p.webp" }]),
+    "修改 雲端相簿，換 1 張圖片",
+  );
+  assert.equal(saveMessage([{ path: "css/theme.css" }, { path: "css/site.css" }, { path: "labsite/skins.json" }]), "修改 外觀");
+  assert.equal(saveMessage([{ path: "js/enrich.js" }]), "另有 1 個檔案");
 });
