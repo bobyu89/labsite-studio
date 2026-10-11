@@ -27,6 +27,11 @@ migrations_dir = "migrations"
 # binding = "BLOBS"
 # bucket_name = "labsite-blobs"
 
+# Hourly: back up every site whose latest saved version is not on GitHub yet
+# (cloud/src/github.js backupAll). Costs nothing for sites that did not change.
+[triggers]
+crons = ["17 * * * *"]
+
 [vars]
 # Comma-separated emails that can import sites and manage members.
 ADMIN_EMAILS = "bobyu89@gmail.com"
@@ -37,5 +42,8 @@ SITE_URL_TEMPLATE = "https://labsite-sites.shiftguard-navicare.workers.dev/{slug
 # (`npm --prefix cloud run invite -- <email>` for the first admin).
 ACCESS_TEAM_DOMAIN = ""
 ACCESS_AUD = ""
+# Sites made from a template (no GitHub repository of their own) are backed
+# up to sites/<slug>/ in this repository.
+BACKUP_REPO = "bobyu89/labsite-backups"
 # Secret (wrangler secret put): GITHUB_BACKUP_TOKEN — fine-grained token with
 # Contents read/write on the backed-up repos. Without it, backup is skipped.

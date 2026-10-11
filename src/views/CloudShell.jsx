@@ -178,18 +178,18 @@ function SiteCard({ p, site, admin }) {
           {site.url.replace(/^https?:\/\//, "")} <ArrowSquareOut size={13} />
         </a>
       )}
-      {admin && site.github && (
-        <p className="cloud-backup">
-          <GithubLogo size={14} /> 備份到 {site.github}：
+      {admin && (
+        <p className={"cloud-backup" + (backup.status === "error" ? " error-text" : "")}>
+          <GithubLogo size={14} /> 備份{site.github ? "到 " + site.github : ""}：
           {backup.status === "ok"
-            ? "最新 " + fmt(backup.at)
-            : backup.status === "error"
-              ? "失敗（" + backup.error + "）"
-              : backup.status === "too_many"
-                ? backup.error
+            ? "已備份到最新（" + fmt(backup.at) + "）"
+            : backup.status === "partial"
+              ? "備份中，" + backup.error
+              : backup.status === "error"
+                ? "失敗（" + backup.error + "）"
                 : backup.status === "skipped"
-                  ? "未設定備份 token"
-                  : "尚未備份過"}
+                  ? "還沒設定 GitHub 備份金鑰"
+                  : "等待第一次備份（每小時自動檢查）"}
         </p>
       )}
       <div className="button-row">
@@ -439,6 +439,7 @@ export default function CloudShell({ p, notice, setNotice, device, setDevice }) 
         <AlertDialog.Content maxWidth="460px">
           <AlertDialog.Title>{confirm?.title}</AlertDialog.Title>
           <AlertDialog.Description>{confirm?.description}</AlertDialog.Description>
+          {confirm?.body}
           <div className="dialog-actions">
             <AlertDialog.Cancel>
               <Button variant="surface">取消</Button>

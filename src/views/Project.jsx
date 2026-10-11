@@ -29,6 +29,7 @@ import { Thumb } from "../components/AlbumPanel";
 import AlbumPanel from "../components/AlbumPanel";
 import RelocatePanel from "../components/RelocatePanel";
 import TextSizePanel from "../components/TextSizePanel";
+import PublishSummary from "../components/PublishSummary";
 import EditorGuide, { guideDismissed } from "../components/EditorGuide";
 import { parsePage, listSections, readHead, sectionMotion, sectionElements, pathOf } from "../site/page.js";
 import { pageLabel } from "../hooks/useProject";
@@ -96,12 +97,28 @@ export default function Project({ p, device, setDevice, setConfirm }) {
     return at >= 0 ? decodeURI(String(url).slice(at).split(/[?#]/)[0]) : String(url);
   };
   const shareUrl = (assetPath) => (p.cloudSite?.url ? p.cloudSite.url.replace(/\/?$/, "/") + assetPath : assetPath);
-  const onPublish = () =>
+  // Before publishing, list every saved change that would go live (by whom),
+  // plus anything still unsaved here, so nobody publishes work by surprise.
+  const unsavedNames = () => [
+    ...p.dirtyPages.map((x) => pageLabel(x) + (x.startsWith("en/") ? "（英文）" : "")),
+    ...(p.siteDirty ? ["網站資料／活動相簿"] : []),
+    ...(p.textSize?.dirty ? ["外觀"] : []),
+    ...(p.albumsDirty ? ["雲端相簿"] : []),
+  ];
+  const onPublish = async () => {
+    let pending = null;
+    try {
+      pending = await p.cloudCalls.pending(p.cloudSite.id);
+    } catch {
+      pending = null;
+    }
+    const body = <PublishSummary pending={pending} unsaved={p.anyDirty ? unsavedNames() : []} me={p.cloud.me?.email} />;
     setConfirm(
       p.anyDirty
         ? {
             title: "先保存，再發布？",
-            description: `有 ${unsavedCount} 個檔案尚未保存。會先把它們存成一個版本，再把網站更新成這個版本。`,
+            description: "會先把還沒保存的修改存成一個版本，再把網站更新成最新版本。這次會上線的修改：",
+            body,
             confirmLabel: "保存並發布",
             action: async () => {
               if (await p.saveAll()) await p.publishCloud();
@@ -109,11 +126,13 @@ export default function Project({ p, device, setDevice, setConfirm }) {
           }
         : {
             title: "發布到網站？",
-            description: "網站會在幾秒內更新成目前最新的版本，所有人都看得到。之後仍可在「版本紀錄」還原舊版本。",
+            description: "網站會在幾秒內更新，所有人都看得到；之後仍可在「版本紀錄」還原。這次會上線的修改：",
+            body,
             confirmLabel: "發布",
             action: () => p.publishCloud(),
           },
     );
+  };
 
   if (!p.project)
     return (

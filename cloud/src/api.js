@@ -6,7 +6,7 @@ import { COOKIE, SESSION_TTL, DEVICE_LINK_TTL, createInvite, redeemInvite, endSe
 import { fromBase64, enc } from "./bytes.js";
 import { contentType } from "./mime.js";
 import { zip } from "./zip.js";
-import { fetchRepoFiles, backupToGitHub, parseRepo } from "./github.js";
+import { fetchRepoFiles, backupToGitHub, backupAll, parseRepo } from "./github.js";
 import { templateFiles, personalize } from "./templates.js";
 import { aiThemes, aiUsage, AI_DAILY_LIMIT } from "./ai.js";
 import {
@@ -27,6 +27,8 @@ import {
   removeMember,
   membersOf,
   loadTree,
+  getCommit,
+  diffTrees,
   cleanPath,
   logEvent,
 } from "./repo.js";
@@ -283,6 +285,24 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
     return c.json({ commits: commits.map((x) => commitView(x, site)), site: siteView(c.env, site) });
   });
 
+  // What 發布 would put live: the saved versions since the published one
+  // (newest first, who made them and what they changed) and the files that differ.
+  app.get("/api/sites/:id/pending", async (c) => {
+    const site = c.get("site");
+    if (!site.draft_commit || site.draft_commit === site.published_commit) return c.json({ commits: [], files: [] });
+    const commits = [];
+    for (let id = site.draft_commit, n = 0; id && id !== site.published_commit && n < 100; n++) {
+      const commit = await getCommit(c.env, id);
+      if (!commit) break;
+      commits.push({ id: commit.id, short: commit.id.slice(0, 7), author: commit.author, message: commit.message, at: commit.created_at, changed: commit.changed });
+      id = commit.parent_id;
+    }
+    const draft = await getCommit(c.env, site.draft_commit);
+    const live = site.published_commit ? await getCommit(c.env, site.published_commit) : null;
+    const files = diffTrees(await loadTree(c.env, live?.tree_id), await loadTree(c.env, draft.tree_id));
+    return c.json({ commits, files });
+  });
+
   app.post("/api/sites/:id/publish", async (c) => {
     const site = c.get("site");
     const body = await c.req.json().catch(() => ({}));
@@ -353,4 +373,9 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
   return app;
 }
 
-export default createApp();
+// Workers entry: the API and editor, plus the hourly backup (wrangler.api.toml [triggers]).
+const app = createApp();
+export default {
+  fetch: (request, env, ctx) => app.fetch(request, env, ctx),
+  scheduled: (event, env, ctx) => ctx.waitUntil(backupAll(env)),
+};

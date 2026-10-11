@@ -3982,3 +3982,24 @@ h3 {
   width: auto;
   padding: 0 8px;
 }
+.publish-summary {
+  margin: 12px 0 4px;
+  max-height: 46vh;
+  overflow-y: auto;
+  display: grid;
+  gap: 10px;
+  font-size: 14px;
+}
+.publish-summary section {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.publish-summary ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  line-height: 1.7;
+}
+.publish-summary .small-note {
+  margin: 0;
+}

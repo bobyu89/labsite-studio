@@ -21,7 +21,7 @@ import {
 import { parseTar, stripTopDir } from "../cloud/src/tar.js";
 import { zip, crc32 } from "../cloud/src/zip.js";
 import { verifyAccessJwt, currentUser, _resetCertCache } from "../cloud/src/auth.js";
-import { fetchRepoFiles, backupToGitHub, BACKUP_MAX_FILES } from "../cloud/src/github.js";
+import { fetchRepoFiles, backupToGitHub, backupAll } from "../cloud/src/github.js";
 import { createApp } from "../cloud/src/api.js";
 import { serve, route } from "../cloud/src/sites.js";
 
@@ -313,19 +313,29 @@ test("fetchRepoFiles with a token uses the REST API (private repos); GitHub refu
 });
 
 /* ======================================================== GitHub backup */
-function githubBackupRoutes() {
+// Git's blob name, as GitHub reports it in a tree listing.
+async function gitSha(text) {
+  const { createHash } = await import("node:crypto");
+  const bytes = enc.encode(text);
+  return createHash("sha1").update(Buffer.concat([Buffer.from(`blob ${bytes.length}\0`), Buffer.from(bytes)])).digest("hex");
+}
+// A GitHub repository holding `files` ({ path: text }) on `branch`.
+async function githubRepoRoutes(files, branch = "master") {
   let blobs = 0;
+  const listing = await Promise.all(Object.entries(files).map(async ([path, text]) => ({ path, type: "blob", sha: await gitSha(text) })));
   return scriptedFetch([
-    ["/git/ref/heads/master", { json: { object: { sha: "gh-head" } } }],
+    [`/git/ref/heads/${branch}`, { json: { object: { sha: "gh-head" } } }],
     ["/git/commits/gh-head", { json: { tree: { sha: "gh-tree" } } }],
+    ["/git/trees/gh-tree?recursive=1", { json: { tree: listing, truncated: false } }],
     ["/git/blobs", () => ({ json: { sha: "gh-blob-" + ++blobs } })],
     ["/git/trees", { json: { sha: "gh-tree-2" } }],
     ["/git/commits", { json: { sha: "gh-commit-2" } }],
-    ["/git/refs/heads/master", { json: {} }],
+    [`/git/refs/heads/${branch}`, { json: {} }],
   ]);
 }
+const SEED_FILES = { "index.html": "<h1>首頁</h1>", "en/index.html": "<h1>Home</h1>", "css/main.css": "body{}" };
 
-test("backup mirrors exactly the published changes as one GitHub commit, never with force", async () => {
+test("backup mirrors the latest saved version as one GitHub commit: only changed files, never forced", async () => {
   const env = fakeEnv({ GITHUB_BACKUP_TOKEN: "ghp_test" });
   const site = await seed(env, { githubRepo: "bobyu89/sung-lab-website", githubBranch: "master" });
   await commitChanges(env, site.id, {
@@ -333,46 +343,80 @@ test("backup mirrors exactly the published changes as one GitHub commit, never w
     author: "teacher@lab.tw",
     message: "改首頁",
   });
-  await publish(env, site.id, null, { actor: "teacher@lab.tw" });
-  const gh = githubBackupRoutes();
+  // Not published yet: the saved work is backed up anyway.
+  const gh = await githubRepoRoutes(SEED_FILES);
   assert.equal(await backupToGitHub(env, site.id, gh), "ok");
   const steps = gh.calls.map((c) => c.method + " " + c.url.replace("https://api.github.com/repos/bobyu89/sung-lab-website/", ""));
   assert.deepEqual(steps, [
     "GET git/ref/heads/master",
     "GET git/commits/gh-head",
+    "GET git/trees/gh-tree?recursive=1",
     "POST git/blobs",
     "POST git/blobs",
     "POST git/trees",
     "POST git/commits",
     "PATCH git/refs/heads/master",
   ]);
-  const tree = JSON.parse(gh.calls[4].body);
+  const tree = JSON.parse(gh.calls[5].body);
   assert.equal(tree.base_tree, "gh-tree");
-  assert.deepEqual(tree.tree.map((e) => [e.path, e.sha]), [["assets/n.png", "gh-blob-1"], ["css/main.css", null], ["index.html", "gh-blob-2"]]);
-  assert.deepEqual(JSON.parse(gh.calls[6].body), { sha: "gh-commit-2" });
-  assert.match(JSON.parse(gh.calls[5].body).message, /改首頁.*teacher@lab\.tw/);
+  assert.deepEqual(tree.tree.map((e) => [e.path, e.sha]), [["css/main.css", null], ["assets/n.png", "gh-blob-1"], ["index.html", "gh-blob-2"]]);
+  assert.deepEqual(JSON.parse(gh.calls[7].body), { sha: "gh-commit-2" }, "fast-forward only, no force");
+  assert.match(JSON.parse(gh.calls[6].body).message, /改首頁.*teacher@lab\.tw/);
   const after = await getSite(env, site.id);
   assert.equal(after.backup_status, "ok");
-  assert.equal(after.backup_commit, after.published_commit);
-  // Nothing new to mirror: no GitHub calls.
-  const idle = githubBackupRoutes();
+  assert.equal(after.backup_commit, after.draft_commit);
+  // Nothing new: no GitHub calls at all.
+  const idle = await githubRepoRoutes(SEED_FILES);
   assert.equal(await backupToGitHub(env, site.id, idle), "ok");
   assert.equal(idle.calls.length, 0);
 });
 
-test("backup is skipped without a token, records errors, and refuses oversized changes", async () => {
+test("backup: skipped without a token, errors recorded, big changes go in batches, template sites go to BACKUP_REPO", async () => {
   const env = fakeEnv();
   const site = await seed(env, { githubRepo: "o/r", githubBranch: "master" });
   await commitChanges(env, site.id, { files: [file("index.html", "v2")], author: "a", message: "m" });
-  await publish(env, site.id, null, { actor: "a" });
   assert.equal(await backupToGitHub(env, site.id, scriptedFetch([])), "skipped");
   env.GITHUB_BACKUP_TOKEN = "t";
   assert.equal(await backupToGitHub(env, site.id, scriptedFetch([["/git/ref/", { status: 401, json: { message: "Bad credentials" } }]])), "error");
   assert.match((await getSite(env, site.id)).backup_error, /401 Bad credentials/);
-  const many = Array.from({ length: BACKUP_MAX_FILES + 1 }, (_, i) => file(`p${i}.html`, String(i)));
+  // 5 changed files, 2 per run: three runs; files GitHub already has are not sent again.
+  const many = Array.from({ length: 5 }, (_, i) => file(`p${i}.html`, String(i)));
   await commitChanges(env, site.id, { files: many, author: "a", message: "big" });
-  await publish(env, site.id, null, { actor: "a" });
-  assert.equal(await backupToGitHub(env, site.id, scriptedFetch([])), "too_many");
+  const remote = { ...SEED_FILES };
+  const sent = [];
+  for (let run = 0; run < 3; run++) {
+    const gh = await githubRepoRoutes(remote);
+    const r = await backupToGitHub(env, site.id, gh, { batch: 2 });
+    const t = gh.calls.find((c) => c.method === "POST" && c.url.endsWith("/git/trees"));
+    const paths = JSON.parse(t.body).tree.filter((e) => e.sha).map((e) => e.path);
+    sent.push(paths);
+    for (const p of paths) remote[p] = p === "index.html" ? "v2" : String(p.match(/\d/)[0]);
+    assert.equal(r, run < 2 ? "partial" : "ok");
+  }
+  assert.deepEqual(sent.flat().sort(), ["index.html", "p0.html", "p1.html", "p2.html", "p3.html", "p4.html"]);
+  assert.match((await getSite(env, site.id)).backup_status, /^ok$/);
+
+  // A site made from a template: its own folder in the shared backup repository.
+  env.BACKUP_REPO = "bobyu89/labsite-backups";
+  const tpl = await createSite(env, { slug: "lin", name: "林老師", files: [file("index.html", "x")], author: "a", message: "模板", live: false });
+  const gh = await githubRepoRoutes({ "README.md": "backups", "sites/other/index.html": "keep" }, "main");
+  assert.equal(await backupToGitHub(env, tpl.id, gh), "ok");
+  const t = JSON.parse(gh.calls.find((c) => c.method === "POST" && c.url.endsWith("/git/trees")).body);
+  assert.deepEqual(t.tree.map((e) => e.path), ["sites/lin/index.html"], "other sites and the README are left alone");
+  assert.match(gh.calls[0].url, /bobyu89\/labsite-backups\/git\/ref\/heads\/main/);
+});
+
+test("hourly backup: only changed sites, oldest first, within one run's request budget", async () => {
+  const env = fakeEnv({ GITHUB_BACKUP_TOKEN: "t" });
+  const a = await seed(env, { githubRepo: "o/a", githubBranch: "master" });
+  await commitChanges(env, a.id, { files: [file("index.html", "a2")], author: "x", message: "a" });
+  const gh = await githubRepoRoutes(SEED_FILES);
+  const done = await backupAll(env, gh);
+  assert.deepEqual(done, [["sung", "ok"]]);
+  const again = await githubRepoRoutes(SEED_FILES);
+  assert.deepEqual(await backupAll(env, again), [], "nothing changed: no work, no requests");
+  assert.equal(again.calls.length, 0);
+  assert.deepEqual(await backupAll({ ...env, GITHUB_BACKUP_TOKEN: "" }, again), []);
 });
 
 /* ================================================================== API */
@@ -392,6 +436,23 @@ function api(env, fetchImpl = scriptedFetch([])) {
     return { status: res.status, data, headers: res.headers };
   };
 }
+
+test("API: pending lists what 發布 would put live, by person, and the files that differ", async () => {
+  const env = fakeEnv();
+  const site = await seed(env);
+  await addMember(env, site.id, "teacher@lab.tw", "admin@lab.tw");
+  const call = api(env);
+  assert.deepEqual((await call("GET", `/api/sites/${site.id}/pending`, { as: "teacher@lab.tw" })).data, { commits: [], files: [] });
+  await commitChanges(env, site.id, { files: [file("index.html", "v2")], author: "teacher@lab.tw", message: "修改 首頁" });
+  await commitChanges(env, site.id, { files: [file("assets/a.png", "png"), { path: "css/main.css", delete: true }], author: "admin@lab.tw", message: "換 1 張圖片" });
+  const r = await call("GET", `/api/sites/${site.id}/pending`, { as: "teacher@lab.tw" });
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.data.commits.map((c) => [c.author, c.message]), [["admin@lab.tw", "換 1 張圖片"], ["teacher@lab.tw", "修改 首頁"]]);
+  assert.deepEqual(r.data.files, [["assets/a.png", "added"], ["css/main.css", "deleted"], ["index.html", "modified"]]);
+  await publish(env, site.id, null, { actor: "teacher@lab.tw" });
+  assert.deepEqual((await call("GET", `/api/sites/${site.id}/pending`, { as: "teacher@lab.tw" })).data.commits, []);
+  assert.equal((await call("GET", `/api/sites/${site.id}/pending`, { as: "stranger@lab.tw" })).status, 403);
+});
 
 test("API: import, read, save with conflict detection, history, publish, restore, export", async () => {
   const gz = await tarball([["index.html", "<h1>宋</h1>"], ["en/index.html", "<h1>Sung</h1>"], ["assets/a.png", new Uint8Array([1, 2])]]);

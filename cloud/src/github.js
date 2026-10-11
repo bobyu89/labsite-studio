@@ -10,7 +10,7 @@ const API = "https://api.github.com";
 const MAX_IMPORT_FILE = 20 * 1024 * 1024;
 // Workers on the free plan may make 50 outbound requests per invocation; a
 // backup needs 5 plus one per changed file.
-export const BACKUP_MAX_FILES = 40;
+export const BACKUP_BATCH = 40;
 
 const headers = (token, extra = {}) => ({
   "User-Agent": "labsite-cloud",
@@ -113,57 +113,114 @@ async function recordBackup(env, siteId, fields) {
 }
 
 // Mirrors the published tree onto site.github_repo. Returns the status string.
-export async function backupToGitHub(env, siteId, fetchImpl = fetch) {
+// Where a site is backed up: its own GitHub repository (sites imported from
+// GitHub), or a folder in the shared backup repository (BACKUP_REPO) for sites
+// made from a template. → { owner, repo, branch, prefix } or null
+export function backupTarget(env, site) {
+  if (site.github_repo) return { ...parseRepo(site.github_repo), branch: site.github_branch || "main", prefix: "" };
+  if (env.BACKUP_REPO) return { ...parseRepo(env.BACKUP_REPO), branch: env.BACKUP_BRANCH || "main", prefix: `sites/${site.slug}/` };
+  return null;
+}
+
+// Git's own name for a file's content, to compare with what GitHub already has.
+async function gitBlobSha(bytes) {
+  const head = new TextEncoder().encode(`blob ${bytes.byteLength}\0`);
+  const all = new Uint8Array(head.length + bytes.byteLength);
+  all.set(head);
+  all.set(bytes, head.length);
+  const digest = await crypto.subtle.digest("SHA-1", all);
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+// Mirrors the site's latest saved version (so unpublished work is safe too)
+// to GitHub as one ordinary commit (never forced). Only files whose content
+// differs from GitHub are uploaded, at most BACKUP_BATCH per run, because a
+// Worker may make only 50 outside requests per run on the free plan; the
+// rest follow on the next run. A site that has not changed costs nothing.
+// → "ok" | "partial" | "skipped" | "error"
+export async function backupToGitHub(env, siteId, fetchImpl = fetch, { batch = BACKUP_BATCH } = {}) {
   const site = await getSite(env, siteId);
   const token = env.GITHUB_BACKUP_TOKEN;
-  if (!site?.github_repo || !token || !site.published_commit) {
+  const target = site && backupTarget(env, site);
+  if (!site || !target || !token || !site.draft_commit) {
     if (site) await recordBackup(env, site.id, { status: "skipped" });
     return "skipped";
   }
-  if (site.backup_commit === site.published_commit) return "ok";
+  if (site.backup_commit === site.draft_commit) return "ok";
   try {
-    const { owner, repo } = parseRepo(site.github_repo);
+    const { owner, repo, branch, prefix } = target;
     const base = `${API}/repos/${owner}/${repo}`;
-    const branch = encodeURIComponent(site.github_branch || "main");
-    const fromCommit = await getCommit(env, site.backup_commit);
-    const toCommit = await getCommit(env, site.published_commit);
-    const from = await loadTree(env, fromCommit?.tree_id);
-    const to = await loadTree(env, toCommit.tree_id);
-    const changed = diffTrees(from, to);
-    if (!changed.length) {
-      await recordBackup(env, site.id, { status: "ok", commit: site.published_commit });
+    const ref = encodeURIComponent(branch);
+    const draft = await getCommit(env, site.draft_commit);
+    const local = await loadTree(env, draft.tree_id);
+    const head = (await call(fetchImpl, token, "GET", `${base}/git/ref/heads/${ref}`)).object.sha;
+    const baseTree = (await call(fetchImpl, token, "GET", `${base}/git/commits/${head}`)).tree.sha;
+    const listing = await call(fetchImpl, token, "GET", `${base}/git/trees/${baseTree}?recursive=1`);
+    const remote = new Map((listing.tree || []).filter((e) => e.type === "blob").map((e) => [e.path, e.sha]));
+    // Only files changed since the last complete backup are read and compared
+    // (all of them the first time); a file GitHub already has with the same
+    // content (an earlier batch) is not sent again.
+    const since = site.backup_commit ? await loadTree(env, (await getCommit(env, site.backup_commit))?.tree_id) : new Map();
+    const upload = [];
+    for (const [path, e] of local) {
+      if (since.get(path)?.hash === e.hash && remote.has(prefix + path)) continue;
+      const bytes = await getBlob(env, e.hash);
+      if (remote.get(prefix + path) !== (await gitBlobSha(bytes))) upload.push([path, bytes]);
+    }
+    // Files removed from the site are removed from the backup too (never
+    // GitHub's own settings under .github/, and only inside the site's folder).
+    const removed = listing.truncated
+      ? []
+      : [...remote.keys()].filter((p) => p.startsWith(prefix) && !local.has(p.slice(prefix.length)) && !p.startsWith(".github/"));
+    if (!upload.length && !removed.length) {
+      await recordBackup(env, site.id, { status: "ok", commit: site.draft_commit });
       return "ok";
     }
-    if (changed.length > BACKUP_MAX_FILES) {
-      await recordBackup(env, site.id, {
-        status: "too_many",
-        error: `這次有 ${changed.length} 個檔案變更，超過自動備份上限 ${BACKUP_MAX_FILES}，請用「下載整站」手動備份。`,
-      });
-      return "too_many";
-    }
-    const head = (await call(fetchImpl, token, "GET", `${base}/git/ref/heads/${branch}`)).object.sha;
-    const baseTree = (await call(fetchImpl, token, "GET", `${base}/git/commits/${head}`)).tree.sha;
-    const entries = [];
-    for (const [path, kind] of changed) {
-      if (kind === "deleted") {
-        entries.push({ path, mode: "100644", type: "blob", sha: null });
-        continue;
-      }
-      const bytes = await getBlob(env, to.get(path).hash);
+    const now = upload.slice(0, Math.max(1, batch));
+    const left = upload.length - now.length;
+    const entries = removed.map((p) => ({ path: p, mode: "100644", type: "blob", sha: null }));
+    for (const [path, bytes] of now) {
       const blob = await call(fetchImpl, token, "POST", `${base}/git/blobs`, { content: toBase64(bytes), encoding: "base64" });
-      entries.push({ path, mode: "100644", type: "blob", sha: blob.sha });
+      entries.push({ path: prefix + path, mode: "100644", type: "blob", sha: blob.sha });
     }
     const tree = await call(fetchImpl, token, "POST", `${base}/git/trees`, { base_tree: baseTree, tree: entries });
     const commit = await call(fetchImpl, token, "POST", `${base}/git/commits`, {
-      message: `LabSite 發布備份：${toCommit.message}（${toCommit.author}）`,
+      message:
+        `LabSite 備份：${draft.message}（${draft.author}，版本 ${site.draft_commit.slice(0, 7)}）` +
+        (left ? `，這批 ${now.length} 個檔案，還有 ${left} 個` : ""),
       tree: tree.sha,
       parents: [head],
     });
-    await call(fetchImpl, token, "PATCH", `${base}/git/refs/heads/${branch}`, { sha: commit.sha });
-    await recordBackup(env, site.id, { status: "ok", commit: site.published_commit });
+    await call(fetchImpl, token, "PATCH", `${base}/git/refs/heads/${ref}`, { sha: commit.sha });
+    if (left) {
+      await recordBackup(env, site.id, { status: "partial", error: `還有 ${left} 個檔案，下次自動備份會接著傳。` });
+      return "partial";
+    }
+    await recordBackup(env, site.id, { status: "ok", commit: site.draft_commit });
     return "ok";
   } catch (e) {
     await recordBackup(env, site.id, { status: "error", error: String(e.message || e).slice(0, 500) });
     return "error";
   }
+}
+
+// The hourly run: every site whose latest version is not backed up yet,
+// least recently backed up first, within one run's request budget.
+export async function backupAll(env, fetchImpl = fetch, { budget = 45 } = {}) {
+  if (!env.GITHUB_BACKUP_TOKEN) return [];
+  const { results } = await env.DB.prepare(
+    "SELECT id, slug FROM sites WHERE draft_commit IS NOT NULL AND (backup_commit IS NULL OR backup_commit != draft_commit) ORDER BY COALESCE(backup_at, 0)",
+  ).all();
+  const done = [];
+  let calls = 0;
+  const counted = (...a) => {
+    calls++;
+    return fetchImpl(...a);
+  };
+  for (const s of results) {
+    const left = budget - calls;
+    if (left < 10) break; // 3 reads + 3 writes + some files
+    done.push([s.slug, await backupToGitHub(env, s.id, counted, { batch: Math.min(BACKUP_BATCH, left - 6) })]);
+  }
+  return done;
 }

@@ -51,6 +51,7 @@ export function cloudApi(fetchImpl = (...a) => fetch(...a)) {
     importSite: (body) => call("POST", "/sites", body),
     site: (id) => call("GET", site(id)),
     history: (id, limit = 50) => call("GET", site(id) + "/history?limit=" + limit),
+    pending: (id) => call("GET", site(id) + "/pending"),
     publish: (id, commit) => call("POST", site(id) + "/publish", commit ? { commit } : {}),
     restore: (id, commit) => call("POST", site(id) + "/restore", { commit }),
     addMember: (id, email) => call("POST", site(id) + "/members", { email }),
