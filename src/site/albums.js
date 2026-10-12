@@ -115,7 +115,9 @@ function sampleHeading(doc, skip) {
         box = up;
         break;
       }
-    return { box, h2 };
+    // The section's content wrapper (e.g. ".container"), for the same width.
+    const wrap = [...section.children].find((c) => c.contains(h2) && c !== h2 && c.tagName.toLowerCase() === "div");
+    return { box, h2, wrapClass: wrap?.getAttribute("class") || "" };
   }
   return null;
 }
@@ -153,6 +155,9 @@ export function adoptHeading(doc, section, { title, kicker = "" } = {}) {
       for (const a of [...ref.attributes]) if (a.value.includes("#" + old + ")") || a.value === "#" + old) ref.setAttribute(a.name, a.value.split("#" + old).join("#" + el.id));
   }
   mine.replaceWith(copy);
+  // Same content width as the page's sections: use their wrapper class.
+  const wrap = section.querySelector(":scope > .ls-wrap");
+  if (wrap && sample.wrapClass && !/ls-/.test(sample.wrapClass)) wrap.setAttribute("class", [sample.wrapClass, ...[...wrap.classList].filter((c) => c !== "ls-wrap")].join(" "));
   return true;
 }
 

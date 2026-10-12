@@ -82,6 +82,7 @@ test("headings: a new block copies the page's own heading (icon, title, English 
   assert.equal(head.querySelector("h2").textContent.trim(), "研究成果一覽");
   assert.equal(head.querySelector(".mono-en").textContent, "AT A GLANCE");
   assert.ok(!sec.querySelector(".ls-title"));
+  assert.ok(sec.querySelector(":scope > .container"), "the page's content width is used too");
   const ids = [...page.doc.querySelectorAll("[id]")].map((e) => e.id);
   assert.equal(new Set(ids).size, ids.length, "ids stay unique");
   assert.match(head.querySelector("rect").getAttribute("fill"), /^url\(#g1-ls/);
