@@ -2,7 +2,23 @@
 // Cloudflare Access. Bindings: DB (D1), BLOBS (R2), ASSETS (editor build).
 import { Hono } from "hono";
 import { currentUser } from "./auth.js";
-import { COOKIE, SESSION_TTL, DEVICE_LINK_TTL, createInvite, redeemInvite, endSession, sessionCookie, readCookie } from "./sessions.js";
+import {
+  COOKIE,
+  SESSION_TTL,
+  DEVICE_LINK_TTL,
+  RESET_WINDOW,
+  createInvite,
+  redeemInvite,
+  endSession,
+  sessionCookie,
+  readCookie,
+  passwordLogin,
+  passwordProblem,
+  setPassword,
+  hasPassword,
+  checkPassword,
+  sessionInfo,
+} from "./sessions.js";
 import { fromBase64, enc } from "./bytes.js";
 import { contentType } from "./mime.js";
 import { zip } from "./zip.js";
@@ -110,6 +126,18 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
     return c.json({ email: r.email });
   });
 
+  // Email + password, for people who set a password after their first link.
+  app.post("/api/login/password", async (c) => {
+    const body = await c.req.json().catch(() => ({}));
+    const r = await passwordLogin(c.env, body.email, body.password);
+    if (r.locked)
+      return c.json({ error: "密碼錯太多次，這個帳號暫停 15 分鐘。忘記密碼的話，請管理者傳一條登入連結，登入後可以重設。" }, 429);
+    if (!r.ok) return c.json({ error: "Email 或密碼不正確。還沒設定過密碼的話，請先用管理者傳的登入連結登入。" }, 401);
+    const secure = new URL(c.req.url).protocol === "https:";
+    c.header("Set-Cookie", sessionCookie(r.session, { maxAge: Math.floor(SESSION_TTL / 1000), secure }));
+    return c.json({ email: r.email });
+  });
+
   app.use("/api/*", async (c, next) => {
     const user = await currentUser(c.req.raw, c.env, fetchImpl);
     if (!user) return c.json({ error: "請先登入。" }, 401);
@@ -148,6 +176,7 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
       email: user.email,
       admin: user.admin,
       via: user.via,
+      hasPassword: user.via === "session" ? await hasPassword(c.env, user.email) : false,
       ai: !!c.env.ANTHROPIC_API_KEY,
       sites: sites.map((s) => siteView(c.env, s)),
     });
@@ -167,6 +196,27 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
     const { token, expiresAt } = await createInvite(c.env, email, c.get("user").email);
     const url = new URL(c.req.url).origin + "/?invite=" + token;
     return c.json({ email, url, expiresAt });
+  });
+
+  // Set or change your password. Changing needs the current one, except right
+  // after signing in with a link (that is how a forgotten password is reset).
+  app.post("/api/password", async (c) => {
+    const user = c.get("user");
+    if (user.via !== "session") throw new RepoError(400, "這個網站用 Cloudflare Access 登入，不需要設定密碼。");
+    const body = await c.req.json().catch(() => ({}));
+    const problem = passwordProblem(body.password);
+    if (problem) throw new RepoError(400, problem);
+    if (await hasPassword(c.env, user.email)) {
+      const info = await sessionInfo(c.env, readCookie(c.req.raw, COOKIE));
+      const fromLink = info && ["invite", "device"].includes(info.via) && Date.now() - info.created_at < RESET_WINDOW;
+      if (!fromLink) {
+        const r = await checkPassword(c.env, user.email, body.current);
+        if (r.locked) throw new RepoError(429, "目前的密碼錯太多次，請 15 分鐘後再試。");
+        if (!r.ok) throw new RepoError(400, "目前的密碼不正確。忘記的話，請用登入連結登入後再重設。");
+      }
+    }
+    await setPassword(c.env, user.email, body.password);
+    return c.json({ ok: true });
   });
 
   // Sign in on another device: a 15-minute one-time link for yourself.

@@ -23,6 +23,7 @@ import { Field } from "../components/ui";
 import Project from "./Project";
 import UiSize from "../components/UiSize";
 import DeviceLogin from "../components/DeviceLogin";
+import { PasswordLoginForm, PasswordDialog, PasswordButton } from "../components/PasswordLogin";
 
 const fmt = (t) => (t ? new Intl.DateTimeFormat("zh-TW", { dateStyle: "medium", timeStyle: "short" }).format(t) : "");
 
@@ -320,7 +321,7 @@ function TemplateCard({ p }) {
   );
 }
 
-function CloudHome({ p }) {
+function CloudHome({ p, onSetPassword }) {
   const me = p.cloud.me;
   return (
     <>
@@ -330,6 +331,16 @@ function CloudHome({ p }) {
           <p>選一個網站開始編輯。保存會留下版本紀錄；按「發布」後，網站才會更新給所有人看。</p>
         </div>
       </div>
+      {me.via === "session" && !me.hasPassword && (
+        <div className="message password-nudge" role="status">
+          <span>
+            <strong>設定一組密碼</strong>，之後換電腦或用手機，只要輸入 Email 和密碼就能登入。
+          </span>
+          <Button size="2" onClick={onSetPassword}>
+            設定密碼
+          </Button>
+        </div>
+      )}
       {p.error && (
         <div className="message error" role="alert">
           <WarningCircle size={20} />
@@ -357,6 +368,7 @@ function CloudHome({ p }) {
 
 export default function CloudShell({ p, notice, setNotice, device, setDevice }) {
   const [confirm, setConfirm] = useState(null);
+  const [passwordOpen, setPasswordOpen] = useState(false);
   const me = p.cloud.me;
   const signedOut = p.cloud.status === "signed-out";
   return (
@@ -387,6 +399,7 @@ export default function CloudShell({ p, notice, setNotice, device, setDevice }) 
         {me && (
           <div className="cloud-user">
             <UiSize />
+            {me.via === "session" && <PasswordButton hasPassword={me.hasPassword} onClick={() => setPasswordOpen(true)} />}
             {me.via !== "access" && <DeviceLogin p={p} />}
             <span>{me.email}</span>
             {me.admin && (
@@ -415,13 +428,21 @@ export default function CloudShell({ p, notice, setNotice, device, setDevice }) 
       <main id="main" tabIndex={-1} className={"main-content " + (p.project ? "editor-main" : "")}>
         {signedOut ? (
           <div className="signed-out">
-            <h1>請用登入連結開啟</h1>
-            <p>LabSite 不用密碼。請打開管理者傳給你的登入連結；登入後只要持續使用，就不會被登出。</p>
-            <p>
-              <strong>換了電腦或手機？</strong>在已經登入的那台裝置上，按右上角「其他裝置登入」，用新裝置的相機掃 QR code
-              （或打開那條連結）就能登入，不用再找管理者。
-            </p>
-            <p className="small-note">連結只能用一次；如果所有裝置都沒有登入，再請管理者傳一條新的。</p>
+            <h1>登入 LabSite</h1>
+            <PasswordLoginForm
+              onLogin={async (email, password) => {
+                await p.cloudCalls.passwordLogin(email, password);
+                location.reload();
+              }}
+            />
+            <div className="signed-out-help">
+              <p>
+                <strong>第一次使用、還沒設定密碼，或忘記密碼？</strong>請打開管理者傳給你的登入連結，登入後按右上角「設定密碼」。
+              </p>
+              <p>
+                <strong>另一台裝置已經登入？</strong>在那台裝置按右上角「其他裝置登入」，用這台的相機掃 QR code 也可以。
+              </p>
+            </div>
             {p.cloud.error && p.cloud.error !== "請先登入。" && (
               <div className="message error" role="alert">
                 <WarningCircle size={20} />
@@ -432,9 +453,10 @@ export default function CloudShell({ p, notice, setNotice, device, setDevice }) 
         ) : p.project ? (
           <Project p={p} device={device} setDevice={setDevice} setConfirm={setConfirm} />
         ) : (
-          <CloudHome p={{ ...p, notify: setNotice }} />
+          <CloudHome p={{ ...p, notify: setNotice }} onSetPassword={() => setPasswordOpen(true)} />
         )}
       </main>
+      {me && <PasswordDialog p={p} open={passwordOpen} onClose={() => setPasswordOpen(false)} />}
       <AlertDialog.Root open={!!confirm} onOpenChange={(v) => !v && setConfirm(null)}>
         <AlertDialog.Content maxWidth="460px">
           <AlertDialog.Title>{confirm?.title}</AlertDialog.Title>

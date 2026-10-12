@@ -723,6 +723,101 @@ test("API sign-in by invite link: admin makes a link, teacher opens it, cookie s
   assert.equal((await req("GET", "/api/me", { cookie: "ls_session=" + "0".repeat(64) })).status, 401);
 });
 
+/* ============================================================ passwords */
+test("passwords: salted PBKDF2 hashes, weak ones refused, five wrong tries lock for 15 minutes", async () => {
+  const s = await import("../cloud/src/sessions.js");
+  const env = fakeEnv({ PASSWORD_ITERATIONS: "1000" });
+  const h1 = await s.hashPassword("correct horse", 1000);
+  const h2 = await s.hashPassword("correct horse", 1000);
+  assert.match(h1, /^pbkdf2-sha256\$1000\$[A-Za-z0-9+/=]+\$[A-Za-z0-9+/=]+$/);
+  assert.notEqual(h1, h2, "a fresh salt each time");
+  assert.equal(await s.verifyPassword("correct horse", h1), true);
+  assert.equal(await s.verifyPassword("correct horsE", h1), false);
+  assert.equal(await s.verifyPassword("x", "garbage"), false);
+  for (const weak of ["short", "aaaaaaaaaa", "12345678", "password1"]) assert.ok(s.passwordProblem(weak), weak);
+  assert.equal(s.passwordProblem("護理研究室2026"), null);
+
+  await s.setPassword(env, " Teacher@Lab.tw ", "護理研究室2026", T0);
+  assert.equal(await s.hasPassword(env, "teacher@lab.tw"), true);
+  const row = env.DB.raw.prepare("SELECT password_hash FROM accounts WHERE email = ?").get("teacher@lab.tw");
+  assert.ok(!row.password_hash.includes("護理研究室2026"), "only the hash is stored");
+  assert.deepEqual(await s.checkPassword(env, "TEACHER@lab.tw", "護理研究室2026", T0), { ok: true });
+  assert.deepEqual(await s.checkPassword(env, "nobody@lab.tw", "whatever123", T0), { ok: false }, "unknown email: same answer, never locked");
+  for (let i = 1; i < s.LOCK_AFTER; i++) assert.deepEqual(await s.checkPassword(env, "teacher@lab.tw", "wrong-" + i, T0), { ok: false });
+  const locked = await s.checkPassword(env, "teacher@lab.tw", "wrong-5", T0);
+  assert.equal(locked.locked, T0 + s.LOCK_FOR);
+  assert.equal((await s.checkPassword(env, "teacher@lab.tw", "護理研究室2026", T0 + 1000)).ok, false, "locked even with the right password");
+  assert.deepEqual(await s.checkPassword(env, "teacher@lab.tw", "護理研究室2026", T0 + s.LOCK_FOR + 1), { ok: true }, "unlocked after 15 minutes");
+  const login = await s.passwordLogin(env, "teacher@lab.tw", "護理研究室2026", T0 + s.LOCK_FOR + 2);
+  assert.equal(login.ok, true);
+  assert.deepEqual(await s.sessionUser(env, login.session, T0 + s.LOCK_FOR + 3), { email: "teacher@lab.tw" });
+  assert.equal((await s.sessionInfo(env, login.session)).via, "password");
+});
+
+test("API: first link → set a password → sign in with it on another computer; changing needs the old one", async () => {
+  const env = fakeEnv({ DEV_AUTH: "off", PASSWORD_ITERATIONS: "1000" });
+  const sung = await seed(env);
+  await addMember(env, sung.id, "teacher@lab.tw", "admin@lab.tw");
+  const app = createApp({ fetchImpl: scriptedFetch([]) });
+  const req = (method, path, { body, cookie } = {}) =>
+    app.fetch(
+      new Request("https://studio.example" + path, {
+        method,
+        headers: {
+          ...(body ? { "Content-Type": "application/json" } : {}),
+          ...(cookie ? { Cookie: cookie } : {}),
+          ...(method !== "GET" ? { Origin: "https://studio.example" } : {}),
+        },
+        body: body ? JSON.stringify(body) : undefined,
+      }),
+      env,
+    );
+  const { createInvite } = await import("../cloud/src/sessions.js");
+  const inv = await createInvite(env, "teacher@lab.tw", "admin@lab.tw");
+  const linkLogin = await req("POST", "/api/login", { body: { invite: inv.token } });
+  const fromLink = linkLogin.headers.get("Set-Cookie").split(";")[0];
+  assert.equal((await (await req("GET", "/api/me", { cookie: fromLink })).json()).hasPassword, false);
+
+  assert.equal((await req("POST", "/api/password", { cookie: fromLink, body: { password: "short" } })).status, 400);
+  assert.equal((await req("POST", "/api/password", { cookie: fromLink, body: { password: "護理研究室2026" } })).status, 200);
+  assert.equal((await (await req("GET", "/api/me", { cookie: fromLink })).json()).hasPassword, true);
+
+  // Another computer: email + password.
+  assert.equal((await req("POST", "/api/login/password", { body: { email: "teacher@lab.tw", password: "nope-nope" } })).status, 401);
+  assert.equal((await req("POST", "/api/login/password", { body: { email: "ghost@lab.tw", password: "護理研究室2026" } })).status, 401);
+  const pw = await req("POST", "/api/login/password", { body: { email: "Teacher@Lab.tw", password: "護理研究室2026" } });
+  assert.equal(pw.status, 200);
+  const laptop = pw.headers.get("Set-Cookie").split(";")[0];
+  const me = await (await req("GET", "/api/me", { cookie: laptop })).json();
+  assert.deepEqual([me.email, me.sites.map((x) => x.slug)], ["teacher@lab.tw", ["sung"]]);
+
+  // Changing from a password session needs the current password...
+  assert.equal((await req("POST", "/api/password", { cookie: laptop, body: { password: "新的密碼abc123" } })).status, 400);
+  assert.equal((await req("POST", "/api/password", { cookie: laptop, body: { password: "新的密碼abc123", current: "wrong-one" } })).status, 400);
+  assert.equal((await req("POST", "/api/password", { cookie: laptop, body: { password: "新的密碼abc123", current: "護理研究室2026" } })).status, 200);
+  // ...but right after signing in with a link it does not (forgotten password).
+  const inv2 = await createInvite(env, "teacher@lab.tw", "admin@lab.tw");
+  const again = (await req("POST", "/api/login", { body: { invite: inv2.token } })).headers.get("Set-Cookie").split(";")[0];
+  assert.equal((await req("POST", "/api/password", { cookie: again, body: { password: "忘記之後重設的2026" } })).status, 200);
+  assert.equal((await req("POST", "/api/login/password", { body: { email: "teacher@lab.tw", password: "忘記之後重設的2026" } })).status, 200);
+
+  // Guessing: locked after five wrong tries, with a clear message.
+  for (let i = 0; i < 4; i++) await req("POST", "/api/login/password", { body: { email: "teacher@lab.tw", password: "guess-" + i } });
+  const lock = await req("POST", "/api/login/password", { body: { email: "teacher@lab.tw", password: "guess-5" } });
+  assert.equal(lock.status, 429);
+  assert.match((await lock.json()).error, /15 分鐘/);
+  // Cross-site attempts are refused like every other POST.
+  const evil = await app.fetch(
+    new Request("https://studio.example/api/login/password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Origin: "https://evil.example" },
+      body: JSON.stringify({ email: "teacher@lab.tw", password: "x" }),
+    }),
+    env,
+  );
+  assert.equal(evil.status, 403);
+});
+
 /* ============================================================ templates */
 test("create from a template: admin only, unpublished, lab name in js/data.js, editor files hidden", async () => {
   const env = fakeEnv();

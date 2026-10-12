@@ -4003,3 +4003,44 @@ h3 {
 .publish-summary .small-note {
   margin: 0;
 }
+.password-login,
+.password-form {
+  display: grid;
+  gap: 12px;
+  max-width: 380px;
+  margin: 16px 0 24px;
+}
+.password-form {
+  margin: 12px 0 0;
+  max-width: none;
+}
+.password-login .field,
+.password-form .field {
+  margin: 0;
+}
+.password-login .rt-Button {
+  justify-self: start;
+  min-width: 120px;
+}
+.signed-out-help {
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+  max-width: 560px;
+  font-size: 14px;
+  line-height: 1.8;
+}
+.password-nudge {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: var(--soft);
+  border: 1px solid #cfe3da;
+}
+.password-done {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+  margin-top: 12px;
+}
