@@ -11,6 +11,10 @@
     "test:e2e": "node --test tests/e2e-github.test.js"
   },
   "dependencies": {
+    "@dicebear/core": "^9.4.2",
+    "@dicebear/lorelei": "^9.4.2",
+    "@dicebear/notionists": "^9.4.2",
+    "@dicebear/open-peeps": "^9.4.2",
     "@phosphor-icons/react": "^2.1.10",
     "@radix-ui/themes": "^3.2.1",
     "qrcode-generator": "^1.4.4",

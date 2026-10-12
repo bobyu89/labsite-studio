@@ -4044,3 +4044,226 @@ h3 {
   justify-items: start;
   margin-top: 12px;
 }
+
+/* ---------------------------------------------------------- v4.14 素材庫 & 動畫庫 */
+.lib-view {
+  display: grid;
+  gap: 12px;
+}
+.lib-view .small-note {
+  margin: 0;
+}
+.lib-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.lib-search {
+  flex: 1 1 200px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 14px;
+}
+.lib-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.lib-chips button {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 13px;
+  color: var(--ink);
+}
+.lib-chips button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.lib-colors {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.lib-colors button {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px var(--line);
+}
+.lib-colors button.active {
+  box-shadow: 0 0 0 2px var(--ink);
+}
+.lib-color-custom {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.lib-color-custom input {
+  width: 30px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.lib-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+}
+.lib-grid.people {
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+}
+.lib-grid.decor {
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+}
+.lib-grid.decor.lines {
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+.lib-tile {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  font-size: 12px;
+  min-width: 0;
+}
+.lib-tile.loading {
+  aspect-ratio: 1;
+  border-radius: 8px;
+  background: #eef3f0;
+}
+.lib-pick,
+.lib-preview {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 8px;
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  color: var(--ink);
+  font-size: 12px;
+}
+.lib-pick:hover,
+.lib-pick:focus-visible {
+  border-color: var(--accent);
+  outline: 2px solid var(--accent);
+}
+.lib-pick img,
+.lib-preview img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: contain;
+}
+.lib-grid.decor .lib-pick img,
+.lib-grid.decor .lib-preview img {
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  border-radius: 4px;
+}
+.lib-grid.decor.lines .lib-pick img,
+.lib-grid.decor.lines .lib-preview img {
+  aspect-ratio: 5 / 1;
+  object-fit: contain;
+}
+.lib-tile select {
+  font-size: 12px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 2px;
+  max-width: 100%;
+}
+.lib-name {
+  text-align: center;
+}
+.lib-hint {
+  font-size: 11px;
+}
+.lib-subtitle {
+  margin: 8px 0 6px;
+  font-size: 14px;
+}
+.lib-external {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+.lib-external h4 {
+  margin: 0 0 6px;
+}
+.lib-external p,
+.lib-external ol {
+  font-size: 14px;
+  line-height: 1.8;
+}
+.anim-groups {
+  margin: 12px 0;
+}
+.anim-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
+}
+.anim-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+.anim-preview {
+  position: relative;
+  height: 230px;
+  background: #fff;
+  border-bottom: 1px solid var(--line);
+}
+.anim-preview iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+.anim-replay {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+}
+.anim-info {
+  padding: 12px 14px 14px;
+  display: grid;
+  gap: 6px;
+  align-content: start;
+}
+.anim-info p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--muted);
+}
+.anim-info .rt-Button {
+  justify-self: start;
+}
+.lib-tile select {
+  width: 100%;
+}

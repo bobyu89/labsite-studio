@@ -11,7 +11,9 @@ export function Thumb({ p, src }) {
   useEffect(() => {
     let alive = true;
     let made = null;
-    const staged = p.readStaged(src);
+    const raw = p.readStaged(src);
+    // Generated SVGs (素材庫) are staged as text.
+    const staged = typeof raw === "string" ? new Blob([raw], { type: "image/svg+xml" }) : raw;
     (staged ? Promise.resolve(staged) : /^https?:/.test(src) ? Promise.resolve(null) : p.readAsset(src))
       .then((blob) => {
         if (!alive) return;

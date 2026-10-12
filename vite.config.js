@@ -4,6 +4,7 @@ import { viteSingleFile } from "vite-plugin-singlefile";
 import fs from "node:fs";
 import path from "node:path";
 import { bundleTemplates } from "./tools/bundle-templates.js";
+import { bundleIcons, bundlePeople } from "./tools/bundle-library.js";
 
 // Dev-only bridge: serves a local website folder (the lab site repo) at
 // /__labsite/ so the editor can read and write its files without the
@@ -110,6 +111,14 @@ function labsiteTemplates() {
   return {
     name: "labsite-templates",
     configureServer(server) {
+      server.middlewares.use("/library/people.js", async (req, res) => {
+        res.setHeader("Content-Type", "text/javascript; charset=utf-8");
+        res.end(await bundlePeople());
+      });
+      server.middlewares.use("/library/healthicons.json", (req, res) => {
+        res.setHeader("Content-Type", "application/json; charset=utf-8");
+        res.end(JSON.stringify(bundleIcons()));
+      });
       server.middlewares.use("/templates/", (req, res, next) => {
         const m = req.url.match(/^\/([a-z0-9-]+)\.json$/);
         if (!m) return next();
@@ -120,9 +129,12 @@ function labsiteTemplates() {
         res.end(JSON.stringify(body));
       });
     },
-    generateBundle() {
+    async generateBundle() {
       const { index, bundles } = bundleTemplates();
+      this.emitFile({ type: "asset", fileName: "library/people.js", source: await bundlePeople() });
       this.emitFile({ type: "asset", fileName: "templates/index.json", source: JSON.stringify(index) });
+      const icons = bundleIcons();
+      if (icons) this.emitFile({ type: "asset", fileName: "library/healthicons.json", source: JSON.stringify(icons) });
       for (const [id, bundle] of Object.entries(bundles))
         this.emitFile({ type: "asset", fileName: `templates/${id}.json`, source: JSON.stringify(bundle) });
     },

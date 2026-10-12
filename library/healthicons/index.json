@@ -1,0 +1,901 @@
+{
+ "source": "Health Icons (https://healthicons.org)",
+ "commit": "36887b268d2cb61f8d91622ad459bdf07910c2b0",
+ "license": "MIT",
+ "icons": [
+  {
+   "id": "nurse",
+   "name": "護理師",
+   "group": "人物",
+   "en": "Person Nurse"
+  },
+  {
+   "id": "doctor",
+   "name": "醫師",
+   "group": "人物",
+   "en": "Doctor"
+  },
+  {
+   "id": "doctor-female",
+   "name": "女醫師",
+   "group": "人物",
+   "en": "Person Female Doctor"
+  },
+  {
+   "id": "doctor-male",
+   "name": "男醫師",
+   "group": "人物",
+   "en": "Person Male Doctor"
+  },
+  {
+   "id": "health-worker",
+   "name": "醫護人員",
+   "group": "人物",
+   "en": "Person Health Worker"
+  },
+  {
+   "id": "community-healthworker",
+   "name": "社區健康工作者",
+   "group": "人物",
+   "en": "Community Healthcare Worker"
+  },
+  {
+   "id": "outpatient",
+   "name": "門診病人",
+   "group": "人物",
+   "en": "Outpatient"
+  },
+  {
+   "id": "regular-patient",
+   "name": "病人",
+   "group": "人物",
+   "en": "Regular patient"
+  },
+  {
+   "id": "elderly",
+   "name": "長者",
+   "group": "人物",
+   "en": "Elderly People"
+  },
+  {
+   "id": "old-man",
+   "name": "爺爺",
+   "group": "人物",
+   "en": "Elderly Man"
+  },
+  {
+   "id": "old-woman",
+   "name": "奶奶",
+   "group": "人物",
+   "en": "Elderly Woman"
+  },
+  {
+   "id": "pregnant",
+   "name": "孕婦",
+   "group": "人物",
+   "en": "Pregnant"
+  },
+  {
+   "id": "lactation",
+   "name": "哺乳",
+   "group": "人物",
+   "en": "Lactation"
+  },
+  {
+   "id": "baby-0306m",
+   "name": "嬰兒",
+   "group": "人物",
+   "en": "Baby 3-6 months"
+  },
+  {
+   "id": "child-care",
+   "name": "兒童照護",
+   "group": "人物",
+   "en": "Child care"
+  },
+  {
+   "id": "young-people",
+   "name": "年輕人",
+   "group": "人物",
+   "en": "Youth"
+  },
+  {
+   "id": "woman",
+   "name": "女性",
+   "group": "人物",
+   "en": "Woman"
+  },
+  {
+   "id": "man",
+   "name": "男性",
+   "group": "人物",
+   "en": "Person"
+  },
+  {
+   "id": "person",
+   "name": "人",
+   "group": "人物",
+   "en": "Person"
+  },
+  {
+   "id": "group-discussion_meeting",
+   "name": "小組討論",
+   "group": "人物",
+   "en": "Discussion"
+  },
+  {
+   "id": "group-discussion_meetingx3",
+   "name": "團隊會議",
+   "group": "人物",
+   "en": "Group Discussion"
+  },
+  {
+   "id": "i-training_class",
+   "name": "上課",
+   "group": "人物",
+   "en": "Training"
+  },
+  {
+   "id": "cpr",
+   "name": "心肺復甦術",
+   "group": "人物",
+   "en": "CPR"
+  },
+  {
+   "id": "wash-hands",
+   "name": "洗手",
+   "group": "人物",
+   "en": "Wash Hands"
+  },
+  {
+   "id": "world-care",
+   "name": "全球健康",
+   "group": "人物",
+   "en": "Environmental"
+  },
+  {
+   "id": "mental-disorders",
+   "name": "心理健康",
+   "group": "人物",
+   "en": "Mental Disorder"
+  },
+  {
+   "id": "stethoscope",
+   "name": "聽診器",
+   "group": "器材",
+   "en": "Stethoscope"
+  },
+  {
+   "id": "syringe",
+   "name": "針筒",
+   "group": "器材",
+   "en": "Syringe"
+  },
+  {
+   "id": "syringe-vaccine",
+   "name": "疫苗",
+   "group": "器材",
+   "en": "Syringe Vaccine"
+  },
+  {
+   "id": "thermometer-digital",
+   "name": "電子體溫計",
+   "group": "器材",
+   "en": "Thermometer Digital"
+  },
+  {
+   "id": "thermometer",
+   "name": "體溫計",
+   "group": "器材",
+   "en": "Temperature"
+  },
+  {
+   "id": "blood-pressure",
+   "name": "血壓計",
+   "group": "器材",
+   "en": "Hypertension"
+  },
+  {
+   "id": "blood-pressure_monitor",
+   "name": "血壓監測",
+   "group": "器材",
+   "en": "Blood Pressure Monitor"
+  },
+  {
+   "id": "pulse-oximeter",
+   "name": "血氧機",
+   "group": "器材",
+   "en": "Pulse Oximeter"
+  },
+  {
+   "id": "intravenous-drip",
+   "name": "點滴",
+   "group": "器材",
+   "en": "Intravenous Drip"
+  },
+  {
+   "id": "intravenous-bag",
+   "name": "點滴袋",
+   "group": "器材",
+   "en": "Intravenous Bag"
+  },
+  {
+   "id": "infusion-pump",
+   "name": "輸液幫浦",
+   "group": "器材",
+   "en": "Infusion pump"
+  },
+  {
+   "id": "wheelchair",
+   "name": "輪椅",
+   "group": "器材",
+   "en": "Wheelchair"
+  },
+  {
+   "id": "crutches",
+   "name": "拐杖",
+   "group": "器材",
+   "en": "Crutch"
+  },
+  {
+   "id": "cane",
+   "name": "手杖",
+   "group": "器材",
+   "en": "Cane"
+  },
+  {
+   "id": "defibrillator",
+   "name": "電擊器",
+   "group": "器材",
+   "en": "Defibrillator"
+  },
+  {
+   "id": "ventilator",
+   "name": "呼吸器",
+   "group": "器材",
+   "en": "Ventilator"
+  },
+  {
+   "id": "oxygen-tank",
+   "name": "氧氣筒",
+   "group": "器材",
+   "en": "Oxygen Tank"
+  },
+  {
+   "id": "microscope",
+   "name": "顯微鏡",
+   "group": "器材",
+   "en": "Microscope"
+  },
+  {
+   "id": "test-tubes",
+   "name": "試管",
+   "group": "器材",
+   "en": "Test tubes"
+  },
+  {
+   "id": "medical-sample",
+   "name": "檢體",
+   "group": "器材",
+   "en": "Medical Sample"
+  },
+  {
+   "id": "ultrasound-scanner",
+   "name": "超音波",
+   "group": "器材",
+   "en": "Ultrasound Device"
+  },
+  {
+   "id": "xray",
+   "name": "X 光",
+   "group": "器材",
+   "en": "X-ray"
+  },
+  {
+   "id": "inpatient",
+   "name": "住院病床",
+   "group": "器材",
+   "en": "Hospital Bed ALT"
+  },
+  {
+   "id": "hospitalized",
+   "name": "臥床",
+   "group": "器材",
+   "en": "Hospital Bed"
+  },
+  {
+   "id": "patient-band",
+   "name": "病人手圈",
+   "group": "器材",
+   "en": "Patient Band"
+  },
+  {
+   "id": "dialysis",
+   "name": "透析",
+   "group": "器材",
+   "en": "Dialysis"
+  },
+  {
+   "id": "hearing-aid",
+   "name": "助聽器",
+   "group": "器材",
+   "en": "Hearing Aid"
+  },
+  {
+   "id": "eyeglasses",
+   "name": "眼鏡",
+   "group": "器材",
+   "en": "Eyeglasses"
+  },
+  {
+   "id": "weight",
+   "name": "體重計",
+   "group": "器材",
+   "en": "Weight Scale"
+  },
+  {
+   "id": "mobile",
+   "name": "手機",
+   "group": "器材",
+   "en": "Mobile App"
+  },
+  {
+   "id": "accident-and_emergency",
+   "name": "急診",
+   "group": "專科",
+   "en": "Accident and Emergency"
+  },
+  {
+   "id": "critical-care",
+   "name": "重症照護",
+   "group": "專科",
+   "en": "Critical Care"
+  },
+  {
+   "id": "intensive-care_unit",
+   "name": "加護病房",
+   "group": "專科",
+   "en": "Intensive Care Unit"
+  },
+  {
+   "id": "cardiology",
+   "name": "心臟科",
+   "group": "專科",
+   "en": "Cardiology"
+  },
+  {
+   "id": "oncology",
+   "name": "腫瘤科",
+   "group": "專科",
+   "en": "Oncology"
+  },
+  {
+   "id": "pediatrics",
+   "name": "兒科",
+   "group": "專科",
+   "en": "Pediatrics"
+  },
+  {
+   "id": "geriatrics",
+   "name": "老年醫學",
+   "group": "專科",
+   "en": "Geriatrics"
+  },
+  {
+   "id": "psychology",
+   "name": "心理",
+   "group": "專科",
+   "en": "Psychology"
+  },
+  {
+   "id": "physical-therapy",
+   "name": "物理治療",
+   "group": "專科",
+   "en": "Physical Therapy"
+  },
+  {
+   "id": "occupational-therapy",
+   "name": "職能治療",
+   "group": "專科",
+   "en": "Occupational Therapy"
+  },
+  {
+   "id": "speech-language_therapy",
+   "name": "語言治療",
+   "group": "專科",
+   "en": "Speech Language Therapy"
+  },
+  {
+   "id": "pharmacy",
+   "name": "藥劑",
+   "group": "專科",
+   "en": "Pharmacy"
+  },
+  {
+   "id": "medical-records",
+   "name": "病歷",
+   "group": "專科",
+   "en": "Medical Records"
+  },
+  {
+   "id": "radiology",
+   "name": "放射科",
+   "group": "專科",
+   "en": "Radiology"
+  },
+  {
+   "id": "obstetricsmonia",
+   "name": "產科",
+   "group": "專科",
+   "en": "Obstetricsmonia"
+  },
+  {
+   "id": "orthopaedics",
+   "name": "骨科",
+   "group": "專科",
+   "en": "Orthopaedics"
+  },
+  {
+   "id": "nephrology",
+   "name": "腎臟科",
+   "group": "專科",
+   "en": "Nephrology"
+  },
+  {
+   "id": "respirology",
+   "name": "胸腔科",
+   "group": "專科",
+   "en": "Respirology"
+  },
+  {
+   "id": "social-work",
+   "name": "社工",
+   "group": "專科",
+   "en": "Social Work"
+  },
+  {
+   "id": "pain-managment",
+   "name": "疼痛管理",
+   "group": "專科",
+   "en": "Pain Management"
+  },
+  {
+   "id": "heart-organ",
+   "name": "心臟",
+   "group": "身體",
+   "en": "Heart"
+  },
+  {
+   "id": "lungs",
+   "name": "肺",
+   "group": "身體",
+   "en": "Lungs"
+  },
+  {
+   "id": "neurology",
+   "name": "大腦",
+   "group": "身體",
+   "en": "Brain"
+  },
+  {
+   "id": "kidneys",
+   "name": "腎臟",
+   "group": "身體",
+   "en": "Kidneys"
+  },
+  {
+   "id": "stomach",
+   "name": "胃",
+   "group": "身體",
+   "en": "Stomach"
+  },
+  {
+   "id": "liver",
+   "name": "肝",
+   "group": "身體",
+   "en": "Liver"
+  },
+  {
+   "id": "dna",
+   "name": "DNA",
+   "group": "身體",
+   "en": "DNA"
+  },
+  {
+   "id": "blood-drop",
+   "name": "血滴",
+   "group": "身體",
+   "en": "Blood Drop"
+  },
+  {
+   "id": "blood-cells",
+   "name": "血球",
+   "group": "身體",
+   "en": "Blood Cells"
+  },
+  {
+   "id": "skeleton",
+   "name": "骨骼",
+   "group": "身體",
+   "en": "Skeleton"
+  },
+  {
+   "id": "spine",
+   "name": "脊椎",
+   "group": "身體",
+   "en": "Spine"
+  },
+  {
+   "id": "joints",
+   "name": "關節",
+   "group": "身體",
+   "en": "Joints"
+  },
+  {
+   "id": "tooth",
+   "name": "牙齒",
+   "group": "身體",
+   "en": "Tooth"
+  },
+  {
+   "id": "eye",
+   "name": "眼睛",
+   "group": "身體",
+   "en": "Eye"
+  },
+  {
+   "id": "ear",
+   "name": "耳朵",
+   "group": "身體",
+   "en": "Ear"
+  },
+  {
+   "id": "bacteria",
+   "name": "細菌",
+   "group": "身體",
+   "en": "Bacteria"
+  },
+  {
+   "id": "virus",
+   "name": "病毒",
+   "group": "身體",
+   "en": "Virus"
+  },
+  {
+   "id": "antibody",
+   "name": "抗體",
+   "group": "身體",
+   "en": "Antibody"
+  },
+  {
+   "id": "pills-3",
+   "name": "藥丸",
+   "group": "藥物與防護",
+   "en": "Pill 3"
+  },
+  {
+   "id": "medicines",
+   "name": "藥品",
+   "group": "藥物與防護",
+   "en": "Medicines"
+  },
+  {
+   "id": "blister-pills_oval_x4",
+   "name": "藥排",
+   "group": "藥物與防護",
+   "en": "Blister Pills Oval x4"
+  },
+  {
+   "id": "medicine-bottle",
+   "name": "藥瓶",
+   "group": "藥物與防護",
+   "en": "Medicine Container"
+  },
+  {
+   "id": "rx",
+   "name": "處方",
+   "group": "藥物與防護",
+   "en": "Prescription Alt"
+  },
+  {
+   "id": "ppe-mask",
+   "name": "口罩",
+   "group": "藥物與防護",
+   "en": "PPE Surgical Mask"
+  },
+  {
+   "id": "ppe-gloves",
+   "name": "手套",
+   "group": "藥物與防護",
+   "en": "PPE Gloves"
+  },
+  {
+   "id": "ppe-gown",
+   "name": "隔離衣",
+   "group": "藥物與防護",
+   "en": "PPE Gown"
+  },
+  {
+   "id": "ppe-face_shield",
+   "name": "面罩",
+   "group": "藥物與防護",
+   "en": "PPE Face Shield"
+  },
+  {
+   "id": "ppe-sanitizer",
+   "name": "乾洗手",
+   "group": "藥物與防護",
+   "en": "PPE Sanitizer"
+  },
+  {
+   "id": "bandage-adhesive",
+   "name": "OK 繃",
+   "group": "藥物與防護",
+   "en": "Bandage"
+  },
+  {
+   "id": "hospital",
+   "name": "醫院",
+   "group": "地點與物品",
+   "en": "Hospital"
+  },
+  {
+   "id": "ambulatory-clinic",
+   "name": "診所",
+   "group": "地點與物品",
+   "en": "Clinic"
+  },
+  {
+   "id": "home",
+   "name": "居家",
+   "group": "地點與物品",
+   "en": "Home"
+  },
+  {
+   "id": "emergency-post",
+   "name": "急救站",
+   "group": "地點與物品",
+   "en": "Field Hospital"
+  },
+  {
+   "id": "city",
+   "name": "城市",
+   "group": "地點與物品",
+   "en": "City"
+  },
+  {
+   "id": "book",
+   "name": "書",
+   "group": "地點與物品",
+   "en": "Medical Book"
+  },
+  {
+   "id": "i-certificate_paper",
+   "name": "證書",
+   "group": "地點與物品",
+   "en": "Certificate"
+  },
+  {
+   "id": "award-trophy",
+   "name": "獎盃",
+   "group": "地點與物品",
+   "en": "Trophy"
+  },
+  {
+   "id": "calendar",
+   "name": "行事曆",
+   "group": "地點與物品",
+   "en": "Calendar"
+  },
+  {
+   "id": "laptop",
+   "name": "筆電",
+   "group": "地點與物品",
+   "en": "Laptop"
+  },
+  {
+   "id": "megaphone",
+   "name": "公告",
+   "group": "地點與物品",
+   "en": "Megaphone"
+  },
+  {
+   "id": "prescription-document",
+   "name": "處方箋",
+   "group": "地點與物品",
+   "en": "Prescription"
+  },
+  {
+   "id": "spreadsheets",
+   "name": "資料表",
+   "group": "地點與物品",
+   "en": "Spreadsheet"
+  },
+  {
+   "id": "heart",
+   "name": "愛心",
+   "group": "符號與圖表",
+   "en": "Heart"
+  },
+  {
+   "id": "heart-cardiogram",
+   "name": "心電圖",
+   "group": "符號與圖表",
+   "en": "Cardiogram"
+  },
+  {
+   "id": "cardiogram",
+   "name": "心跳",
+   "group": "符號與圖表",
+   "en": "Cardiogram"
+  },
+  {
+   "id": "hospital-symbol",
+   "name": "醫院標誌",
+   "group": "符號與圖表",
+   "en": "Hospital Symbol"
+  },
+  {
+   "id": "health",
+   "name": "健康",
+   "group": "符號與圖表",
+   "en": "Health Shield"
+  },
+  {
+   "id": "medical-advice",
+   "name": "醫療諮詢",
+   "group": "符號與圖表",
+   "en": "Medical Advice Hotline"
+  },
+  {
+   "id": "palliative-care",
+   "name": "安寧照護",
+   "group": "符號與圖表",
+   "en": "Palliative Care"
+  },
+  {
+   "id": "hospice",
+   "name": "安寧病房",
+   "group": "符號與圖表",
+   "en": "Hospice"
+  },
+  {
+   "id": "health-literacy",
+   "name": "健康識能",
+   "group": "符號與圖表",
+   "en": "Health Literacy"
+  },
+  {
+   "id": "award-ribbon",
+   "name": "獎章",
+   "group": "符號與圖表",
+   "en": "Award"
+  },
+  {
+   "id": "magnifying-glass",
+   "name": "搜尋",
+   "group": "符號與圖表",
+   "en": "Magnifying Glass"
+  },
+  {
+   "id": "communication",
+   "name": "溝通",
+   "group": "符號與圖表",
+   "en": "Chat"
+  },
+  {
+   "id": "community-meeting",
+   "name": "社區",
+   "group": "符號與圖表",
+   "en": "Outdoor Meeting"
+  },
+  {
+   "id": "chart-bar",
+   "name": "長條圖",
+   "group": "符號與圖表",
+   "en": "Bar Chart"
+  },
+  {
+   "id": "chart-line",
+   "name": "折線圖",
+   "group": "符號與圖表",
+   "en": "Line Chart"
+  },
+  {
+   "id": "chart-pie",
+   "name": "圓餅圖",
+   "group": "符號與圖表",
+   "en": "Pie Chart"
+  },
+  {
+   "id": "info",
+   "name": "資訊",
+   "group": "符號與圖表",
+   "en": "Info"
+  },
+  {
+   "id": "yes",
+   "name": "完成",
+   "group": "符號與圖表",
+   "en": "Checkmark"
+  },
+  {
+   "id": "walking",
+   "name": "走路",
+   "group": "生活與情緒",
+   "en": "Activity Walk"
+  },
+  {
+   "id": "running",
+   "name": "跑步",
+   "group": "生活與情緒",
+   "en": "Activity Run"
+  },
+  {
+   "id": "exercise",
+   "name": "運動",
+   "group": "生活與情緒",
+   "en": "Exercise"
+  },
+  {
+   "id": "exercise-yoga",
+   "name": "瑜珈",
+   "group": "生活與情緒",
+   "en": "Yoga"
+  },
+  {
+   "id": "nutrition",
+   "name": "營養",
+   "group": "生活與情緒",
+   "en": "Nutrition"
+  },
+  {
+   "id": "fruits",
+   "name": "水果",
+   "group": "生活與情緒",
+   "en": "Fruits"
+  },
+  {
+   "id": "vegetables",
+   "name": "蔬菜",
+   "group": "生活與情緒",
+   "en": "Vegetables"
+  },
+  {
+   "id": "hot-meal",
+   "name": "餐點",
+   "group": "生活與情緒",
+   "en": "Hot Meal"
+  },
+  {
+   "id": "happy",
+   "name": "開心",
+   "group": "生活與情緒",
+   "en": "Happy"
+  },
+  {
+   "id": "calm",
+   "name": "平靜",
+   "group": "生活與情緒",
+   "en": "Calm"
+  },
+  {
+   "id": "sad",
+   "name": "難過",
+   "group": "生活與情緒",
+   "en": "Sad"
+  },
+  {
+   "id": "sleepy",
+   "name": "想睡",
+   "group": "生活與情緒",
+   "en": "Sleepy"
+  },
+  {
+   "id": "smoking-cessation",
+   "name": "戒菸",
+   "group": "生活與情緒",
+   "en": "No Smoking ALT"
+  }
+ ]
+}

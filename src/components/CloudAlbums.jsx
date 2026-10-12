@@ -20,8 +20,16 @@ import { Thumb } from "./AlbumPanel";
 import { formatBytes, PICKER_ACCEPT } from "../site/images.js";
 import { newAlbumId, coverOf } from "../site/albums.js";
 import { useDragReorder } from "../hooks/useDragReorder";
+import AssetLibrary from "./AssetLibrary";
 
 const ALL = "__all";
+// 素材庫 views: "lib:<kind>"
+const LIBRARY = [
+  ["icons", "醫療護理圖示"],
+  ["people", "插畫人物"],
+  ["decor", "背景與裝飾"],
+  ["external", "外部素材網站"],
+];
 const ACTIVITY = "__activity";
 
 function DropZone({ disabled, onFiles, children }) {
@@ -268,7 +276,7 @@ export default function CloudAlbums({ p, open, onClose, onPick, pickTitle, setCo
   const [view, setView] = useState(ALL);
   const writable = !!p.project?.source.writable;
   useEffect(() => {
-    if (open && view !== ALL && view !== ACTIVITY && !albums.some((a) => a.id === view)) setView(albums[0]?.id || ALL);
+    if (open && view !== ALL && view !== ACTIVITY && !view.startsWith("lib:") && !albums.some((a) => a.id === view)) setView(albums[0]?.id || ALL);
   }, [open, albums.length]);
   const current = albums.find((a) => a.id === view);
   const update = (id, fn) => p.setAlbums((d) => ({ ...d, albums: d.albums.map((a) => (a.id === id ? fn(a) : a)) }));
@@ -315,9 +323,17 @@ export default function CloudAlbums({ p, open, onClose, onPick, pickTitle, setCo
               <FolderSimplePlus size={16} /> 新增相簿
             </button>
           )}
+          <span className="ca-side-label">素材庫</span>
+          {LIBRARY.map(([kind, label]) => (
+            <button key={kind} type="button" className={view === "lib:" + kind ? "active" : ""} onClick={() => setView("lib:" + kind)}>
+              {label}
+            </button>
+          ))}
         </nav>
         <div className="ca-main">
-          {view === ALL ? (
+          {view.startsWith("lib:") ? (
+            <AssetLibrary p={p} kind={view.slice(4)} pick={pick} onPick={choose} />
+          ) : view === ALL ? (
             <AllPhotos
               p={p}
               open={open}

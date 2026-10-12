@@ -71,7 +71,7 @@ test("blocks insert on an English page with paths back to the site root, assets 
   assert.match(out, /data-album="a1" data-layout="carousel" data-base="\.\.\/"/);
   // (linkedom lists new attributes in reverse order; browsers keep it)
   assert.match(out, /<link (?=[^>]*rel="stylesheet")(?=[^>]*href="\.\.\/css\/labsite-blocks\.css")[^>]*>/);
-  assert.match(out, /<script (?=[^>]*defer)(?=[^>]*src="\.\.\/js\/labsite-albums\.js")[^>]*><\/script>/);
+  assert.match(out, /<script (?=[^>]*defer)(?=[^>]*src="\.\.\/js\/labsite-blocks\.js")[^>]*><\/script>/);
   assert.equal(sectionElements(page.doc).length, 4);
   // Title and text of the album block are ordinary editable fields.
   const fields = collectFields(sectionElements(page.doc)[2]).filter((f) => f.kind === "text").map((f) => f.value);
@@ -102,9 +102,9 @@ test("share image: og:image and twitter:image, added when missing", () => {
 });
 
 test("runtime files are versioned, self-contained and ES5-safe", () => {
-  assert.deepEqual(Object.keys(RUNTIME_FILES).sort(), [BLOCKS_CSS, ALBUM_JS].sort());
+  assert.deepEqual(Object.keys(RUNTIME_FILES).sort(), [BLOCKS_CSS, ALBUM_JS, "assets/library/placeholder-photo.svg"].sort());
   const js = RUNTIME_FILES[ALBUM_JS];
-  assert.match(js, /LabSite 相簿 v\d+/);
+  assert.match(js, /LabSite 相簿與動畫 v\d+/);
   assert.ok(!/=>|\blet\b|\bconst\b|`/.test(js.replace(/\/\*[\s\S]*?\*\//g, "")), "plain ES5");
   new Function(js); // parses
   assert.match(RUNTIME_FILES[BLOCKS_CSS], /prefers-reduced-motion/);

@@ -177,6 +177,18 @@ labsite/skins/<id>/theme.css
 - 用到區塊的頁面，`<head>` 會加上 `css/labsite-blocks.css`（相簿展示另加 `js/labsite-albums.js`）。這兩個檔案由編輯器產生、帶版本號，更新時整個覆寫；不要手改。相簿由腳本在瀏覽器裡讀 `data/albums.json` 填入，所以相簿加照片後，所有展示它的頁面自動更新；點照片可放大，支援鍵盤。
 - 分享預覽圖：「分享設定」可替每一頁選照片，寫入 `og:image`（沒有就新增）與 `twitter:image`，網址是網站公開網址＋照片路徑。
 
+### 動畫庫與素材庫
+
+- **動畫元件**（「＋ 動畫元件」）：數字統計、進度條、時間軸、浮起卡片、圖文分割、分頁標籤、常見問題、跑馬燈、引言、行動呼籲橫幅。每一個都是 body 直屬的 `section.ls-block`，文字是一般欄位、重複的項目是一般清單；行為在 `js/labsite-blocks.js`，沒有 JavaScript 時內容照樣全部顯示。
+  - 數字統計讀 `.ls-stat strong` 的文字（可以寫 `30+`、`2,400`），捲到時從 0 跳到該數字。
+  - 進度條讀 `.ls-progress-value` 的百分比。
+  - 分頁標籤由每個 `.ls-tab-title` 產生按鈕（鍵盤左右鍵可切換）。
+  - 常見問題是原生 `<details>`。
+  - 跑馬燈會複製一份項目來無縫循環，滑鼠移上去會停下。
+- **區塊進場動畫**：任何 `<section>` 都可以加 `data-ls-anim="fade|rise|zoom|left|right|stagger"`（`stagger` 讓 `.ls-stagger` 的子項目依序出現），由 `js/labsite-blocks.js` 在區塊進入畫面時加上 `.ls-in`。使用模板自己動畫系統（`--motion`、`data-motion`）的網站維持原來的設定。設定「減少動態效果」或沒有 JavaScript 時不隱藏任何內容。
+- **素材庫**（雲端相簿左側）：醫療護理圖示（Health Icons，可選顏色與線條／實心）、插畫人物（DiceBear 三種 CC0 畫風）、背景與裝飾（LabSite 產生），以及外部素材網站的連結。挑選的素材存成網站裡的 SVG：`assets/library/icons|people|decor/…`。授權見 `docs/THIRD-PARTY.md`。
+- `js/labsite-albums.js`（v1）已改名為 `js/labsite-blocks.js`；仍引用舊檔名的頁面在下次編輯時會自動改過來。
+
 ## 8. 給新網站的最短檢查表
 
 1. 頁面放在根目錄，英文版放 `en/` 同名。

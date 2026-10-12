@@ -40,6 +40,7 @@ import {
   textBlock,
   ensureBlockAssets,
 } from "../site/albums.js";
+import { blockById } from "../site/blockCatalog.js";
 import { directorySource, detectDevSource, urlSource, normalizePath, stagedSource, resolveFrom } from "../site/source.js";
 import { createPreviewCache, invalidatePreviewCache } from "../site/preview.js";
 import { detectCloud, cloudApi, cloudSource, redeemInviteFromUrl } from "../site/cloud.js";
@@ -697,6 +698,20 @@ export function useProject(notify) {
     else if (added.length) notify(`已加入 ${added.length} 張照片，按「保存相簿」後才會存起來。`);
     return added.length;
   }
+  // 素材庫: a generated SVG goes into the site with the page being edited, or
+  // with the albums when added to one.
+  function stageLibraryAsset(path, svg, { album = null, caption = "" } = {}) {
+    invalidatePreviewCache(cache.current, path);
+    setStaged((st) => ({ ...st, [path]: { file: svg, page: album ? ALBUMS_PATH : current } }));
+    if (album) {
+      setAlbums((d) => ({
+        ...d,
+        albums: d.albums.map((a) => (a.id === album && !a.photos.some((x) => x.src === path) ? { ...a, photos: [...a.photos, { src: path, caption }] } : a)),
+      }));
+      notify(`已把「${caption}」加到相簿，按「保存相簿」後才會存起來。`);
+    }
+    return path;
+  }
   // The blocks' script and stylesheet, when the site does not have this
   // version yet. → [{ path, text }]
   async function missingRuntime() {
@@ -707,6 +722,13 @@ export function useProject(notify) {
     }
     return out;
   }
+  // Newer runtime files go out with the page; the preview must stop using its cached copies.
+  function stageRuntime(files, page) {
+    for (const f of files) {
+      invalidatePreviewCache(cache.current, f.path);
+      setStaged((st) => ({ ...st, [f.path]: { file: f.text, page } }));
+    }
+  }
   async function saveAlbums() {
     if (!project) return false;
     return commitFiles({ albums: albumsDirty, site: siteDirty, extra: albumsDirty ? await missingRuntime() : [] });
@@ -714,15 +736,36 @@ export function useProject(notify) {
   // Inserts 單張照片 or 相簿展示 after section `afterIndex` of this page.
   async function insertBlock(afterIndex, kind, opts) {
     const page = current;
-    const html = kind === "album" ? albumBlock({ ...opts, pagePath: page }) : kind === "text" ? textBlock(opts) : photoBlock(opts);
+    const html =
+      kind === "album"
+        ? albumBlock({ ...opts, pagePath: page })
+        : kind === "text"
+          ? textBlock(opts)
+          : kind === "catalog"
+            ? blockById(opts.id).html(opts)
+            : photoBlock(opts);
     edit((doc) => {
-      if (insertSection(doc, afterIndex, html, page)) ensureBlockAssets(doc, page, { script: kind === "album" });
+      if (insertSection(doc, afterIndex, html, page)) ensureBlockAssets(doc, page);
     }, "insert:" + Date.now());
     setSelected(afterIndex + 1);
     setFocus(null);
-    for (const f of await missingRuntime()) setStaged((st) => ({ ...st, [f.path]: { file: f.text, page } }));
-    notify(`已插入${kind === "album" ? "相簿展示" : kind === "text" ? "標題與文字" : "照片"}，在左邊改內容，保存這一頁後生效。`);
+    stageRuntime(await missingRuntime(), page);
+    const label = kind === "album" ? "相簿展示" : kind === "text" ? "標題與文字" : kind === "catalog" ? blockById(opts.id).name : "照片";
+    notify(`已插入「${label}」，在左邊改內容，保存這一頁後生效。`);
     return true;
+  }
+  // 進場動畫 for any section (sites without the template's own motion system).
+  async function setEntrance(index, value) {
+    const page = current;
+    edit((doc) => {
+      const s = sectionElements(doc)[index];
+      if (!s) return;
+      if (value) {
+        s.setAttribute("data-ls-anim", value);
+        ensureBlockAssets(doc, page);
+      } else s.removeAttribute("data-ls-anim");
+    }, "anim:" + index);
+    if (value) stageRuntime(await missingRuntime(), page);
   }
 
   /* ---------------------------------------------------------- text size */
@@ -964,7 +1007,7 @@ export function useProject(notify) {
       const listed = new Set(parseAlbums(savedAlbums).albums.flatMap((a) => a.photos.map((x) => x.src)));
       for (const [target, st] of Object.entries(staged))
         if (st.page === ALBUMS_PATH && listed.has(target)) {
-          files.push({ path: target, blob: st.file });
+          files.push(typeof st.file === "string" ? { path: target, text: st.file } : { path: target, blob: st.file });
           assets.push(target);
         }
     }
@@ -1122,6 +1165,8 @@ export function useProject(notify) {
     addPhotosToAlbum,
     saveAlbums,
     insertBlock,
+    setEntrance,
+    stageLibraryAsset,
     planAddresses,
     replaceAddresses,
     setAlbumPhotos,

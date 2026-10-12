@@ -9,9 +9,15 @@
 // are styled by css/labsite-blocks.css. The editor writes these two files
 // (RUNTIME_FILES) whenever a page uses a block or the albums are saved.
 
+import { ANIM_CSS_TEXT, ANIM_JS_TEXT } from "./blockRuntime.js";
+
 export const ALBUMS_PATH = "data/albums.json";
-export const ALBUM_JS = "js/labsite-albums.js";
+// One script and one stylesheet for every LabSite block (相簿、動畫庫).
+export const ALBUM_JS = "js/labsite-blocks.js";
+export const BLOCKS_JS = ALBUM_JS;
+const OLD_ALBUM_JS = "js/labsite-albums.js"; // v1 name, migrated on the next edit
 export const BLOCKS_CSS = "css/labsite-blocks.css";
+export const PLACEHOLDER_PHOTO = "assets/library/placeholder-photo.svg";
 export const LAYOUTS = [
   ["grid", "方格"],
   ["carousel", "輪播"],
@@ -91,8 +97,9 @@ export function textBlock({ title = "", text = "" } = {}) {
 </section>`;
 }
 
-// Adds the blocks' stylesheet (and the album script) to a page's <head>.
-export function ensureBlockAssets(doc, pagePath, { script = false } = {}) {
+// Adds the blocks' stylesheet and script to a page's <head> (a page that
+// still loads the v1 album script is switched to the new one).
+export function ensureBlockAssets(doc, pagePath, { script = true } = {}) {
   const base = rootFrom(pagePath);
   const head = doc.head;
   const has = (sel, attr, file) => [...head.querySelectorAll(sel)].some((n) => (n.getAttribute(attr) || "").endsWith(file));
@@ -102,6 +109,11 @@ export function ensureBlockAssets(doc, pagePath, { script = false } = {}) {
     head.append(doc.createTextNode("  "), el, doc.createTextNode(indent.includes("\n") ? "\n" : indent));
   };
   let changed = false;
+  for (const old of head.querySelectorAll("script[src]"))
+    if ((old.getAttribute("src") || "").endsWith(OLD_ALBUM_JS)) {
+      old.setAttribute("src", base + ALBUM_JS);
+      changed = true;
+    }
   if (!has('link[rel~="stylesheet"]', "href", BLOCKS_CSS)) {
     const link = doc.createElement("link");
     link.setAttribute("rel", "stylesheet");
@@ -120,9 +132,9 @@ export function ensureBlockAssets(doc, pagePath, { script = false } = {}) {
 }
 
 /* -------------------------------------------------------------- runtime */
-export const RUNTIME_VERSION = 1;
+export const RUNTIME_VERSION = 2;
 
-export const BLOCKS_CSS_TEXT = `/* LabSite 照片與相簿區塊 v${RUNTIME_VERSION}：由 LabSite 編輯器產生，更新時會被覆寫。 */
+export const BLOCKS_CSS_TEXT = `/* LabSite 區塊（照片、相簿、動畫庫）v${RUNTIME_VERSION}：由 LabSite 編輯器產生，更新時會被覆寫。 */
 .ls-block {
   padding: clamp(32px, 6vw, 72px) 0;
 }
@@ -321,7 +333,7 @@ export const BLOCKS_CSS_TEXT = `/* LabSite 照片與相簿區塊 v${RUNTIME_VERS
 `;
 
 // Plain ES5 so it runs on any site without a build step.
-export const ALBUM_JS_TEXT = `/* LabSite 相簿 v${RUNTIME_VERSION}：由 LabSite 編輯器產生，更新時會被覆寫。
+export const ALBUM_JS_TEXT = `/* LabSite 相簿與動畫 v${RUNTIME_VERSION}：由 LabSite 編輯器產生，更新時會被覆寫。
    把 <div class="ls-album" data-album="…" data-layout="grid|carousel|masonry">
    填上 data/albums.json 裡那本相簿的照片；點照片可放大瀏覽。 */
 (function () {
@@ -467,4 +479,10 @@ export const ALBUM_JS_TEXT = `/* LabSite 相簿 v${RUNTIME_VERSION}：由 LabSit
 `;
 
 // Files a page with blocks needs: path → text.
-export const RUNTIME_FILES = { [ALBUM_JS]: ALBUM_JS_TEXT, [BLOCKS_CSS]: BLOCKS_CSS_TEXT };
+const PLACEHOLDER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600"><rect width="800" height="600" fill="#e8eeeb"/><g fill="#b8c9c1"><circle cx="560" cy="200" r="60"/><path d="M120 480l170-200 120 140 90-90 180 150z"/></g><text x="400" y="560" text-anchor="middle" font-family="sans-serif" font-size="28" fill="#7d958a">換成你的照片</text></svg>
+`;
+export const RUNTIME_FILES = {
+  [ALBUM_JS]: ALBUM_JS_TEXT + ANIM_JS_TEXT,
+  [BLOCKS_CSS]: BLOCKS_CSS_TEXT + ANIM_CSS_TEXT,
+  [PLACEHOLDER_PHOTO]: PLACEHOLDER_SVG,
+};

@@ -30,9 +30,30 @@ import AlbumPanel from "../components/AlbumPanel";
 import RelocatePanel from "../components/RelocatePanel";
 import TextSizePanel from "../components/TextSizePanel";
 import PublishSummary from "../components/PublishSummary";
+import AnimationLibrary from "../components/AnimationLibrary";
+import { ENTRANCES } from "../site/blockCatalog.js";
 import EditorGuide, { guideDismissed } from "../components/EditorGuide";
 import { parsePage, listSections, readHead, sectionMotion, sectionElements, pathOf } from "../site/page.js";
 import { pageLabel } from "../hooks/useProject";
+
+// 進場動畫 for one section, on sites without the template's own motion system.
+// "項目依序出現" only where the section has items to stagger (動畫元件).
+function EntrancePicker({ section, disabled, onChange }) {
+  const value = section?.getAttribute("data-ls-anim") || "";
+  const canStagger = !!section?.querySelector(".ls-stagger");
+  return (
+    <label className="page-picker motion-picker">
+      <span>進場動畫</span>
+      <select value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled}>
+        {ENTRANCES.filter(([id]) => id !== "stagger" || canStagger || value === "stagger").map(([id, label]) => (
+          <option key={id || "none"} value={id}>
+            {label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
 
 // Shown above the editor; brought into view when a new error appears, since
 // the field that caused it may be far down the page.
@@ -57,6 +78,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
   // 雲端相簿: null (closed), {} to manage, or { pick, title } to choose a photo.
   const [photos, setPhotos] = useState(null);
   const [insertAlbum, setInsertAlbum] = useState(false);
+  const [animOpen, setAnimOpen] = useState(false);
   const [guide, setGuide] = useState(() => !guideDismissed());
   // A photo dropped anywhere else would make the browser open the file and
   // leave the editor; catch it and say where photos go instead.
@@ -486,6 +508,9 @@ export default function Project({ p, device, setDevice, setConfirm }) {
                   <Button size="1" variant="soft" onClick={() => p.insertBlock(insertAfter, "text", {})}>
                     ＋ 標題與文字
                   </Button>
+                  <Button size="1" onClick={() => setAnimOpen(true)}>
+                    ＋ 動畫元件
+                  </Button>
                 </div>
               )}
               <div className="inspector-body">
@@ -493,6 +518,9 @@ export default function Project({ p, device, setDevice, setConfirm }) {
                   {sections[selected]?.title}
                   <span className="muted">{sections[selected]?.kind}</span>
                 </h3>
+                {!p.theme?.vars["--motion"] && parsed && sections[selected] && (
+                  <EntrancePicker section={sectionElements(parsed.doc)[selected]} disabled={!writable} onChange={(v) => p.setEntrance(selected, v)} />
+                )}
                 {p.theme?.vars["--motion"] && parsed && sections[selected] && (
                   <label className="page-picker motion-picker">
                     <span>進場動畫</span>
@@ -538,6 +566,12 @@ export default function Project({ p, device, setDevice, setConfirm }) {
         <LibraryPanel p={p} sections={sections} selected={selected} open={libraryOpen} onClose={() => setLibraryOpen(false)} />
         <AddToLibrary p={p} section={sections[saving]} index={saving} open={saving !== null} onClose={() => setSaving(null)} />
         <CloudAlbums p={p} open={!!photos} onPick={photos?.pick} pickTitle={photos?.title} onClose={() => setPhotos(null)} setConfirm={setConfirm} />
+        <AnimationLibrary
+          open={animOpen}
+          onClose={() => setAnimOpen(false)}
+          where={sections.length ? "插在「" + (sections[selected]?.title || "") + "」後面" : "插在頁面開頭"}
+          onInsert={(id) => p.insertBlock(insertAfter, "catalog", { id })}
+        />
         <InsertAlbumDialog
           p={p}
           open={insertAlbum}
