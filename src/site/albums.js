@@ -97,6 +97,65 @@ export function textBlock({ title = "", text = "" } = {}) {
 </section>`;
 }
 
+// A block's heading dressed like the page's own section headings: the first
+// body-level section heading that is not a LabSite block (e.g. 賀老師's
+// "icon + 標題 + EN 副標") is copied, with the block's own words put in, so
+// new blocks look native. SVG ids inside the copy are renamed so the page
+// keeps unique ids. Returns true when a heading was adopted.
+const KICKER_MAX = 40;
+function sampleHeading(doc, skip) {
+  for (const section of doc.body.querySelectorAll(":scope > section")) {
+    if (section === skip || section.classList.contains("ls-block")) continue;
+    const h2 = section.querySelector("h2");
+    if (!h2) continue;
+    // The heading's own wrapper (".section-header", "…__head") if it has one.
+    let box = h2;
+    for (let up = h2.parentElement; up && up !== section && up.children.length <= 3; up = up.parentElement)
+      if (/head/i.test(up.getAttribute("class") || "")) {
+        box = up;
+        break;
+      }
+    return { box, h2 };
+  }
+  return null;
+}
+let adopted = 0;
+export function adoptHeading(doc, section, { title, kicker = "" } = {}) {
+  const mine = section?.querySelector("h2.ls-title");
+  const sample = mine && sampleHeading(doc, section);
+  if (!sample) return false;
+  const copy = sample.box.cloneNode(true);
+  const h2 = copy === sample.box ? copy : copy.querySelector("h2") || copy;
+  // Put the title in the heading's last text (icons and other children stay).
+  const texts = [...h2.childNodes].filter((n) => n.nodeType === 3 && n.nodeValue.trim());
+  const text = title ?? mine.textContent.trim();
+  if (texts.length) {
+    const last = texts.at(-1);
+    last.nodeValue = last.nodeValue.replace(/\S[\s\S]*\S|\S/, () => text);
+    for (const t of texts.slice(0, -1)) t.nodeValue = t.nodeValue.replace(/\S[\s\S]*\S|\S/, "");
+  } else h2.append(doc.createTextNode(text));
+  // A short Latin line next to the heading (an English kicker) gets the block's.
+  for (const el of copy.querySelectorAll("*")) {
+    if (el === h2 || h2.contains(el) || el.children.length) continue;
+    const t = el.textContent.trim();
+    if (t && t.length <= KICKER_MAX && /^[\x20-\x7e]+$/.test(t)) {
+      if (kicker) el.textContent = kicker;
+      else el.remove();
+      break;
+    }
+  }
+  // Unique ids for the copied SVG gradients and their references.
+  const n = ++adopted + "-" + Math.random().toString(36).slice(2, 6);
+  for (const el of copy.querySelectorAll("[id]")) {
+    const old = el.id;
+    el.id = old + "-ls" + n;
+    for (const ref of copy.querySelectorAll("*"))
+      for (const a of [...ref.attributes]) if (a.value.includes("#" + old + ")") || a.value === "#" + old) ref.setAttribute(a.name, a.value.split("#" + old).join("#" + el.id));
+  }
+  mine.replaceWith(copy);
+  return true;
+}
+
 // Adds the blocks' stylesheet and script to a page's <head> (a page that
 // still loads the v1 album script is switched to the new one).
 export function ensureBlockAssets(doc, pagePath, { script = true } = {}) {

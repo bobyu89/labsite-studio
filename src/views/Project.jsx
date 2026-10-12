@@ -29,6 +29,8 @@ import { Thumb } from "../components/AlbumPanel";
 import AlbumPanel from "../components/AlbumPanel";
 import RelocatePanel from "../components/RelocatePanel";
 import TextSizePanel from "../components/TextSizePanel";
+import ColorPanel from "../components/ColorPanel";
+import { applyColorMap } from "../site/palette.js";
 import PublishSummary from "../components/PublishSummary";
 import AnimationLibrary from "../components/AnimationLibrary";
 import { ENTRANCES } from "../site/blockCatalog.js";
@@ -364,6 +366,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
             </div>
           ) : tab === "theme" && (p.theme || p.textSize?.available) ? (
             <div className="inspector-body">
+              <ColorPanel p={p} writable={writable} />
               <TextSizePanel p={p} writable={writable} />
               {p.theme && <SiteThemePanel p={p} />}
             </div>
@@ -580,7 +583,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
           onInsert={(opts) => p.insertBlock(insertAfter, "album", opts)}
         />
         <SitePreview
-          html={p.html}
+          html={p.colors?.previewing ? applyColorMap(p.html, p.colors.map).text : p.html}
           pagePath={p.current}
           source={p.previewSource}
           cache={p.cache}

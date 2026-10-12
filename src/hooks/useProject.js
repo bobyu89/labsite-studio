@@ -39,8 +39,10 @@ import {
   albumBlock,
   textBlock,
   ensureBlockAssets,
+  adoptHeading,
 } from "../site/albums.js";
 import { blockById } from "../site/blockCatalog.js";
+import { COLORS_FILE, readPalette, recolorMap, applyColorMap, writePreview, stripPreview, hasPreview, colorsRecord, restoreMap } from "../site/palette.js";
 import { directorySource, detectDevSource, urlSource, normalizePath, stagedSource, resolveFrom } from "../site/source.js";
 import { createPreviewCache, invalidatePreviewCache } from "../site/preview.js";
 import { detectCloud, cloudApi, cloudSource, redeemInviteFromUrl } from "../site/cloud.js";
@@ -104,6 +106,9 @@ export function useProject(notify) {
   const [theme, setThemeState] = useState(null);
   // Sites without css/theme.css keep their text size in the main stylesheet.
   const [textCss, setTextCss] = useState(null);
+  // 配色: the main colour being previewed, and the remembered original palette.
+  const [colorSeed, setColorSeed] = useState(null);
+  const [colorRecord, setColorRecord] = useState(null);
   // The cloud album (data/albums.json); original is null while the site has none.
   const [albumsFile, setAlbumsFile] = useState(null);
   // Skins the site can switch to, and the css/site.css being previewed:
@@ -180,7 +185,7 @@ export function useProject(notify) {
   );
   const siteDirty = !!siteData && siteData.text !== siteData.original;
   const themeDirty =
-    (!!theme && theme.text !== theme.original) || (!!skin && skin.text !== skin.original) || (!!textCss && textCss.text !== textCss.original);
+    (!!theme && theme.text !== theme.original) || (!!skin && skin.text !== skin.original) || (!!textCss && stripPreview(textCss.text) !== textCss.original);
   const albumsDirty = !!albumsFile && albumsFile.text !== (albumsFile.original ?? serializeAlbums(emptyAlbums()));
   const anyDirty = dirtyPages.length > 0 || siteDirty || themeDirty || albumsDirty;
   useEffect(() => {
@@ -267,6 +272,12 @@ export function useProject(notify) {
           }
         }
       setTextCss(textFile);
+      setColorSeed(null);
+      try {
+        setColorRecord(JSON.parse(await source.readText(COLORS_FILE)));
+      } catch {
+        setColorRecord(null);
+      }
       const albumsText = await source.readText(ALBUMS_PATH).catch(() => null);
       setAlbumsFile({ text: albumsText ?? serializeAlbums(emptyAlbums()), original: albumsText });
       setThemeState(themeFile);
@@ -745,7 +756,11 @@ export function useProject(notify) {
             ? blockById(opts.id).html(opts)
             : photoBlock(opts);
     edit((doc) => {
-      if (insertSection(doc, afterIndex, html, page)) ensureBlockAssets(doc, page);
+      if (!insertSection(doc, afterIndex, html, page)) return;
+      ensureBlockAssets(doc, page);
+      // Dress the new heading like the page's own section headings.
+      const kicker = kind === "catalog" ? blockById(opts.id).kicker : kind === "album" ? "GALLERY" : "";
+      adoptHeading(doc, sectionElements(doc)[afterIndex + 1], { kicker });
     }, "insert:" + Date.now());
     setSelected(afterIndex + 1);
     setFocus(null);
@@ -778,6 +793,56 @@ export function useProject(notify) {
     if (theme) setThemeState((t) => ({ ...t, text: writeTextSize(t.text, pct) }));
     else setTextCss((c) => (c ? { ...c, text: writeTextSize(c.text, pct) } : c));
   }
+
+  /* ------------------------------------------------------------ colours */
+  // Sites whose stylesheet keeps its colours in :root variables (no theme.css).
+  const palette = useMemo(() => (textCss ? readPalette(stripPreview(textCss.original)) : null), [textCss?.original]);
+  function previewColors(seed) {
+    if (!palette?.primary) return;
+    setColorSeed(seed);
+    const map = recolorMap(palette, seed);
+    setTextCss((c) => (c ? { ...c, text: writePreview(c.text, map) } : c));
+  }
+  function clearColorPreview() {
+    setColorSeed(null);
+    setTextCss((c) => (c ? { ...c, text: stripPreview(c.text) } : c));
+  }
+  // Rewrites every saved text file with a colour map, as one version.
+  async function recolorSite(map, message) {
+    const source = project?.source;
+    if (!source?.writable || !Object.keys(map).length) return false;
+    const otherChanges = dirtyPages.length || siteDirty || albumsDirty || (textCss && stripPreview(textCss.text) !== textCss.original) || (theme && theme.text !== theme.original);
+    if (otherChanges) {
+      setError("請先保存或還原其他修改（頁面、文字大小、相簿…），再套用配色。");
+      return false;
+    }
+    setBusy(true);
+    try {
+      const files = [];
+      for (const f of (await source.listFiles("")).filter((x) => TEXT_FILE.test(x.path) && x.path !== COLORS_FILE)) {
+        const text = await source.readText(f.path).catch(() => null);
+        if (text === null) continue;
+        const r = applyColorMap(text, map);
+        if (r.count) files.push({ path: f.path, text: r.text, count: r.count });
+      }
+      const record = colorsRecord(colorRecord, palette);
+      if (record !== colorRecord) files.push({ path: COLORS_FILE, text: JSON.stringify(record, null, 2) + "\n" });
+      const total = files.reduce((n, f) => n + (f.count || 0), 0);
+      await source.writeFiles(files.map(({ path, text }) => ({ path, text })), message);
+      setBusy(false);
+      await openSource(source, current);
+      notify(`已在 ${files.length} 個檔案換了 ${total} 處顏色並保存。` + (source.kind === "cloud" ? "按「發布」後網站才會更新。" : ""));
+      if (source.kind === "cloud") refreshCloud();
+      return true;
+    } catch (e) {
+      setError("套用配色失敗：" + e.message);
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+  const applyColors = () => (colorSeed ? recolorSite(recolorMap(palette, colorSeed), "配色：主色改成 " + colorSeed) : false);
+  const restoreColors = () => (colorRecord ? recolorSite(restoreMap(colorRecord, palette), "配色：恢復原本的顏色") : false);
 
   /* ----------------------------------------------------------- relocate */
   // Site moved to a new address: find, then replace, old addresses in every
@@ -918,6 +983,7 @@ export function useProject(notify) {
   const skinText = skin && skin.text !== skin.original ? skin.text : null;
   const siteText = siteData && siteData.text !== siteData.original ? siteData.text : null;
   const textCssPath = textCss?.path || null;
+  const colorPreviewMap = useMemo(() => (colorSeed && textCss && hasPreview(textCss.text) && palette?.primary ? recolorMap(palette, colorSeed) : null), [colorSeed, textCss?.text, palette]);
   const albumsText = albumsDirty ? albumsFile.text : null;
   const textCssText = textCss && textCss.text !== textCss.original ? textCss.text : null;
   const previewSource = useMemo(() => {
@@ -935,8 +1001,19 @@ export function useProject(notify) {
       invalidatePreviewCache(cache.current, textCssPath);
       if (textCssText !== null) over[textCssPath] = textCssText;
     }
-    return stagedSource(project.source, over);
-  }, [project, staged, themeText, skinText, siteText, textCssPath, textCssText, albumsText]);
+    const base = stagedSource(project.source, over);
+    // 配色 preview: colours written into scripts, SVGs and pages follow too.
+    if (!colorPreviewMap) return base;
+    cache.current = createPreviewCache();
+    return {
+      ...base,
+      readText: async (path) => {
+        const text = await base.readText(path);
+        return TEXT_FILE.test(path) ? applyColorMap(text, colorPreviewMap).text : text;
+      },
+      readBlob: async (path) => (/\.svg$/i.test(path) ? new Blob([applyColorMap(await (await base.readBlob(path)).text(), colorPreviewMap).text]) : base.readBlob(path)),
+    };
+  }, [project, staged, themeText, skinText, siteText, textCssPath, textCssText, albumsText, colorPreviewMap]);
 
   /* -------------------------------------------------------------- theme */
   // Changes theme values in place ({ vars, fontUrl }); saved like any file.
@@ -1014,7 +1091,9 @@ export function useProject(notify) {
     for (const f of extra) if (!files.some((x) => x.path === f.path)) files.push(f);
     const savedTheme = themeFile && theme && theme.text !== theme.original ? theme.text : null;
     if (savedTheme !== null) files.push({ path: THEME_PATH, text: savedTheme });
-    const savedText = themeFile && textCss && textCss.text !== textCss.original ? textCss.text : null;
+    // A colour preview is never saved this way (配色 has its own 套用).
+    const textToSave = textCss ? stripPreview(textCss.text) : null;
+    const savedText = themeFile && textCss && textToSave !== textCss.original ? textToSave : null;
     if (savedText !== null) files.push({ path: textCss.path, text: savedText });
     const savedSkin = themeFile && skin && skin.text !== skin.original ? skin : null;
     if (savedSkin) {
@@ -1112,6 +1191,19 @@ export function useProject(notify) {
     library,
     theme: theme ? { ...readTheme(theme.text), dirty: themeDirty } : null,
     textSize: { ...textSize, dirty: themeDirty },
+    colors: palette?.primary && !theme
+      ? {
+          palette,
+          seed: colorSeed,
+          previewing: !!textCss && hasPreview(textCss.text),
+          canRestore: !!colorRecord && Object.keys(restoreMap(colorRecord, palette)).length > 0,
+          preview: previewColors,
+          clear: clearColorPreview,
+          apply: applyColors,
+          restore: restoreColors,
+          map: colorSeed ? recolorMap(palette, colorSeed) : {},
+        }
+      : null,
     setTextSize,
     skins: skin ? { list: skin.list, current: skin.current, pending: skin.pending } : null,
     ai: { available: aiAvailable, generate: generateAiThemes },

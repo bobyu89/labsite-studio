@@ -4267,3 +4267,83 @@ h3 {
 .lib-tile select {
   width: 100%;
 }
+.color-panel {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 22px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+.color-panel .inspector-subtitle,
+.color-panel .small-note {
+  margin: 0;
+}
+.color-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.color-swatches button {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 1px var(--line);
+}
+.color-swatches button.active {
+  box-shadow: 0 0 0 2px var(--ink);
+}
+.color-custom {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.color-custom input {
+  width: 34px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.color-chips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: 6px 10px;
+}
+.color-chips li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  min-width: 0;
+}
+.chip-pair {
+  display: inline-flex;
+  flex: none;
+}
+.chip-pair i {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+.chip-pair i + i {
+  margin-left: -6px;
+  box-shadow: 0 0 0 2px #fff;
+}
+.chip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.color-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

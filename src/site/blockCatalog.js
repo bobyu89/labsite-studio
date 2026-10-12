@@ -21,6 +21,7 @@ export const ENTRANCES = [
 export const BLOCK_CATALOG = [
   {
     id: "stats",
+    kicker: "AT A GLANCE",
     name: "數字統計",
     en: "Stat Cards",
     group: "數據呈現",
@@ -36,6 +37,7 @@ ${[["26", "期刊論文"], ["15", "研究計畫"], ["30+", "研討會發表"], [
   },
   {
     id: "progress",
+    kicker: "PROGRESS",
     name: "進度條",
     en: "Progress Bars",
     group: "數據呈現",
@@ -51,6 +53,7 @@ ${[["資料收集", "80%"], ["資料分析", "55%"], ["論文撰寫", "30%"]].ma
   },
   {
     id: "timeline",
+    kicker: "MILESTONES",
     name: "時間軸",
     en: "Timeline",
     group: "內容展示",
@@ -66,6 +69,7 @@ ${[["2026", "獲國科會計畫補助", "說明這件事的內容。"], ["2025",
   },
   {
     id: "cards",
+    kicker: "HIGHLIGHTS",
     name: "浮起卡片",
     en: "Card Grid · Hover Lift",
     group: "內容展示",
@@ -81,6 +85,7 @@ ${li(3, (i) => `      <li class="ls-card"><h3>研究主題 ${i + 1}</h3><p>用�
   },
   {
     id: "split",
+    kicker: "FEATURE",
     name: "圖文分割",
     en: "Split Screen",
     group: "內容展示",
@@ -99,6 +104,7 @@ ${li(3, (i) => `      <li class="ls-card"><h3>研究主題 ${i + 1}</h3><p>用�
   },
   {
     id: "tabs",
+    kicker: "TOPICS",
     name: "分頁標籤",
     en: "Tabs",
     group: "互動",
@@ -114,6 +120,7 @@ ${li(3, (i) => `      <div class="ls-tab"><h3 class="ls-tab-title">方向 ${i + 
   },
   {
     id: "faq",
+    kicker: "FAQ",
     name: "常見問題",
     en: "Accordion",
     group: "互動",
@@ -129,6 +136,7 @@ ${[["需要什麼背景？", "說明需要的背景與能力。"], ["怎麼聯�
   },
   {
     id: "marquee",
+    kicker: "KEYWORDS",
     name: "跑馬燈",
     en: "Marquee",
     group: "互動",
@@ -146,6 +154,7 @@ ${["專科護理師", "臨床推理", "實證護理", "智慧照護", "高齡照
   },
   {
     id: "quote",
+    kicker: "QUOTE",
     name: "引言",
     en: "Quote",
     group: "引導",
@@ -161,6 +170,7 @@ ${["專科護理師", "臨床推理", "實證護理", "智慧照護", "高齡照
   },
   {
     id: "cta",
+    kicker: "JOIN US",
     name: "行動呼籲橫幅",
     en: "Call to Action",
     group: "引導",
