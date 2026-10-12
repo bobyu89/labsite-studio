@@ -5,6 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { bundleTemplates } from "./tools/bundle-templates.js";
 import { bundleIcons, bundlePeople } from "./tools/bundle-library.js";
+import { RUNTIME_FILES } from "./src/site/albums.js";
 
 // Dev-only bridge: serves a local website folder (the lab site repo) at
 // /__labsite/ so the editor can read and write its files without the
@@ -133,6 +134,8 @@ function labsiteTemplates() {
       const { index, bundles } = bundleTemplates();
       this.emitFile({ type: "asset", fileName: "library/people.js", source: await bundlePeople() });
       this.emitFile({ type: "asset", fileName: "templates/index.json", source: JSON.stringify(index) });
+      // The blocks runtime exactly as the editor writes it into sites ({ site path: text }).
+      this.emitFile({ type: "asset", fileName: "library/runtime.json", source: JSON.stringify(RUNTIME_FILES) });
       const icons = bundleIcons();
       if (icons) this.emitFile({ type: "asset", fileName: "library/healthicons.json", source: JSON.stringify(icons) });
       for (const [id, bundle] of Object.entries(bundles))
