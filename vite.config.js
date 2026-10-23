@@ -10,9 +10,10 @@ import { RUNTIME_FILES } from "./src/site/albums.js";
 // Dev-only bridge: serves a local website folder (the lab site repo) at
 // /__labsite/ so the editor can read and write its files without the
 // File System Access API. Configure with labsite.local.json { "siteDir": ".." }
-// or the LABSITE_SITE_DIR environment variable. Never part of the build.
+// or the LABSITE_SITE_DIR environment variable. Never part of the build;
+// `vite preview` mounts it too (the browser tests run the built editor).
 function labsiteDevSite() {
-  return {
+  const plugin = {
     name: "labsite-dev-site",
     apply: "serve",
     configureServer(server) {
@@ -107,6 +108,8 @@ function labsiteDevSite() {
       if (root) server.config.logger.info("[labsite] site folder: " + root);
     },
   };
+  plugin.configurePreviewServer = plugin.configureServer;
+  return plugin;
 }
 function labsiteTemplates() {
   return {

@@ -196,9 +196,9 @@ export function ensureBlockAssets(doc, pagePath, { script = true } = {}) {
 }
 
 /* -------------------------------------------------------------- runtime */
-export const RUNTIME_VERSION = 2;
+export const RUNTIME_VERSION = 3;
 
-export const BLOCKS_CSS_TEXT = `/* LabSite 區塊（照片、相簿、動畫庫）v${RUNTIME_VERSION}：由 LabSite 編輯器產生，更新時會被覆寫。 */
+export const BLOCKS_CSS_TEXT = `/* LabSite 區塊（照片、相簿、動畫庫、影片與地圖）v${RUNTIME_VERSION}：由 LabSite 編輯器產生，更新時會被覆寫。 */
 .ls-block {
   padding: clamp(32px, 6vw, 72px) 0;
 }
@@ -217,6 +217,30 @@ export const BLOCKS_CSS_TEXT = `/* LabSite 區塊（照片、相簿、動畫庫�
 }
 .ls-text-section .ls-text {
   margin-bottom: 0;
+}
+.ls-embed {
+  position: relative;
+  width: 100%;
+  max-width: 960px;
+  aspect-ratio: 16 / 9;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #e8eeeb;
+}
+.ls-embed--map {
+  aspect-ratio: 4 / 3;
+}
+@media (min-width: 720px) {
+  .ls-embed--map {
+    aspect-ratio: 16 / 9;
+  }
+}
+.ls-embed iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
 }
 .ls-photo {
   margin: 0 auto;

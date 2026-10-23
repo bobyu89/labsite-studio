@@ -33,6 +33,8 @@ import ColorPanel from "../components/ColorPanel";
 import { applyColorMap } from "../site/palette.js";
 import PublishSummary from "../components/PublishSummary";
 import AnimationLibrary from "../components/AnimationLibrary";
+import EmbedDialog from "../components/EmbedDialog";
+import PagesPanel from "../components/PagesPanel";
 import { ENTRANCES } from "../site/blockCatalog.js";
 import EditorGuide, { guideDismissed } from "../components/EditorGuide";
 import { parsePage, listSections, readHead, sectionMotion, sectionElements, pathOf } from "../site/page.js";
@@ -81,6 +83,10 @@ export default function Project({ p, device, setDevice, setConfirm }) {
   const [photos, setPhotos] = useState(null);
   const [insertAlbum, setInsertAlbum] = useState(false);
   const [animOpen, setAnimOpen] = useState(false);
+  const [embedOpen, setEmbedOpen] = useState(false);
+  // Off while the user types in the preview: the inspector shows the field
+  // but leaves the keyboard focus in the page.
+  const [grabFocus, setGrabFocus] = useState(true);
   const [guide, setGuide] = useState(() => !guideDismissed());
   // A photo dropped anywhere else would make the browser open the file and
   // leave the editor; catch it and say where photos go instead.
@@ -107,7 +113,8 @@ export default function Project({ p, device, setDevice, setConfirm }) {
   const selected = Math.min(p.selected, Math.max(0, sections.length - 1));
   const writable = !!p.project?.source.writable;
   const isCloud = p.project?.source.kind === "cloud";
-  const unsavedCount = p.dirtyPages.length + (p.siteDirty ? 1 : 0) + (p.textSize?.dirty ? 1 : 0) + (p.albumsDirty ? 1 : 0);
+  const unsavedCount =
+    p.dirtyPages.length + (p.siteDirty ? 1 : 0) + (p.textSize?.dirty ? 1 : 0) + (p.albumsDirty ? 1 : 0) + (p.nav?.dirty && p.nav.file !== "js/data.js" ? 1 : 0);
   // The album block in the selected section, if any.
   const albumEl = parsed ? sectionElements(parsed.doc)[selected]?.querySelector(".ls-album[data-album]") : null;
   const albumBlockInfo = albumEl
@@ -124,7 +131,8 @@ export default function Project({ p, device, setDevice, setConfirm }) {
   // Before publishing, list every saved change that would go live (by whom),
   // plus anything still unsaved here, so nobody publishes work by surprise.
   const unsavedNames = () => [
-    ...p.dirtyPages.map((x) => pageLabel(x) + (x.startsWith("en/") ? "（英文）" : "")),
+    ...p.dirtyPages.map((x) => p.labelOf(x.replace(/^en\//, "")) +(x.startsWith("en/") ? "（英文）" : "")),
+    ...(p.nav?.dirty && p.nav.file !== "js/data.js" ? ["選單"] : []),
     ...(p.siteDirty ? ["網站資料／活動相簿"] : []),
     ...(p.textSize?.dirty ? ["外觀"] : []),
     ...(p.albumsDirty ? ["雲端相簿"] : []),
@@ -199,7 +207,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
   const en = p.pages.filter((x) => x.startsWith("en/"));
   const option = (path) => (
     <option key={path} value={path}>
-      {pageLabel(path)}
+      {p.labelOf(path)}
       {p.dirtyPages.includes(path) ? " ●" : ""}
       {p.pairStatus[path] === "diff" ? " ⚠" : ""}
       {"　" + path}
@@ -286,7 +294,9 @@ export default function Project({ p, device, setDevice, setConfirm }) {
             <FloppyDisk size={18} />
             {p.busy ? "處理中" : "保存"}
           </Button>
-          {unsavedCount > 1 && (
+          {/* Also when only other pages are unsaved (e.g. the English page a
+              section move was copied to): 保存 covers this page only. */}
+          {unsavedCount > (p.dirty ? 1 : 0) && (
             <Button variant="surface" onClick={p.saveAll} disabled={!writable || p.busy}>
               全部保存（{unsavedCount}）
             </Button>
@@ -345,6 +355,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
           <div className="inspector-tabs">
             {[
               ["blocks", "編輯內容"],
+              ["pages", "頁面與選單"],
               ...(p.album?.ok ? [["album", "活動相簿"]] : []),
               ["site", "研究室資料"],
               ...(p.theme || p.textSize?.available ? [["theme", "外觀"]] : []),
@@ -355,12 +366,17 @@ export default function Project({ p, device, setDevice, setConfirm }) {
               <button key={id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}>
                 {label}
                 {(id === "site" || id === "album") && p.siteDirty && <span className="unsaved-dot" aria-label="未保存" />}
+                {id === "pages" && p.nav?.dirty && <span className="unsaved-dot" aria-label="未保存" />}
                 {id === "theme" && p.textSize?.dirty && <span className="unsaved-dot" aria-label="未保存" />}
                 {id === "pair" && p.pairStatus[p.current] === "diff" && <span className="unsaved-dot" aria-label="結構不同" />}
               </button>
             ))}
           </div>
-          {tab === "history" && isCloud ? (
+          {tab === "pages" ? (
+            <div className="inspector-body">
+              <PagesPanel p={p} writable={writable} openPage={switchPage} setConfirm={setConfirm} />
+            </div>
+          ) : tab === "history" && isCloud ? (
             <div className="inspector-body">
               <CloudHistory p={p} setConfirm={setConfirm} />
             </div>
@@ -457,7 +473,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
             <>
               <div className="page-label">
                 <FolderOpen size={17} />
-                <strong>{pageLabel(p.current)}</strong>
+                <strong>{p.labelOf(p.current)}</strong>
                 <span>{p.current}{p.dirty ? " · 未保存" : ""}</span>
               </div>
               {sections.length === 0 && (
@@ -511,6 +527,9 @@ export default function Project({ p, device, setDevice, setConfirm }) {
                   <Button size="1" variant="soft" onClick={() => p.insertBlock(insertAfter, "text", {})}>
                     ＋ 標題與文字
                   </Button>
+                  <Button size="1" variant="soft" onClick={() => setEmbedOpen(true)}>
+                    ＋ 影片／地圖
+                  </Button>
                   <Button size="1" onClick={() => setAnimOpen(true)}>
                     ＋ 動畫元件
                   </Button>
@@ -550,6 +569,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
                   html={p.html}
                   index={selected}
                   focus={p.focus}
+                  grabFocus={grabFocus}
                   setFocus={p.setFocus}
                   setText={p.setText}
                   setAttr={p.setAttr}
@@ -569,6 +589,12 @@ export default function Project({ p, device, setDevice, setConfirm }) {
         <LibraryPanel p={p} sections={sections} selected={selected} open={libraryOpen} onClose={() => setLibraryOpen(false)} />
         <AddToLibrary p={p} section={sections[saving]} index={saving} open={saving !== null} onClose={() => setSaving(null)} />
         <CloudAlbums p={p} open={!!photos} onPick={photos?.pick} pickTitle={photos?.title} onClose={() => setPhotos(null)} setConfirm={setConfirm} />
+        <EmbedDialog
+          open={embedOpen}
+          onClose={() => setEmbedOpen(false)}
+          where={sections.length ? "插在「" + (sections[selected]?.title || "") + "」後面" : "插在頁面開頭"}
+          onInsert={(opts) => p.insertBlock(insertAfter, "embed", opts)}
+        />
         <AnimationLibrary
           open={animOpen}
           onClose={() => setAnimOpen(false)}
@@ -591,13 +617,16 @@ export default function Project({ p, device, setDevice, setConfirm }) {
           pages={p.pages}
           selected={selected}
           focus={p.focus}
-          onSelect={(i, path) => {
+          onSelect={(i, path, typing) => {
+            setGrabFocus(!typing);
             setTab("blocks");
             p.setSelected(i);
             p.setFocus(path);
           }}
           onNavigate={switchPage}
           onDropImage={writable ? (i, path, file) => p.replaceImage(i, path, file) : null}
+          onInline={writable ? (i, path, changes) => p.inlineEdit(i, path, changes) : null}
+          onInlineBroken={() => p.notify("這段文字裡有粗體、連結之類的格式被刪掉了，已還原。請改在左邊的欄位修改。")}
           canPlayMotion={!!p.theme?.vars["--motion"]}
           device={device}
           setDevice={setDevice}

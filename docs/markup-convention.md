@@ -92,6 +92,32 @@ LabSite 不需要設定檔、不需要 schema，也不需要靜態網站產生�
 - 清單名稱看 class：`member`→成員、`area`→研究領域、`focus`→重點卡片、`pub`→文獻、`chip`→標籤、`project`→計畫、`news`→消息、`gallery`→照片、`award`→得獎、`block`→資訊區；都沒有就用「表格列」「條列項目」或「項目」。
 - `class` 裡的 `reveal`、`in` 不列入比對，所以動畫 class 不會讓項目被誤判成不同型。
 
+## 4a. 選單與頁面（新增、改名、刪除頁面）
+
+「頁面與選單」分頁讀下面兩種選單寫法之一；兩種都沒有就只顯示說明，不影響其他編輯。
+
+| 寫法 | 長相 | 頁面怎麼知道自己是哪一頁 |
+|---|---|---|
+| `js/components.js`（宋、賀老師網站） | `const NAV_ITEMS = [{ key, label, labelEn, href, children? }]`；`children` 是下拉選單，只有一層 | 頁面底部的 `initLayout('key')`（英文頁 `initLayout('key', 'en')`） |
+| `js/data.js`（模板網站） | `const NAV = [{ page, zone?, zh, en }]`，沒有下拉選單 | `<body data-page="key">` |
+
+- 陣列必須是**字面寫法**：物件、字串、`true/false/null`、陣列；不能有註解、變數、函式呼叫或展開運算子。讀不懂時選單只能看不能改，並說明原因。
+- 改選單只重寫陣列本身，縮排、引號、行尾逗號與換行格式（CRLF／LF）沿用原檔；陣列外的程式碼逐字元不變。
+- **新增頁面**：複製你選的範本頁（預設是首頁），換掉 `<title>`、og／twitter 標題、`canonical`／`hreflang` 網址、上面的頁面識別（`initLayout` 或 `data-page`），以及第一個 class 含 `hero`、`page-hero` 或 `page-sign` 的橫幅區塊裡的標題文字：`h1` 換成頁名；短的英文字串換成英文頁名（全大寫的保持全大寫）；有 `lang="zh…"`／`lang="en…"` 的元素依語言換；長段落換成提示文字。選「只留橫幅」時，其他區塊換成一個沿用網站標題樣式的「標題與文字」區塊。
+- 網址：英文名稱轉成小寫英數與 `-`（`Open Day` → `open-day.html`），重複時依序加 `-2`、`-3`；沒有英文名稱時用 `page`（`page-2`…）。英文版放 `en/` 同名。
+- `sitemap.xml` 若存在，新增／刪除頁面時一併加入／移除 `<url>`（只動那一筆）。
+- `index.html` 不能刪除。刪除前會列出其他頁面中連到它的連結（不會自動改掉）。
+
+## 4b. 直接在預覽裡打字
+
+元素符合下列條件時，在預覽裡點一下就能直接打字（左邊欄位同步）：
+
+- 標籤是標題、`p`、`li`、`dt`／`dd`、`td`／`th`、`figcaption`、`blockquote`、`label`、`button`、`summary`、`caption`、`div` 或行內標籤，裡面有文字；
+- 子孫只有行內標籤（`span`、`strong`、`em`、`a`、`br` 等）——包著圖片、清單、區塊或表單元件的不行；
+- 不在 `[data-count]`、`.stat__value`、`.ls-stat`、`.ls-progress-value` 或 SVG 裡（這些數字由腳本改寫）；不是成員照片位置。
+
+打字只改既有的文字節點，粗體、連結這類格式和原檔的縮排換行都保留。若打字時把格式整段刪掉（文字節點數量改變），這次輸入不會寫入，預覽還原並提示改用左邊欄位。
+
 ## 5. 中英對照與結構同步
 
 - 兩個語言頁的區塊數量、每個區塊的內部結構（標籤與 class 的樹）相同時，新增／刪除／排序區塊或項目會自動套用到另一頁，新項目先帶原文。
@@ -174,6 +200,7 @@ labsite/skins/<id>/theme.css
   - 單張照片：`section.ls-block.ls-photo-section > .ls-wrap > figure.ls-photo > img + figcaption`
   - 相簿展示：`section.ls-block.ls-album-section > .ls-wrap > h2.ls-title + p.ls-text + div.ls-album[data-album][data-layout][data-base]`；`data-layout` 是 `grid`（方格）／`carousel`（輪播）／`masonry`（瀑布流），`data-base` 是回到網站根目錄的相對路徑（`en/` 頁面為 `../`）。這兩個 data 屬性是編輯器唯一會改的 data 屬性。
   - 標題與文字：`section.ls-block.ls-text-section > .ls-wrap > h2.ls-title + p.ls-text`
+  - 影片／地圖（v4.16）：`section.ls-block.ls-embed-section > .ls-wrap > h2.ls-title + p.ls-text + div.ls-embed.ls-embed--video|ls-embed--map > iframe`。`iframe` 的 `src` 只能是 `https://www.youtube-nocookie.com/embed/…`（或 `www.youtube.com/embed/…`）、`https://www.google.com/maps/embed?pb=…`、`https://maps.google.com/maps?…&output=embed`；編輯器不會寫入其他網址。影片 16:9，地圖手機 4:3、寬螢幕 16:9，最寬 960px。
 - 用到區塊的頁面，`<head>` 會加上 `css/labsite-blocks.css`（相簿展示另加 `js/labsite-albums.js`）。這兩個檔案由編輯器產生、帶版本號，更新時整個覆寫；不要手改。相簿由腳本在瀏覽器裡讀 `data/albums.json` 填入，所以相簿加照片後，所有展示它的頁面自動更新；點照片可放大，支援鍵盤。
 - 分享預覽圖：「分享設定」可替每一頁選照片，寫入 `og:image`（沒有就新增）與 `twitter:image`，網址是網站公開網址＋照片路徑。
 
@@ -197,3 +224,4 @@ labsite/skins/<id>/theme.css
 4. 重複的東西（成員、文獻、卡片）用同一個標籤加同一組 class，放在同一個容器裡。
 5. 圖片放 `assets/`。
 6. 網站層級的字串放在 `js/data.js` 的 `const SITE = {…}`，值用雙引號、寫在一行。
+7. 選單寫成 `NAV_ITEMS`（`js/components.js`）或 `NAV`（`js/data.js`）的字面陣列，不放註解；每頁用 `initLayout('key')` 或 `<body data-page="key">` 標明自己是哪一頁。

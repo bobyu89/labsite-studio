@@ -1,6 +1,7 @@
 // Page model for real static sites: parse HTML, expose sections and editable
 // fields, apply edits, and serialize back with the original formatting intact.
 // Uses the global DOMParser (browser, or linkedom in tests).
+import { isAllowedEmbed } from "./embeds.js";
 
 const SKIP_TAGS = new Set([
   "script",
@@ -540,6 +541,21 @@ export function collectFields(root, section = root) {
       });
       return;
     }
+    if (el.classList?.contains("ls-embed")) {
+      // A video or map block: one field for the address (the iframe itself is never walked).
+      const frame = el.querySelector("iframe");
+      if (frame)
+        fields.push({
+          kind: "embed",
+          path: pathOf(frame, section),
+          elementPath: pathOf(el, section),
+          label: (context ? context + " › " : "") + (el.classList.contains("ls-embed--map") ? "地圖" : "影片"),
+          embed: el.classList.contains("ls-embed--map") ? "map" : "video",
+          src: frame.getAttribute("src") || "",
+          title: frame.getAttribute("title") || "",
+        });
+      return;
+    }
     if (isPhotoSlot(el)) {
       fields.push({
         kind: "image",
@@ -600,11 +616,38 @@ export function setText(section, path, value) {
   node.nodeValue = m[1] + value + m[3];
   return true;
 }
+// Text typed straight into the preview: changes are [path from the element,
+// value when editing began, value now] for every text node under the element.
+// A node is only written when the page still holds the value the preview
+// started from (or already the new one); each node keeps its own leading and
+// trailing whitespace, so indentation in the file does not change. A typed
+// no-break space becomes a plain space unless the text already had one.
+export function applyInlineText(section, elementPath, changes) {
+  let changed = false;
+  for (const [rel, before, after] of changes || []) {
+    if (!Array.isArray(rel) || typeof before !== "string" || typeof after !== "string") continue;
+    const node = nodeAt(section, [...elementPath, ...rel]);
+    if (!node || node.nodeType !== 3) continue;
+    const now = collapse(node.nodeValue);
+    if (now !== collapse(before) && now !== collapse(after)) continue;
+    const text = before.includes(" ") ? after : after.replace(/ /g, " ");
+    const middle = text.match(/^\s*([\s\S]*?)\s*$/)[1];
+    const m = node.nodeValue.match(/^(\s*)([\s\S]*?)(\s*)$/);
+    const next = m[2] === "" && !middle ? node.nodeValue : m[1] + middle + m[3];
+    if (next !== node.nodeValue) {
+      node.nodeValue = next;
+      changed = true;
+    }
+  }
+  return changed;
+}
 export function setAttribute(section, path, name, value) {
   const el = nodeAt(section, path);
   if (!el || el.nodeType !== 1) return false;
   const albumSetting = ["data-album", "data-layout"].includes(name) && el.classList?.contains("ls-album");
   if (!["src", "alt", "href", "title"].includes(name) && !albumSetting) return false;
+  // An iframe may only ever point at an allowed video or map embed.
+  if (el.tagName.toLowerCase() === "iframe" && name === "src" && !isAllowedEmbed(value)) return false;
   if (name === "src" && isPhotoSlot(el)) {
     const img = el.ownerDocument.createElement("img");
     for (const a of [...el.attributes]) img.setAttribute(a.name, a.value);

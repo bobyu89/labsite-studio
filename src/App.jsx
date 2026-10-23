@@ -686,6 +686,7 @@ export default function App() {
           <AlertDialog.Description>
             {confirm?.description}
           </AlertDialog.Description>
+          {confirm?.body}
           <div className="dialog-actions">
             <AlertDialog.Cancel>
               <Button variant="surface">取消</Button>
@@ -696,7 +697,7 @@ export default function App() {
                 setConfirm(null);
               }}
             >
-              確認
+              {confirm?.confirmLabel || "確認"}
             </Button>
           </div>
         </AlertDialog.Content>

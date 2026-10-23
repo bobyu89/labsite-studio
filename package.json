@@ -8,7 +8,9 @@
     "dev:cloud": "vite --host 127.0.0.1 --port 4180 --strictPort --mode cloud",
     "build": "vite build",
     "test": "node --test tests/*.test.js",
-    "test:e2e": "node --test tests/e2e-github.test.js"
+    "test:e2e": "node --test tests/e2e-github.test.js",
+    "test:browsers": "node tests/browsers/editor.mjs",
+    "test:sites": "node tests/browsers/sites.mjs"
   },
   "dependencies": {
     "@dicebear/core": "^9.4.2",
@@ -24,6 +26,7 @@
   "devDependencies": {
     "@vitejs/plugin-react": "^5.0.0",
     "linkedom": "^0.18.13",
+    "playwright": "^1.64.1",
     "vite": "^7.1.0",
     "vite-plugin-singlefile": "^2.3.0"
   }

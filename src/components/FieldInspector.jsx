@@ -10,8 +10,11 @@ import {
   CaretRight,
   ArrowUp,
   ArrowDown,
+  MapPin,
+  YoutubeLogo,
 } from "@phosphor-icons/react";
 import { Field, IconButton } from "./ui";
+import { embedFromInput, embedLabel } from "../site/embeds.js";
 import { PICKER_ACCEPT } from "../site/images.js";
 import { parsePage, sectionElements, describeNode, describeItem } from "../site/page.js";
 import { useDragReorder } from "../hooks/useDragReorder";
@@ -85,6 +88,36 @@ function ImageField({ f, k, cls, index, setFocus, setAttr, replaceImage, openLib
   );
 }
 
+// A video or map block: paste a new link or address; only valid ones are written.
+function EmbedField({ f, k, cls, index, setFocus, setAttr, writable }) {
+  const [text, setTextValue] = useState(() => embedLabel(f.src));
+  const [problem, setProblem] = useState(null);
+  useEffect(() => setTextValue(embedLabel(f.src)), [f.src]);
+  return (
+    <div className={cls + " field-embed"} data-el={k} onFocusCapture={() => setFocus(k)}>
+      <Field
+        label={
+          <>
+            {f.embed === "map" ? <MapPin size={13} /> : <YoutubeLogo size={13} />} {f.embed === "map" ? "地圖：網址、嵌入程式碼或地址" : "YouTube 影片網址"}
+          </>
+        }
+        value={text}
+        area={f.embed === "map"}
+        rows={f.embed === "map" ? 2 : undefined}
+        disabled={!writable}
+        onChange={(v) => {
+          setTextValue(v);
+          const r = embedFromInput(v, f.embed);
+          setProblem(r.ok ? null : r.error);
+          if (r.ok && r.src !== f.src) setAttr(index, f.path, "src", r.src);
+        }}
+      />
+      {problem && <p className="embed-check error">{problem}</p>}
+      <Field label="說明（給看不到畫面的讀者）" value={f.title} disabled={!writable} onChange={(v) => setAttr(index, f.path, "title", v)} />
+    </div>
+  );
+}
+
 function Fields({ fields, index, focus, setFocus, setText, setAttr, replaceImage, openLibrary, writable, busy }) {
   if (!fields.length) return null;
   return (
@@ -112,6 +145,8 @@ function Fields({ fields, index, focus, setFocus, setText, setAttr, replaceImage
               />
             </div>
           );
+        if (f.kind === "embed")
+          return <EmbedField key={n} f={f} k={k} cls={cls} index={index} setFocus={setFocus} setAttr={setAttr} writable={writable} />;
         return (
           <ImageField
             key={n}
@@ -235,7 +270,7 @@ function Node({ node, section, ctx, open, toggle, focusPath }) {
   );
 }
 
-export default function FieldInspector({ html, index, focus, setFocus, setText, setAttr, replaceImage, openLibrary, writable, busy, addItem, removeItem, moveItem, setConfirm }) {
+export default function FieldInspector({ html, index, focus, grabFocus = true, setFocus, setText, setAttr, replaceImage, openLibrary, writable, busy, addItem, removeItem, moveItem, setConfirm }) {
   const section = useMemo(() => (html ? sectionElements(parsePage(html).doc)[index] : null), [html, index]);
   const node = useMemo(() => (section ? describeNode(section) : { fields: [], lists: [] }), [section]);
   const [open, setOpen] = useState(() => new Set());
@@ -258,7 +293,7 @@ export default function FieldInspector({ html, index, focus, setFocus, setText, 
         const top = el.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop;
         box.scrollTo({ top: Math.max(0, top - 60), behavior: "smooth" });
       }
-      el.querySelector("input, textarea")?.focus({ preventScroll: true });
+      if (grabFocus) el.querySelector("input, textarea")?.focus({ preventScroll: true });
     }
   }, [focus]);
   if (!section) return null;

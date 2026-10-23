@@ -78,6 +78,9 @@ npm --prefix cloud run deploy
 | 項目清單（v3.1） | 自動偵測「同一容器下 tag 與 class 相同的重複元素」：成員卡、研究領域卡、文獻 `<li>`、表格列、膠囊標籤、條列 `<li>`。可新增（複製鄰近項目）、刪除、拖拉排序；巢狀清單（卡片裡的學經歷條列、標籤）一樣可編輯；`1. 2. 3.` 這類編號會自動重排 |
 | 圖片 | 更換圖片先暫存在瀏覽器並立即出現在預覽，保存該頁時才寫入網站的 `assets/`（與頁面同一個 commit）；`src` 改為相對路徑（英文頁自動加 `../`） |
 | 中英對照（v3.2） | 每頁自動配對 `x.html` ↔ `en/x.html`，一鍵切換語言；「中英對照」分頁把同一區塊的中文與英文欄位逐一並排，直接翻譯。新增／刪除／排序區塊或項目時，只要兩頁結構相同就自動同步到另一語言頁（新項目先帶原文）；結構不同的頁面在選單標 ⚠ 並停止同步，可用「檢查全部頁面的結構」一次載入所有配對頁 |
+| 頁面與選單（v4.16） | 「頁面與選單」分頁讀網站自己的選單（`js/components.js` 的 `NAV_ITEMS`，或 `js/data.js` 的 `NAV`）：拖拉排序、改中英文名稱、建立下拉選單並把頁面移進去、從選單移除（頁面保留）。**新增頁面**：以任一頁為範本複製頁首頁尾與樣式（可選連內容一起複製，或只留橫幅＋一個標題文字區塊），中英文各一頁、網址由英文名稱產生，同時寫進選單與 `sitemap.xml`，立刻存成一個版本。**刪除頁面**：中英文一起刪、從選單與網站地圖移除，先列出哪些頁面還連到它。只改選單裡你動到的那幾行，原檔其他部分（含換行格式）不變 |
+| 直接打字（v4.16） | 在預覽裡點標題或段落就能直接改字（Enter 完成、Esc 取消），左邊欄位同步更新；粗體、連結等格式保留，若打字時刪掉了格式會自動還原並提示改用左邊欄位。卡片、照片、會跳動的數字不能直接打字 |
+| 影片與地圖（v4.16） | 「＋ 影片／地圖」：貼 YouTube 網址（含 youtu.be、Shorts、播放清單、指定起始秒數）或 Google 地圖網址／嵌入程式碼／直接打地址，插入一個沿用網站標題樣式的區塊。影片用 youtube-nocookie 隱私模式；只接受 YouTube 與 Google 地圖的嵌入網址，其他網址一律拒絕。編輯器預覽中以縮圖卡片代替（沙盒裡無法播放），網站上是真的播放器與地圖 |
 | 頁面資訊 | `<title>` 與 description，同步更新 og／twitter 標籤 |
 | 網站資料 | `js/data.js` 的 `SITE` 字串欄位（名稱、標語、主持人、聯絡方式），逐值原地替換 |
 | 預覽 | 執行網站自己的 CSS 與腳本（header、footer、最新消息、照片都是真的），跳過純裝飾動畫 |
@@ -88,7 +91,7 @@ npm --prefix cloud run deploy
 
 GitHub 模式的注意事項：token 只存在瀏覽器的 localStorage；保存前會把每個檔案的 blob sha 與開啟時看到的比對，遠端已被別人改過就點名拒絕、什麼都不上傳；分支指標更新不使用 force，中途插進來的 commit 會讓提交失敗而不是被蓋掉。
 
-尚未實作：多人協作、新增全新區塊類型、修改導覽列與頁尾（在 `js/components.js`）、非 `<section>` 結構的頁面、私有儲存庫（OAuth 只要求 `public_repo`）。
+尚未實作：多人協作、修改頁尾（在 `js/components.js`）、選單裡寫了註解或用變數組出來的網站（只能看不能改）、非 `<section>` 結構的頁面、私有儲存庫（OAuth 只要求 `public_repo`）。
 
 網站要長什麼樣子才能被編輯（區塊、欄位、清單的判斷規則，以及存檔時哪些寫法會被原樣保留）見 [`docs/markup-convention.md`](docs/markup-convention.md)。
 
@@ -133,14 +136,23 @@ GitHub 模式的注意事項：token 只存在瀏覽器的 localStorage；保存
 - `.github/workflows/pages.yml`：測試、建置並部署到 GitHub Pages。
 - `src/site/preview.js`：組出可執行的預覽文件，並注入點選回報的橋接腳本。
 - `src/site/siteData.js`：`SITE` 設定的讀取與原地替換。
+- `src/site/nav.js`：選單（`NAV_ITEMS`／`NAV`）的讀取與逐行改寫、新增頁面（以範本頁產生）、改名、網站地圖；`src/components/PagesPanel.jsx` 是「頁面與選單」分頁。
+- `src/site/embeds.js`：YouTube／Google 地圖網址的辨識、白名單與區塊標記；`src/components/EmbedDialog.jsx` 是插入對話框。
 - `src/hooks/useProject.js`：專案狀態、每頁歷史、保存、圖片寫入。
 - `src/views/Project.jsx`、`src/components/SectionList.jsx`、`FieldInspector.jsx`（含項目清單）、`PairPanel.jsx`（中英對照）、`SitePreview.jsx`、`SiteDataPanel.jsx`、`ProjectOpen.jsx`：真實網站介面；`src/hooks/useDragReorder.js` 為共用拖拉邏輯。
-- `vite.config.js`：開發伺服器的 `/__labsite/` 讀寫橋接（只在 `vite dev` 存在，不進建置）。
+- `vite.config.js`：開發伺服器的 `/__labsite/` 讀寫橋接（`vite dev` 與 `vite preview` 才有，不進建置）。
+- `tests/browsers/`：Playwright 跨瀏覽器測試（不在 `npm test` 裡，見下方「驗證」）。
 - `src/domain/`、`src/views/`（其餘）、`src/model.js`、`src/Site.jsx`：範例模式，同 v2。
 
 ## 驗證
 
-`npm test`：128 項測試（含元件庫、模板完整性、主題產生器、版型、AI 外觀、圖片、動畫與雲端），2 項 e2e 在沒有 token 時略過，使用 linkedom 提供 DOM（`tests/dom.js` 補上與瀏覽器一致的跳脫）。`npm run test:e2e` 對真實 repo 跑 GitHub 提交流程（需設 `LABSITE_E2E_TOKEN` 與 `LABSITE_E2E_REPO`，否則略過）。`npm run build` 產出單一 HTML。實際瀏覽器操作、兩個實驗室網站 42 頁與 Greene Lab 模板 6 頁在 Chromium 的 round-trip 結果見 `VALIDATION.md`。
+`npm test`：177 項測試（含元件庫、模板完整性、主題產生器、版型、AI 外觀、圖片、動畫、選單與頁面、影片地圖、直接打字與雲端），2 項 e2e 在沒有 token 時略過，使用 linkedom 提供 DOM（`tests/dom.js` 補上與瀏覽器一致的跳脫）。
+
+跨瀏覽器（第一次先執行 `npx playwright install chromium firefox webkit`）：
+
+- `npm run test:browsers`：建置後在 Chromium、Firefox、WebKit（Safari 的引擎）與 iPad、iPhone 15、Pixel 8 模擬中，各自開啟 `templates/basic` 的副本，實際操作「直接打字 → 拖拉排序 → 插入地圖 → 保存（含全部保存）→ 新增頁面」，檢查寫回的檔案、畫面沒有左右溢出、沒有腳本錯誤。可加 `-- --only=webkit,iphone`、`--no-build`、`--shots=資料夾`。
+- `npm run test:sites`：對兩個實驗室的公開網站（或 `--site=網址`）在同樣 6 種環境檢查首頁、成員頁與英文首頁：沒有腳本錯誤、沒有左右溢出、手機上選單按鈕能打開選單。
+- 手機與平板是 Playwright 的模擬（螢幕尺寸、觸控、User-Agent），**不是真的 iOS Safari**；上線前仍要用實機看一次。`npm run test:e2e` 對真實 repo 跑 GitHub 提交流程（需設 `LABSITE_E2E_TOKEN` 與 `LABSITE_E2E_REPO`，否則略過）。`npm run build` 產出單一 HTML。實際瀏覽器操作、兩個實驗室網站 42 頁與 Greene Lab 模板 6 頁在 Chromium 的 round-trip 結果見 `VALIDATION.md`。
 
 範例「知行研究室」為虛構示範內容。平台沒有保存任何 GitHub 憑證，也不會把草稿或網站內容傳到外部服務；預覽中的最新消息與照片是網站自己的腳本向 Google 試算表／Drive 讀取的。
 

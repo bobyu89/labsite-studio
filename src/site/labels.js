@@ -32,6 +32,8 @@ export function saveMessage(files) {
     const path = f.path;
     if (/\.html$/.test(path)) pages.push(pageLabel(path) + (path.startsWith("en/") ? "（英文）" : ""));
     else if (path === "js/data.js") parts.add("網站資料");
+    else if (path === "js/components.js") parts.add("選單");
+    else if (path === "sitemap.xml") continue; // follows the pages
     else if (path === "data/albums.json") parts.add("雲端相簿");
     else if (path === "js/labsite-albums.js" || path === "css/labsite-blocks.css") continue; // part of the blocks
     else if (/^css\//.test(path) || path === "labsite/skins.json") parts.add("外觀");

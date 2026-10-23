@@ -19,6 +19,7 @@ import {
   insertSection,
   sectionSnippet,
   setSectionMotion,
+  applyInlineText,
 } from "../site/page.js";
 import { loadLibrary, snippetPath, LIBRARY_PATH } from "../site/library.js";
 import { THEME_PATH, readTheme, patchTheme } from "../site/themes.js";
@@ -42,12 +43,33 @@ import {
   adoptHeading,
 } from "../site/albums.js";
 import { blockById } from "../site/blockCatalog.js";
+import { embedBlock } from "../site/embeds.js";
 import { COLORS_FILE, readPalette, recolorMap, applyColorMap, writePreview, stripPreview, hasPreview, colorsRecord, restoreMap } from "../site/palette.js";
 import { directorySource, detectDevSource, urlSource, normalizePath, stagedSource, resolveFrom } from "../site/source.js";
 import { createPreviewCache, invalidatePreviewCache } from "../site/preview.js";
 import { detectCloud, cloudApi, cloudSource, redeemInviteFromUrl } from "../site/cloud.js";
 import { pageLabel, saveMessage } from "../site/labels.js";
 export { pageLabel, saveMessage };
+import {
+  NAV_FILES,
+  readNav,
+  writeNav,
+  navItems,
+  navPages,
+  supportsGroups,
+  navRename as navRenameRaw,
+  navRemove as navRemoveRaw,
+  navMove as navMoveRaw,
+  navAddPage,
+  navAddGroup as navAddGroupRaw,
+  navDropPage,
+  slugFor,
+  makePage,
+  renamePage,
+  sitemapAdd,
+  sitemapRemove,
+  linksTo,
+} from "../site/nav.js";
 import {
   githubSource,
   githubUser,
@@ -100,6 +122,9 @@ export function useProject(notify) {
   const [selected, setSelected] = useState(0);
   const [focus, setFocus] = useState(null);
   const [siteData, setSiteData] = useState(null);
+  // The menu: { spec, text, original }. When the menu lives in js/data.js
+  // (templates) its text is siteData.text and only `spec` is used here.
+  const [navFile, setNavFile] = useState(null);
   // The site's section library (labsite/library.json), or null if it has none.
   const [library, setLibrary] = useState(null);
   // css/theme.css of template-based sites: { text, original }, or null.
@@ -187,7 +212,14 @@ export function useProject(notify) {
   const themeDirty =
     (!!theme && theme.text !== theme.original) || (!!skin && skin.text !== skin.original) || (!!textCss && stripPreview(textCss.text) !== textCss.original);
   const albumsDirty = !!albumsFile && albumsFile.text !== (albumsFile.original ?? serializeAlbums(emptyAlbums()));
-  const anyDirty = dirtyPages.length > 0 || siteDirty || themeDirty || albumsDirty;
+  const navInData = navFile?.spec.path === SITE_DATA;
+  const navText = navFile ? (navInData ? siteData?.text ?? null : navFile.text) : null;
+  const navOriginal = navFile ? (navInData ? siteData?.original ?? null : navFile.original) : null;
+  const nav = useMemo(() => (navText !== null && navFile ? readNav(navText, navFile.spec) : null), [navText, navFile?.spec]);
+  // Menu edits in their own file (js/components.js); in js/data.js they count as siteDirty.
+  const navFileDirty = !!navFile && !navInData && navFile.text !== navFile.original;
+  const navDirty = navText !== null && navText !== navOriginal;
+  const anyDirty = dirtyPages.length > 0 || siteDirty || themeDirty || albumsDirty || navFileDirty;
   useEffect(() => {
     const onLeave = (e) => {
       if (anyDirty) {
@@ -241,6 +273,14 @@ export function useProject(notify) {
       } catch {
         data = null;
       }
+      let navState = null;
+      for (const spec of NAV_FILES) {
+        const text = spec.path === SITE_DATA ? (data ? data.text : null) : await source.readText(spec.path).catch(() => null);
+        if (text !== null && readNav(text, spec)) {
+          navState = { spec, text, original: text };
+          break;
+        }
+      }
       const lib = await loadLibrary(source);
       let themeFile = null;
       try {
@@ -286,6 +326,7 @@ export function useProject(notify) {
       setOriginals({});
       setStaged({});
       setSiteData(data);
+      setNavFile(navState);
       setProject({ source, pages });
       if (source.kind === "directory")
         dbPut(STORES.projects, LAST, { handle: source.handle, name: source.name, at: Date.now() }).catch(() => {});
@@ -435,6 +476,7 @@ export function useProject(notify) {
     setStaged({});
     setCurrent(null);
     setSiteData(null);
+    setNavFile(null);
     setLibrary(null);
     setThemeState(null);
     setTextCss(null);
@@ -498,7 +540,21 @@ export function useProject(notify) {
     }
     dispatch({ type: "change", update: (html) => editHtml(html, mutate), at: Date.now() }, pair);
   }
+  // Typing in the preview. Returns true when the page changed, so the preview
+  // knows it already shows this text and need not reload.
+  function inlineEdit(i, elementPath, changes) {
+    const html = state?.present;
+    if (!html) return false;
+    const mutate = (doc) => {
+      const s = section(doc, i);
+      return s ? applyInlineText(s, elementPath, changes) : false;
+    };
+    if (editHtml(html, mutate) === html) return false;
+    edit(mutate, `inline:${current}:${i}:${elementPath.join(".")}`);
+    return true;
+  }
   const api = {
+    inlineEdit,
     setText: (i, path, value, page = current) =>
       edit((doc) => setText(section(doc, i), path, value), `text:${page}:${i}:${path.join(".")}`, page),
     setAttr: (i, path, name, value, page = current) =>
@@ -754,18 +810,22 @@ export function useProject(notify) {
           ? textBlock(opts)
           : kind === "catalog"
             ? blockById(opts.id).html(opts)
-            : photoBlock(opts);
+            : kind === "embed"
+              ? embedBlock(opts)
+              : photoBlock(opts);
     edit((doc) => {
       if (!insertSection(doc, afterIndex, html, page)) return;
       ensureBlockAssets(doc, page);
       // Dress the new heading like the page's own section headings.
-      const kicker = kind === "catalog" ? blockById(opts.id).kicker : kind === "album" ? "GALLERY" : "";
+      const kicker =
+        kind === "catalog" ? blockById(opts.id).kicker : kind === "album" ? "GALLERY" : kind === "embed" ? (opts.kind === "map" ? "LOCATION" : "VIDEO") : "";
       adoptHeading(doc, sectionElements(doc)[afterIndex + 1], { kicker });
     }, "insert:" + Date.now());
     setSelected(afterIndex + 1);
     setFocus(null);
     stageRuntime(await missingRuntime(), page);
-    const label = kind === "album" ? "相簿展示" : kind === "text" ? "標題與文字" : kind === "catalog" ? blockById(opts.id).name : "照片";
+    const label =
+      kind === "album" ? "相簿展示" : kind === "text" ? "標題與文字" : kind === "catalog" ? blockById(opts.id).name : kind === "embed" ? (opts.kind === "map" ? "地圖" : "影片") : "照片";
     notify(`已插入「${label}」，在左邊改內容，保存這一頁後生效。`);
     return true;
   }
@@ -887,6 +947,212 @@ export function useProject(notify) {
     }
   }
 
+  /* ------------------------------------------------------ menu & pages */
+  // Menu edits are drafts (saved with 保存選單 or 全部保存); adding and
+  // deleting a page change several files at once and are saved right away as
+  // one version, with nothing else unsaved.
+  const navLabels = useMemo(() => new Map(navPages(nav).map((x) => [x.page, x])), [nav]);
+  const labelOf = (path) => {
+    const x = navLabels.get(path.replace(/^en\//, ""));
+    const name = x ? (path.startsWith("en/") ? x.en || x.zh : x.zh) : "";
+    return name || pageLabel(path);
+  };
+  function setNavRaw(raw) {
+    if (!navFile) return;
+    if (navInData)
+      setSiteData((s) => {
+        const text = writeNav(s.text, readNav(s.text, navFile.spec), raw);
+        return { ...s, text, fields: readSiteFields(text).fields };
+      });
+    else setNavFile((f) => ({ ...f, text: writeNav(f.text, readNav(f.text, f.spec), raw) }));
+  }
+  const navEdit = (fn) => {
+    if (!nav?.ok) return false;
+    try {
+      setNavRaw(fn(nav));
+      return true;
+    } catch (e) {
+      setError(e.message);
+      return false;
+    }
+  };
+  const menu = {
+    rename: (path, labels) => navEdit((n) => navRenameRaw(n, path, labels)),
+    remove: (path) => navEdit((n) => navRemoveRaw(n, path)),
+    move: (path, to) => navEdit((n) => navMoveRaw(n, path, to)),
+    addGroup: (labels) =>
+      navEdit((n) => navAddGroupRaw(n, { id: slugFor(labels.en || labels.zh, navItems(n).map((x) => x.id)) + "-group", ...labels })),
+    // An existing page that is not in the menu yet, named after its banner.
+    addPage: async (page) => {
+      if (!nav?.ok) return false;
+      const heading = async (path) => {
+        const html = draftsRef.current[path]?.present ?? (await project.source.readText(path).catch(() => ""));
+        const doc = html ? parsePage(html).doc : null;
+        return (doc?.querySelector("h1")?.textContent || doc?.title || "").replace(/\s+/g, " ").trim().split(/[｜|]/)[0].trim();
+      };
+      const zhName = (await heading(page)) || pageLabel(page);
+      const enPath = pairOf(page, project.pages);
+      const enName = (enPath && (await heading(enPath))) || zhName;
+      return navEdit((n) => navAddPage(n, { id: page.replace(/\.html$/, ""), zh: zhName, en: enName }));
+    },
+  };
+  const today = () => new Date().toISOString().slice(0, 10);
+  // Pages whose menu name changed take the new name in their title and
+  // banner too (pages with unsaved edits are left alone and reported).
+  async function saveNav() {
+    if (!project || !nav?.ok || !navDirty) return false;
+    const before = readNav(navOriginal, navFile.spec);
+    const old = new Map(navPages(before).map((x) => [x.page, x]));
+    const extra = [];
+    const skipped = [];
+    for (const x of navPages(nav)) {
+      const o = old.get(x.page);
+      if (!o) continue;
+      for (const [path, oldName, name] of [
+        [x.page, o.zh, x.zh],
+        ["en/" + x.page, o.en, x.en],
+      ]) {
+        if (!oldName || oldName === name || !project.pages.includes(path)) continue;
+        if (dirtyPages.includes(path)) {
+          skipped.push(labelOf(path));
+          continue;
+        }
+        const html = draftsRef.current[path]?.present ?? (await project.source.readText(path).catch(() => null));
+        if (html === null) continue;
+        const next = renamePage(html, { oldName, name });
+        if (next !== html) extra.push({ path, text: next });
+      }
+    }
+    const ok = await commitFiles({ site: navInData, nav: !navInData, extra });
+    if (ok) {
+      for (const f of extra) {
+        invalidatePreviewCache(cache.current, f.path);
+        setOriginals((o) => (f.path in o ? { ...o, [f.path]: f.text } : o));
+        setDrafts((d) => (d[f.path] ? { ...d, [f.path]: createHistory(f.text) } : d));
+      }
+      if (skipped.length) notify("選單已保存。「" + skipped.join("、") + "」有未保存的修改，標題沒有跟著改名。");
+    }
+    return ok;
+  }
+  function guardStructure(what) {
+    if (!project?.source.writable || !nav?.ok) {
+      setError(nav && !nav.ok ? nav.error : "這個網站的選單無法自動編輯。");
+      return false;
+    }
+    if (anyDirty) {
+      setError("請先保存或還原目前的修改，再" + what + "。");
+      return false;
+    }
+    return true;
+  }
+  // New page from a base page: { zh, en, base, blank, parent, index }.
+  async function createPage({ zh, en = "", base, blank = true, parent = null, index = null }) {
+    zh = String(zh || "").trim();
+    en = String(en || "").trim();
+    if (!zh || !guardStructure("新增頁面")) return null;
+    const source = project.source;
+    const basePath = base && project.pages.includes(base) && !base.startsWith("en/") ? base : "index.html";
+    const slug = slugFor(en || zh, project.pages);
+    const zhPath = slug + ".html";
+    const baseEn = pairOf(basePath, project.pages);
+    const enPath = baseEn ? "en/" + zhPath : null;
+    const label = navLabels.get(basePath);
+    setBusy(true);
+    try {
+      const files = [];
+      files.push({
+        path: zhPath,
+        text: makePage(await source.readText(basePath), {
+          basePath,
+          newPath: zhPath,
+          name: zh,
+          otherName: en || zh,
+          lang: "zh",
+          siteLabel: label?.zh,
+          blank,
+          blockHtml: textBlock({ title: "標題", text: "在這裡輸入內容。" }),
+          placeholder: { lede: "在這裡寫一句這一頁的介紹。", description: zh },
+        }),
+      });
+      if (enPath)
+        files.push({
+          path: enPath,
+          text: makePage(await source.readText(baseEn), {
+            basePath: baseEn,
+            newPath: enPath,
+            name: en || zh,
+            otherName: zh,
+            lang: "en",
+            siteLabel: label?.en,
+            blank,
+            blockHtml: textBlock({ title: "Heading", text: "Write your content here." }),
+            placeholder: { lede: "A short introduction to this page.", description: en || zh },
+          }),
+        });
+      files.push({ path: navFile.spec.path, text: writeNav(navText, nav, navAddPage(nav, { id: slug, zh, en: en || zh }, parent, index)) });
+      const sitemap = await source.readText("sitemap.xml").catch(() => null);
+      if (sitemap !== null) {
+        const next = sitemapAdd(sitemap, basePath, zhPath, today());
+        if (next !== sitemap) files.push({ path: "sitemap.xml", text: next });
+      }
+      if (blank) for (const f of await missingRuntime()) files.push(f);
+      await source.writeFiles(files, "新增頁面：" + zh);
+      setBusy(false);
+      await openSource(source, zhPath);
+      notify(`已新增「${zh}」（${zhPath}${enPath ? "，含英文版" : ""}）並放進選單。` + (source.kind === "cloud" ? "按「發布」後網站才會出現。" : ""));
+      if (source.kind === "cloud") refreshCloud();
+      return zhPath;
+    } catch (e) {
+      setError("新增頁面失敗：" + e.message);
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  }
+  // Pages (both languages) that link to a page and would end up with a dead link.
+  async function pageLinks(page) {
+    if (!project) return [];
+    const zhPath = page.replace(/^en\//, "");
+    const enPath = pairOf(zhPath, project.pages);
+    const texts = {};
+    for (const p of project.pages) texts[p] = draftsRef.current[p]?.present ?? (await project.source.readText(p).catch(() => ""));
+    const found = new Set([...linksTo(texts, zhPath), ...(enPath ? linksTo(texts, enPath) : [])]);
+    found.delete(zhPath);
+    if (enPath) found.delete(enPath);
+    return [...found];
+  }
+  async function deletePage(page) {
+    const zhPath = page.replace(/^en\//, "");
+    if (zhPath === "index.html" || !guardStructure("刪除頁面")) return false;
+    const source = project.source;
+    const enPath = pairOf(zhPath, project.pages);
+    const name = labelOf(zhPath);
+    setBusy(true);
+    try {
+      const files = [{ path: zhPath, delete: true }];
+      if (enPath) files.push({ path: enPath, delete: true });
+      const raw = navDropPage(nav, zhPath);
+      const navNext = writeNav(navText, nav, raw);
+      if (navNext !== navText) files.push({ path: navFile.spec.path, text: navNext });
+      const sitemap = await source.readText("sitemap.xml").catch(() => null);
+      if (sitemap !== null) {
+        const next = sitemapRemove(sitemap, zhPath);
+        if (next !== sitemap) files.push({ path: "sitemap.xml", text: next });
+      }
+      await source.writeFiles(files, "刪除頁面：" + name);
+      setBusy(false);
+      await openSource(source, current === zhPath || current === enPath ? "index.html" : current);
+      notify(`已刪除「${name}」。` + (source.kind === "cloud" ? "按「發布」後網站才會更新；之後仍可在「版本紀錄」還原。" : ""));
+      if (source.kind === "cloud") refreshCloud();
+      return true;
+    } catch (e) {
+      setError("刪除頁面失敗：" + e.message);
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+
   /* -------------------------------------------------------------- album */
   // The activity photos listed in js/data.js (LOCAL_PHOTOS). New photos are
   // compressed like any image, staged under assets/gallery/, and written
@@ -986,6 +1252,8 @@ export function useProject(notify) {
   const colorPreviewMap = useMemo(() => (colorSeed && textCss && hasPreview(textCss.text) && palette?.primary ? recolorMap(palette, colorSeed) : null), [colorSeed, textCss?.text, palette]);
   const albumsText = albumsDirty ? albumsFile.text : null;
   const textCssText = textCss && textCss.text !== textCss.original ? textCss.text : null;
+  const navOverlayText = navFileDirty ? navFile.text : null;
+  const navOverlay = useMemo(() => (navOverlayText !== null ? { path: navFile.spec.path, text: navOverlayText } : null), [navOverlayText]);
   const previewSource = useMemo(() => {
     if (!project) return null;
     invalidatePreviewCache(cache.current, THEME_PATH);
@@ -997,6 +1265,10 @@ export function useProject(notify) {
     if (siteText !== null) over[SITE_DATA] = siteText;
     invalidatePreviewCache(cache.current, ALBUMS_PATH);
     if (albumsText !== null) over[ALBUMS_PATH] = albumsText;
+    if (navOverlay) {
+      invalidatePreviewCache(cache.current, navOverlay.path);
+      over[navOverlay.path] = navOverlay.text;
+    }
     if (textCssPath) {
       invalidatePreviewCache(cache.current, textCssPath);
       if (textCssText !== null) over[textCssPath] = textCssText;
@@ -1013,7 +1285,7 @@ export function useProject(notify) {
       },
       readBlob: async (path) => (/\.svg$/i.test(path) ? new Blob([applyColorMap(await (await base.readBlob(path)).text(), colorPreviewMap).text]) : base.readBlob(path)),
     };
-  }, [project, staged, themeText, skinText, siteText, textCssPath, textCssText, albumsText, colorPreviewMap]);
+  }, [project, staged, themeText, skinText, siteText, textCssPath, textCssText, albumsText, colorPreviewMap, navOverlay]);
 
   /* -------------------------------------------------------------- theme */
   // Changes theme values in place ({ vars, fontUrl }); saved like any file.
@@ -1050,7 +1322,7 @@ export function useProject(notify) {
   /* ------------------------------------------------------------ saving */
   // Every save is one unit: the pages named, the images staged for them and
   // (optionally) js/data.js, written together — a single commit on GitHub.
-  async function commitFiles({ pages = [], site = false, themeFile = false, albums: saveAlbumsFile = false, extra = [] }) {
+  async function commitFiles({ pages = [], site = false, themeFile = false, albums: saveAlbumsFile = false, nav: saveNavFile = false, extra = [] }) {
     if (!project) return false;
     if (!project.source.writable) {
       setError("網址來源無法寫回，請用「下載此頁」取得修改後的檔案。");
@@ -1088,8 +1360,10 @@ export function useProject(notify) {
           assets.push(target);
         }
     }
+    const savedNav = saveNavFile && navFileDirty ? navFile.text : null;
+    if (savedNav !== null) files.push({ path: navFile.spec.path, text: savedNav });
     for (const f of extra) if (!files.some((x) => x.path === f.path)) files.push(f);
-    const savedTheme = themeFile && theme && theme.text !== theme.original ? theme.text : null;
+    const savedTheme =themeFile && theme && theme.text !== theme.original ? theme.text : null;
     if (savedTheme !== null) files.push({ path: THEME_PATH, text: savedTheme });
     // A colour preview is never saved this way (配色 has its own 套用).
     const textToSave = textCss ? stripPreview(textCss.text) : null;
@@ -1134,6 +1408,10 @@ export function useProject(notify) {
         setAlbumsFile((f) => (f ? { ...f, original: savedAlbums } : f));
       }
       for (const f of extra) invalidatePreviewCache(cache.current, f.path);
+      if (savedNav !== null) {
+        invalidatePreviewCache(cache.current, navFile.spec.path);
+        setNavFile((f) => (f ? { ...f, original: savedNav } : f));
+      }
       if (savedSkin)
         setSkin((k) => (k ? { ...k, original: savedSkin.text, current: savedSkin.pending || k.current, pending: null } : k));
       const what = names.length === 1 ? names[0] : names.length + " 個檔案";
@@ -1156,7 +1434,7 @@ export function useProject(notify) {
   }
   const savePage = (path = current) => commitFiles({ pages: [path] });
   const saveAll = async () =>
-    commitFiles({ pages: dirtyPages, site: siteDirty, themeFile: themeDirty, albums: albumsDirty, extra: albumsDirty ? await missingRuntime() : [] });
+    commitFiles({ pages: dirtyPages, site: siteDirty, themeFile: themeDirty, albums: albumsDirty, nav: navFileDirty, extra: albumsDirty ? await missingRuntime() : [] });
   const saveTheme = () => commitFiles({ themeFile: true });
   function setSiteField(key, value) {
     setSiteData((s) => {
@@ -1188,6 +1466,24 @@ export function useProject(notify) {
     dirtyPages,
     siteData,
     siteDirty,
+    labelOf,
+    nav: nav
+      ? {
+          ok: nav.ok,
+          error: nav.error || null,
+          style: nav.style,
+          file: nav.path,
+          groups: supportsGroups(nav),
+          items: navItems(nav),
+          pages: navPages(nav),
+          dirty: navDirty,
+        }
+      : null,
+    menu,
+    saveNav,
+    createPage,
+    deletePage,
+    pageLinks,
     library,
     theme: theme ? { ...readTheme(theme.text), dirty: themeDirty } : null,
     textSize: { ...textSize, dirty: themeDirty },
