@@ -47,7 +47,7 @@ import { embedBlock } from "../site/embeds.js";
 import { COLORS_FILE, readPalette, recolorMap, applyColorMap, writePreview, stripPreview, hasPreview, colorsRecord, restoreMap } from "../site/palette.js";
 import { directorySource, detectDevSource, urlSource, normalizePath, stagedSource, resolveFrom } from "../site/source.js";
 import { createPreviewCache, invalidatePreviewCache } from "../site/preview.js";
-import { detectCloud, cloudApi, cloudSource, redeemInviteFromUrl } from "../site/cloud.js";
+import { detectCloud, cloudApi, cloudSource, redeemInviteFromUrl, googleLoginErrorFromUrl } from "../site/cloud.js";
 import { pageLabel, saveMessage } from "../site/labels.js";
 export { pageLabel, saveMessage };
 import {
@@ -164,9 +164,10 @@ export function useProject(notify) {
 
   useEffect(() => {
     (async () => {
+      const googleError = googleLoginErrorFromUrl();
       const invite = await redeemInviteFromUrl();
       const c = await detectCloud();
-      setCloud({ me: null, ...c, error: invite && !invite.ok ? invite.error : c.error || null });
+      setCloud({ me: null, ...c, error: googleError || (invite && !invite.ok ? invite.error : c.error || null) });
     })();
     detectDevSource().then((s) => s && setDevInfo(s));
     if (typeof indexedDB !== "undefined")

@@ -2,6 +2,7 @@
 // Cloudflare Access. Bindings: DB (D1), BLOBS (R2), ASSETS (editor build).
 import { Hono } from "hono";
 import { currentUser } from "./auth.js";
+import { googleEnabled, googleStart, googleFinish, STATE_COOKIE, STATE_TTL } from "./google.js";
 import {
   COOKIE,
   SESSION_TTL,
@@ -13,6 +14,7 @@ import {
   sessionCookie,
   readCookie,
   passwordLogin,
+  createSession,
   passwordProblem,
   setPassword,
   hasPassword,
@@ -30,6 +32,7 @@ import {
   isAdmin,
   canEdit,
   sitesFor,
+  isKnownUser,
   getSite,
   resolveRef,
   blobStream,
@@ -138,9 +141,44 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
     return c.json({ email: r.email });
   });
 
+  // Sign in with Google: off until GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are set.
+  // Failures come back to the editor as /?login=<reason>, which the sign-in page explains.
+  app.get("/api/auth/google", (c) => {
+    if (!googleEnabled(c.env)) return c.json({ error: "這個網站還沒有開啟 Google 登入。" }, 404);
+    const { url, value } = googleStart(c.env, c.req.url);
+    const secure = new URL(c.req.url).protocol === "https:";
+    c.header("Set-Cookie", `${STATE_COOKIE}=${value}; Path=/api/auth/google; HttpOnly; SameSite=Lax; Max-Age=${STATE_TTL}${secure ? "; Secure" : ""}`);
+    return c.redirect(url, 302);
+  });
+
+  app.get("/api/auth/google/callback", async (c) => {
+    if (!googleEnabled(c.env)) return c.json({ error: "這個網站還沒有開啟 Google 登入。" }, 404);
+    const secure = new URL(c.req.url).protocol === "https:";
+    c.header("Set-Cookie", `${STATE_COOKIE}=; Path=/api/auth/google; HttpOnly; SameSite=Lax; Max-Age=0${secure ? "; Secure" : ""}`);
+    const q = new URL(c.req.url).searchParams;
+    if (q.get("error")) return c.redirect("/?login=google-cancelled", 302);
+    let email;
+    try {
+      email = await googleFinish(
+        c.env,
+        c.req.url,
+        { code: q.get("code"), state: q.get("state"), cookie: readCookie(c.req.raw, STATE_COOKIE) },
+        fetchImpl,
+      );
+    } catch (err) {
+      console.error("Google sign-in failed:", err.message);
+      return c.redirect("/?login=google-failed", 302);
+    }
+    if (!(await isKnownUser(c.env, email)))
+      return c.redirect("/?login=google-unknown&email=" + encodeURIComponent(email), 302);
+    const r = await createSession(c.env, email, "google");
+    c.header("Set-Cookie", sessionCookie(r.session, { maxAge: Math.floor(SESSION_TTL / 1000), secure }), { append: true });
+    return c.redirect("/", 302);
+  });
+
   app.use("/api/*", async (c, next) => {
     const user = await currentUser(c.req.raw, c.env, fetchImpl);
-    if (!user) return c.json({ error: "請先登入。" }, 401);
+    if (!user) return c.json({ error: "請先登入。", google: googleEnabled(c.env) }, 401);
     // A session used today keeps going for another 90 days: refresh the cookie too.
     if (user.renewedSession) {
       const secure = new URL(c.req.url).protocol === "https:";
@@ -178,6 +216,7 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
       via: user.via,
       hasPassword: user.via === "session" ? await hasPassword(c.env, user.email) : false,
       ai: !!c.env.ANTHROPIC_API_KEY,
+      google: googleEnabled(c.env),
       sites: sites.map((s) => siteView(c.env, s)),
     });
   });

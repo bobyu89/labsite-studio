@@ -257,6 +257,13 @@ export async function sitesFor(env, email) {
   return (await q.all()).results;
 }
 
+// The admin or a member of at least one site: who may sign in with Google.
+export async function isKnownUser(env, email) {
+  const e = String(email || "").toLowerCase();
+  if (isAdmin(env, e)) return true;
+  return !!(await env.DB.prepare("SELECT 1 AS ok FROM members WHERE email = ? LIMIT 1").bind(e).first());
+}
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export async function addMember(env, siteId, email, actor, now) {
   const e = String(email || "").trim().toLowerCase();

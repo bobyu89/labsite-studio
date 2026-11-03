@@ -818,6 +818,100 @@ test("API: first link → set a password → sign in with it on another computer
   assert.equal(evil.status, 403);
 });
 
+/* ========================================================= google login */
+test("sign in with Google: members and the admin get in, strangers and forged callbacks do not", async () => {
+  const CLIENT = "client-123.apps.googleusercontent.com";
+  const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
+  let claims = {};
+  const google = scriptedFetch([
+    [
+      "oauth2.googleapis.com/token",
+      (url, init) => {
+        const form = new URLSearchParams(init.body);
+        assert.equal(form.get("client_secret"), "shh");
+        assert.equal(form.get("redirect_uri"), "https://studio.example/api/auth/google/callback");
+        return { json: { id_token: b64({ alg: "RS256" }) + "." + b64(claims) + ".sig" } };
+      },
+    ],
+  ]);
+  const app = createApp({ fetchImpl: google });
+  const off = fakeEnv();
+  const get = (path, cookie, env) =>
+    app.fetch(new Request("https://studio.example" + path, { headers: cookie ? { Cookie: cookie } : {} }), env);
+
+  // Off until both settings exist; the sign-in page learns that from /api/me.
+  assert.equal((await get("/api/auth/google", null, off)).status, 404);
+  assert.equal((await (await get("/api/me", null, off)).json()).google, false);
+
+  const env = fakeEnv({ GOOGLE_CLIENT_ID: CLIENT, GOOGLE_CLIENT_SECRET: "shh" });
+  const sung = await seed(env);
+  await addMember(env, sung.id, "teacher@gmail.com", "admin@lab.tw");
+  assert.equal((await (await get("/api/me", null, env)).json()).google, true);
+
+  // Start: off to Google's account picker with a state cookie.
+  const start = async () => {
+    const r = await get("/api/auth/google", null, env);
+    assert.equal(r.status, 302);
+    const to = new URL(r.headers.get("Location"));
+    assert.equal(to.origin + to.pathname, "https://accounts.google.com/o/oauth2/v2/auth");
+    assert.equal(to.searchParams.get("client_id"), CLIENT);
+    assert.equal(to.searchParams.get("scope"), "openid email");
+    const cookie = r.headers.get("Set-Cookie");
+    assert.match(cookie, /^ls_google=[0-9a-f]+\.[0-9a-f]+; Path=\/api\/auth\/google; HttpOnly; SameSite=Lax; Max-Age=600; Secure$/);
+    return { state: to.searchParams.get("state"), nonce: to.searchParams.get("nonce"), cookie: cookie.split(";")[0] };
+  };
+  const finish = (st, extra = "") => get(`/api/auth/google/callback?code=abc&state=${st.state}${extra}`, st.cookie, env);
+  const good = (st, email) => ({
+    iss: "https://accounts.google.com",
+    aud: CLIENT,
+    exp: Math.floor(Date.now() / 1000) + 300,
+    nonce: st.nonce,
+    email,
+    email_verified: true,
+  });
+  const sessionOf = (r) => r.headers.getSetCookie().find((c) => c.startsWith("ls_session="))?.split(";")[0];
+
+  // A member: signed in, back to the editor, sees their site.
+  let st = await start();
+  claims = good(st, "Teacher@Gmail.com");
+  let r = await finish(st);
+  assert.equal(r.status, 302);
+  assert.equal(r.headers.get("Location"), "/");
+  const teacher = sessionOf(r);
+  assert.ok(teacher);
+  const me = await (await get("/api/me", teacher, env)).json();
+  assert.deepEqual([me.email, me.admin, me.sites.map((s) => s.slug)], ["teacher@gmail.com", false, ["sung"]]);
+
+  // The admin is always allowed.
+  st = await start();
+  claims = good(st, "admin@lab.tw");
+  assert.equal((await (await get("/api/me", sessionOf(await finish(st)), env)).json()).admin, true);
+
+  // Not a member of any site: no session, told which account was used.
+  st = await start();
+  claims = good(st, "stranger@gmail.com");
+  r = await finish(st);
+  assert.equal(r.headers.get("Location"), "/?login=google-unknown&email=stranger%40gmail.com");
+  assert.equal(sessionOf(r), undefined);
+
+  // Forged or broken callbacks never sign anyone in.
+  const refused = async (mutate, extra = "", cookie) => {
+    const s = await start();
+    claims = mutate(good(s, "teacher@gmail.com"));
+    const res = await get(`/api/auth/google/callback?code=abc&state=${s.state}${extra}`, cookie === undefined ? s.cookie : cookie, env);
+    assert.equal(sessionOf(res), undefined);
+    return res.headers.get("Location");
+  };
+  assert.equal(await refused((c) => c, "", null), "/?login=google-failed", "no state cookie");
+  assert.equal(await refused((c) => c, "", "ls_google=aaaa.bbbb"), "/?login=google-failed", "state mismatch");
+  assert.equal(await refused((c) => ({ ...c, aud: "someone-else" })), "/?login=google-failed", "other app's token");
+  assert.equal(await refused((c) => ({ ...c, iss: "https://evil.example" })), "/?login=google-failed", "issuer");
+  assert.equal(await refused((c) => ({ ...c, nonce: "replayed" })), "/?login=google-failed", "nonce");
+  assert.equal(await refused((c) => ({ ...c, exp: 1 })), "/?login=google-failed", "expired");
+  assert.equal(await refused((c) => ({ ...c, email_verified: false })), "/?login=google-failed", "unverified email");
+  assert.equal(await refused((c) => c, "&error=access_denied"), "/?login=google-cancelled", "user cancelled");
+});
+
 /* ============================================================ templates */
 test("create from a template: admin only, unpublished, lab name in js/data.js, editor files hidden", async () => {
   const env = fakeEnv();

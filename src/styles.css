@@ -4474,3 +4474,25 @@ h3 {
 .embed-check.error {
   color: #9a4b2a;
 }
+
+/* Sign in with Google: the one big button on the sign-in page. */
+.signed-out .google-login {
+  width: 100%;
+  max-width: 360px;
+  margin: 8px auto 0;
+}
+.signed-out .google-login-note {
+  font-size: 14px;
+  margin: 10px 0 20px;
+}
+.signed-out .password-alt {
+  margin: 0 auto 20px;
+  max-width: 420px;
+  text-align: left;
+}
+.signed-out .password-alt summary {
+  cursor: pointer;
+  color: var(--muted);
+  text-align: center;
+  margin-bottom: 12px;
+}
