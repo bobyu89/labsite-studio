@@ -4,7 +4,7 @@
 
 **線上版**：<https://bobyu89.github.io/labsite-studio/>（推到 `main` 會由 GitHub Actions 自動建置部署）。
 
-**LabSite Cloud（v4.0）**：老師不需要 GitHub，用一次性登入連結登入，編輯、保存版本、自己發布；網站由 Cloudflare 提供。架構、本機開發與部署步驟見 [`cloud/README.md`](cloud/README.md)。
+**LabSite Cloud（v4.0）**：老師不需要 GitHub，用自己的 Google 帳號登入（v4.17），編輯、保存版本、自己發布；網站由 Cloudflare 提供。架構、本機開發與部署步驟見 [`cloud/README.md`](cloud/README.md)。
 
 **模板、元件庫與外觀（v4.2）**：
 

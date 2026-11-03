@@ -1,3 +1,21 @@
+# v4.17 用 Google 帳號登入、推到 main 自動部署
+
+日期：2026-11-03。起因：老師忘記密碼、連結過期都只能找管理者，管理者自己換電腦後也只能開終端機產生登入連結。
+
+## 功能
+- **用 Google 帳號登入**（`cloud/src/google.js`）：OpenID Connect 授權碼流程，`state`＋`nonce` 存在 10 分鐘的 HttpOnly cookie；ID token 直接從 Google token 端點取得，檢查 `iss`、`aud`、`exp`、`nonce`、`email_verified`。只放 `ADMIN_EMAILS` 與至少一個網站的成員進來（`isKnownUser`），其他帳號回到登入頁並說明用的是哪個 Email。登入後沿用原本的 90 天工作階段（`via = google`）。
+- **登入頁**：設定 `GOOGLE_CLIENT_ID`、`GOOGLE_CLIENT_SECRET` 後，主要按鈕變成「用 Google 帳號登入」，Email＋密碼收進「改用 Email 和密碼登入」；沒設定時登入頁維持原樣。錯誤訊息移到標題下方。
+- **成員管理**：Google 登入開啟時，成員欄位提示「老師的 Google Email」，不再顯示每位成員的「登入連結」，改提示請老師打開編輯器按 Google 登入。
+- **自動部署**（`.github/workflows/deploy-cloud.yml`）：推到 `main` 時跑測試、`migrate:remote`、部署兩個 Worker；沒有 `CLOUDFLARE_API_TOKEN` 時略過且不失敗。設定步驟寫在 `cloud/README.md`。
+
+## 自動化
+- `npm test`：178 項，176 通過、2 項 e2e 略過。新增 Google 登入 1 組：未設定時 404 且 `/api/me` 回報 `google: false`；成員與管理者能登入、Email 大小寫正規化；非成員不建立工作階段；缺 state cookie、state 不符、別的 app 的 token（aud）、錯誤 issuer、nonce 不符、過期、Email 未驗證、使用者取消，全部不登入。`npm run build` 通過。
+- 本機雲端（`dev:node --invite-only`，假的 client id）：`/api/auth/google` 302 到 Google 帳號選擇頁，帶正確的 redirect_uri；登入頁桌面與手機寬度截圖確認按鈕、密碼摺疊區、「帳號尚未加入」訊息，無腳本錯誤。
+
+## 尚未驗證
+- **還沒有用真的 Google OAuth client 走完整流程**（需要管理者在 Google Cloud 建立 client 並把兩個 secret 填進 Cloudflare）。
+- 自動部署 workflow 還沒在 GitHub Actions 上跑過（需要 `CLOUDFLARE_API_TOKEN`）。
+
 # v4.16 頁面與選單、直接打字、影片與地圖、跨瀏覽器測試
 
 日期：2026-10-23。

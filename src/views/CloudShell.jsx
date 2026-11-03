@@ -136,7 +136,7 @@ function Members({ p, site }) {
                 <Trash size={15} />
               </button>
             </div>
-            {p.cloud.me.via !== "access" && <InviteLink p={p} email={m.email} />}
+            {p.cloud.me.via !== "access" && !p.cloud.me.google && <InviteLink p={p} email={m.email} />}
           </li>
         ))}
       </ul>
@@ -147,11 +147,16 @@ function Members({ p, site }) {
           if (email.trim()) run(() => p.cloudCalls.addMember(site.id, email.trim()));
         }}
       >
-        <input type="email" placeholder="老師的 Email" value={email} onChange={(e) => setEmail(e.target.value)} aria-label="新增成員 Email" />
+        <input type="email" placeholder={p.cloud.me.google ? "老師的 Google Email" : "老師的 Email"} value={email} onChange={(e) => setEmail(e.target.value)} aria-label="新增成員 Email" />
         <Button size="1" type="submit" disabled={busy || !email.trim()}>
           <Plus size={14} /> 加入
         </Button>
       </form>
+      {p.cloud.me.google && (
+        <span className="small-note">
+          加入後，請老師打開 {location.origin} 按「用 Google 帳號登入」，不用再傳登入連結。
+        </span>
+      )}
       {error && <span className="error-text small-note">{error}</span>}
     </div>
   );
@@ -429,25 +434,50 @@ export default function CloudShell({ p, notice, setNotice, device, setDevice }) 
         {signedOut ? (
           <div className="signed-out">
             <h1>登入 LabSite</h1>
-            <PasswordLoginForm
-              onLogin={async (email, password) => {
-                await p.cloudCalls.passwordLogin(email, password);
-                location.reload();
-              }}
-            />
-            <div className="signed-out-help">
-              <p>
-                <strong>第一次使用、還沒設定密碼，或忘記密碼？</strong>請打開管理者傳給你的登入連結，登入後按右上角「設定密碼」。
-              </p>
-              <p>
-                <strong>另一台裝置已經登入？</strong>在那台裝置按右上角「其他裝置登入」，用這台的相機掃 QR code 也可以。
-              </p>
-            </div>
             {p.cloud.error && p.cloud.error !== "請先登入。" && (
               <div className="message error" role="alert">
                 <WarningCircle size={20} />
                 <span>{p.cloud.error}</span>
               </div>
+            )}
+            {p.cloud.google ? (
+              <>
+                <Button asChild size="4" className="google-login">
+                  <a href="/api/auth/google">用 Google 帳號登入</a>
+                </Button>
+                <p className="google-login-note">用你被加入網站時的那個 Google 帳號（Gmail 或學校的 Google 帳號），不用另外記密碼。</p>
+                <details className="password-alt">
+                  <summary>改用 Email 和密碼登入</summary>
+                  <PasswordLoginForm
+                    onLogin={async (email, password) => {
+                      await p.cloudCalls.passwordLogin(email, password);
+                      location.reload();
+                    }}
+                  />
+                </details>
+                <div className="signed-out-help">
+                  <p>
+                    <strong>按了還是進不去？</strong>請管理者在你網站的「成員」加入你的 Google Email。
+                  </p>
+                </div>
+              </>
+            ) : (
+              <>
+                <PasswordLoginForm
+                  onLogin={async (email, password) => {
+                    await p.cloudCalls.passwordLogin(email, password);
+                    location.reload();
+                  }}
+                />
+                <div className="signed-out-help">
+                  <p>
+                    <strong>第一次使用、還沒設定密碼，或忘記密碼？</strong>請打開管理者傳給你的登入連結，登入後按右上角「設定密碼」。
+                  </p>
+                  <p>
+                    <strong>另一台裝置已經登入？</strong>在那台裝置按右上角「其他裝置登入」，用這台的相機掃 QR code 也可以。
+                  </p>
+                </div>
+              </>
             )}
           </div>
         ) : p.project ? (
