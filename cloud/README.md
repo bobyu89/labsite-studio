@@ -1,12 +1,12 @@
 # LabSite Cloud
 
-讓老師不需要 GitHub 帳號，就能用登入連結進來、編輯自己的實驗室網站、保存版本、自己發布。整套跑在 Cloudflare 上。
+讓老師不需要 GitHub 帳號，就能用自己的 Google 帳號登入、編輯自己的實驗室網站、保存版本、自己發布。整套跑在 Cloudflare 上。
 
 ## 架構
 
 ```
 老師的瀏覽器
-   │  一次性邀請連結 → 30 天登入（之後可改用 Cloudflare Access 的 Email 驗證碼）
+   │  用 Google 帳號登入（或一次性邀請連結、Email + 密碼）→ 90 天登入，有在用就自動延長
    ▼
 labsite-studio-cloud  (Worker：編輯器 + /api)
    │        │
@@ -29,7 +29,8 @@ labsite-studio-cloud  (Worker：編輯器 + /api)
 |---|---|
 | `src/repo.js` | 版本庫核心：blob、tree、commit、草稿指標的 compare-and-swap、發布、還原、成員 |
 | `src/api.js` | 編輯器用的 API（Hono），每個請求先驗證登入、再檢查是否為該網站成員 |
-| `src/auth.js` | 判斷登入者：Cloudflare Access 的 JWT（有設定時）或邀請連結換來的登入 cookie |
+| `src/auth.js` | 判斷登入者：Cloudflare Access 的 JWT（有設定時）或登入 cookie |
+| `src/google.js` | 用 Google 帳號登入（OpenID Connect），只放管理者與網站成員進來 |
 | `src/sessions.js` | 邀請連結與登入狀態，只存 SHA-256 |
 | `src/blobs.js` | 檔案內容存放：有 R2 綁定用 R2，否則存 D1 分塊 |
 | `scripts/invite.js` | 從指令列產生第一位管理者的登入連結 |
@@ -70,25 +71,47 @@ SITE_URL_TEMPLATE=http://127.0.0.1:8788/{slug}/
 | 編輯器 | <https://labsite-studio-cloud.shiftguard-navicare.workers.dev> |
 | 公開網站 | `https://labsite-sites.shiftguard-navicare.workers.dev/<代稱>/` |
 
-整套只需要 wrangler 指令，不需要到儀表板設定。檔案內容存在 D1（以 base64 分塊），登入用一次性邀請連結。
+檔案內容存在 D1（以 base64 分塊）。
 
-### 更新程式
+### 更新程式：推到 `main` 就自動部署
+
+`.github/workflows/deploy-cloud.yml` 在每次推到 `main` 時跑測試、套用新的 D1 migration、部署兩個 Worker，不需要在自己的電腦裝 Node 或 wrangler。只要設定一次：
+
+1. Cloudflare 儀表板 → 右上角頭像 → **My Profile** → **API Tokens** → **Create Token** → 選 **Edit Cloudflare Workers** 範本，在 Permissions 再加一列 **Account → D1 → Edit** → 建立後複製 token。
+2. GitHub `labsite-studio` → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**：名稱 `CLOUDFLARE_API_TOKEN`，貼上 token。（token 看得到不只一個 Cloudflare 帳號時，再加 `CLOUDFLARE_ACCOUNT_ID`，在儀表板 Workers & Pages 右側可以找到。）
+3. **Actions** → **Deploy LabSite Cloud to Cloudflare** → **Run workflow** 部署一次。
+
+沒設定 token 時這個 workflow 只會略過、不會失敗。手動部署仍然可以：
 
 ```bash
-npm --prefix cloud run deploy                   # 建置編輯器並部署兩個 Worker
 npm --prefix cloud run migrate:remote           # 有新的 migrations/*.sql 時
+npm --prefix cloud run deploy                   # 建置編輯器並部署兩個 Worker
 ```
 
-### 登入：邀請連結
+### 登入：用 Google 帳號（建議）
+
+老師按「用 Google 帳號登入」、選自己的帳號就進來了，沒有密碼要記，也不用向管理者要連結。只有 `ADMIN_EMAILS` 裡的管理者與至少一個網站的成員能進來；其他帳號會看到「這個 Google 帳號還沒有被加入任何網站」。
+
+設定一次（全部在網頁上點，不用終端機）：
+
+1. 到 <https://console.cloud.google.com>，建立一個專案（例如 `labsite`）。
+2. **APIs & Services** → **OAuth consent screen**（新版叫 **Google Auth Platform**）→ 開始設定：應用程式名稱 `LabSite`、User type 選 **External**，填自己的 Email → 建立後在 **Audience** 按 **Publish app**（只要 `openid email`，不需要 Google 審核；不發布的話只有測試名單內的帳號能登入）。
+3. **Clients**（或 **Credentials** → **Create credentials** → **OAuth client ID**）：類型 **Web application**；**Authorized redirect URIs** 加上 `https://labsite-studio-cloud.shiftguard-navicare.workers.dev/api/auth/google/callback` → 建立後複製 **Client ID** 與 **Client secret**。
+4. Cloudflare 儀表板 → **Workers & Pages** → `labsite-studio-cloud` → **Settings** → **Variables and Secrets** → **Add**，類型選 **Secret**，加兩個：`GOOGLE_CLIENT_ID`、`GOOGLE_CLIENT_SECRET` → **Deploy**。用 Secret 存，之後的自動部署不會把它們蓋掉。
+
+設定好之後，登入頁會出現「用 Google 帳號登入」按鈕；沒設定時登入頁維持原樣。換了編輯器網址（自訂網域）時，第 3 步要加上新網址的 callback。
+
+### 登入：邀請連結與密碼（沒有設定 Google 時）
 
 - 第一位管理者用指令產生連結：`npm --prefix cloud run invite -- 你的Email`。
 - 之後管理者在編輯器裡產生：網站卡片的「成員」每位老師旁有「登入連結」，或用「產生登入連結」卡片給任意 Email。
-- 連結只能用一次、14 天內有效；登入後 30 天內不用再登入。資料庫只存連結與登入狀態的 SHA-256。
+- 連結只能用一次、14 天內有效；登入後 90 天內不用再登入，有在用就自動延長。資料庫只存連結與登入狀態的 SHA-256。
+- 用連結登入後可以設定密碼，之後在登入頁用 Email + 密碼登入。
 - 管理者名單在 `wrangler.api.toml` 的 `ADMIN_EMAILS`。
 
 ### 匯入網站、加入老師
 
-管理者登入後，在「從 GitHub 匯入網站」輸入 `bobyu89/sung-lab-website` 等。在網站卡片的「成員」加入老師 Email，再按「登入連結」把連結傳給老師。
+管理者登入後，在「從 GitHub 匯入網站」輸入 `bobyu89/sung-lab-website` 等。在網站卡片的「成員」加入老師的 Google Email，請老師打開編輯器按「用 Google 帳號登入」即可。沒有設定 Google 登入時，再按「登入連結」把連結傳給老師。
 
 ### （選用）發布後自動備份到 GitHub
 

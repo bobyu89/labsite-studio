@@ -3,8 +3,10 @@ import { useRef, useState } from "react";
 // Pointer-based reordering for a vertical list or, with { grid: true }, a
 // wrapping grid of tiles (mouse, pen, touch). Rows are found with `[data-row]`
 // inside `listRef`. The move fires exactly once on release; state only drives
-// the drop indicator.
-export function useDragReorder(listRef, onMove, { grid = false } = {}) {
+// the drop indicator. With { hold: true } a finger has to rest on the item
+// for a moment before it drags, so the list can still be scrolled on a phone.
+const HOLD_MS = 380;
+export function useDragReorder(listRef, onMove, { grid = false, hold = false } = {}) {
   const dragRef = useRef(null);
   const [drag, setDrag] = useState(null);
   const update = (next) => {
@@ -13,10 +15,36 @@ export function useDragReorder(listRef, onMove, { grid = false } = {}) {
   };
   function start(e, index) {
     if (e.button !== undefined && e.button !== 0) return;
+    if (hold && e.pointerType === "touch") return startAfterHold(e, index);
     e.preventDefault();
+    begin(e.currentTarget, e.pointerId, index);
+  }
+  // Touch: drag only after the finger stays put for HOLD_MS; moving earlier scrolls.
+  function startAfterHold(e, index) {
     const target = e.currentTarget;
+    const x0 = e.clientX;
+    const y0 = e.clientY;
+    const cancel = () => {
+      clearTimeout(timer);
+      target.removeEventListener("pointermove", moved);
+      target.removeEventListener("pointerup", cancel);
+      target.removeEventListener("pointercancel", cancel);
+    };
+    const moved = (ev) => Math.hypot(ev.clientX - x0, ev.clientY - y0) > 10 && cancel();
+    const timer = setTimeout(() => {
+      cancel();
+      navigator.vibrate?.(15);
+      const noScroll = (ev) => ev.preventDefault();
+      target.addEventListener("touchmove", noScroll, { passive: false });
+      begin(target, e.pointerId, index, () => target.removeEventListener("touchmove", noScroll));
+    }, HOLD_MS);
+    target.addEventListener("pointermove", moved);
+    target.addEventListener("pointerup", cancel);
+    target.addEventListener("pointercancel", cancel);
+  }
+  function begin(target, pointerId, index, done) {
     try {
-      target.setPointerCapture?.(e.pointerId);
+      target.setPointerCapture?.(pointerId);
     } catch {
       /* synthetic or already-released pointer */
     }
@@ -55,6 +83,7 @@ export function useDragReorder(listRef, onMove, { grid = false } = {}) {
       target.removeEventListener("pointermove", move);
       target.removeEventListener("pointerup", end);
       target.removeEventListener("pointercancel", end);
+      done?.();
       const d = dragRef.current;
       update(null);
       if (!d) return;

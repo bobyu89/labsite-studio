@@ -255,6 +255,7 @@ export function sectionSummary(el, index) {
   const title =
     (heading && collapse(heading.textContent)) ||
     (el.id && "#" + el.id) ||
+    (el.querySelector("blockquote, p") && collapse(el.querySelector("blockquote, p").textContent).slice(0, 18)) ||
     "區塊 " + (index + 1);
   const kind = ["hero", "page-hero", "directory", "page-sign"].some((c) => el.classList.contains(c))
       ? "主視覺"
@@ -523,6 +524,68 @@ function photoAlt(el) {
   return (el.textContent.trim() || "成員") + " 照片";
 }
 
+// A heading whose accent words sit in plain inline elements, like
+// <h2>讓<em>智慧醫療</em>走進現場</h2>, is edited as one field where the
+// accent words are written between 【】. → the run of text and accent nodes,
+// or null when the heading has other markup the field could not keep.
+const RICH_HEADINGS = new Set(["h1", "h2", "h3", "h4"]);
+const ACCENT_TAGS = new Set(["span", "em", "strong", "mark", "b", "i", "u"]);
+const isAccent = (n) => n.nodeType === 1 && ACCENT_TAGS.has(n.tagName.toLowerCase()) && !n.children.length;
+function richRun(el) {
+  if (!RICH_HEADINGS.has(el.tagName.toLowerCase())) return null;
+  const nodes = [...el.childNodes];
+  if (!nodes.filter(isAccent).length) return null;
+  const hasText = (n) => (n.nodeType === 3 || isAccent(n)) && n.textContent.trim();
+  for (const n of nodes) if (n.nodeType === 1 && !isAccent(n) && (n.textContent.trim() || n.querySelector?.("img"))) return null;
+  const inRun = nodes.map((n) => n.nodeType === 3 || isAccent(n));
+  const firstText = nodes.findIndex(hasText);
+  if (firstText < 0) return null;
+  let first = firstText;
+  while (first > 0 && inRun[first - 1] && nodes[first - 1].nodeType === 1) first--;
+  let last = nodes.findLastIndex(hasText);
+  while (last < nodes.length - 1 && inRun[last + 1] && nodes[last + 1].nodeType === 1) last++;
+  for (let i = first; i <= last; i++) if (!inRun[i]) return null;
+  const run = nodes.slice(first, last + 1);
+  const marks = run.filter(isAccent);
+  if (!marks.length || (run.filter(hasText).length < 2 && !marks.some((m) => !m.textContent.trim()))) return null;
+  return { nodes, first, last, marks };
+}
+const richValue = ({ nodes, first, last }) =>
+  collapse(
+    nodes
+      .slice(first, last + 1)
+      .map((n) => (n.nodeType === 3 ? n.nodeValue : n.textContent.trim() ? "【" + n.textContent + "】" : ""))
+      .join(""),
+  );
+// Writes "讓【智慧醫療】走進現場" back: text between 【】 goes into copies of the
+// heading's accent elements, in order; empty accents (decorative) are kept.
+function setRichText(el, value) {
+  const run = richRun(el);
+  if (!run) return false;
+  const { nodes, first, last, marks } = run;
+  const doc = el.ownerDocument;
+  const lead = nodes[first].nodeType === 3 ? nodes[first].nodeValue.match(/^\s*/)[0] : "";
+  const trail = nodes[last].nodeType === 3 ? nodes[last].nodeValue.match(/\s*$/)[0] : "";
+  const out = [];
+  let used = 0;
+  for (const part of value.split(/(【[^【】]*】)/)) {
+    const m = part.match(/^【([^【】]*)】$/);
+    if (m) {
+      if (!m[1].trim()) continue;
+      const mark = marks[Math.min(used++, marks.length - 1)].cloneNode(false);
+      mark.textContent = m[1];
+      out.push(mark);
+    } else if (part) out.push(doc.createTextNode(part));
+  }
+  for (const mark of marks.slice(used)) out.push(mark.cloneNode(false));
+  if (lead) out[0]?.nodeType === 3 ? (out[0].nodeValue = lead + out[0].nodeValue) : out.unshift(doc.createTextNode(lead));
+  if (trail) out.at(-1)?.nodeType === 3 ? (out.at(-1).nodeValue += trail) : out.push(doc.createTextNode(trail));
+  const after = nodes[last].nextSibling;
+  for (const n of nodes.slice(first, last + 1)) n.remove();
+  for (const n of out) el.insertBefore(n, after);
+  return true;
+}
+
 // Walks an element and returns editable leaves: text nodes, images and links.
 // Paths are relative to `section` so they stay valid after re-parsing.
 export function collectFields(root, section = root) {
@@ -530,6 +593,20 @@ export function collectFields(root, section = root) {
   const walk = (el, context) => {
     const tag = el.tagName.toLowerCase();
     if (SKIP_TAGS.has(tag)) return;
+    const run = richRun(el);
+    if (run) {
+      fields.push({
+        kind: "text",
+        rich: true,
+        path: pathOf(el, section),
+        elementPath: pathOf(el, section),
+        label: (context ? context + " › " : "") + describe(el),
+        tag,
+        value: richValue(run),
+        long: richValue(run).length > 22,
+      });
+      return;
+    }
     if (tag === "img") {
       fields.push({
         kind: "image",
@@ -611,6 +688,7 @@ export function collectFields(root, section = root) {
 }
 export function setText(section, path, value) {
   const node = nodeAt(section, path);
+  if (node?.nodeType === 1) return setRichText(node, value);
   if (!node || node.nodeType !== 3) return false;
   const m = node.nodeValue.match(/^(\s*)([\s\S]*?)(\s*)$/);
   node.nodeValue = m[1] + value + m[3];

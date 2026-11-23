@@ -27,6 +27,8 @@ import { SKINS_PATH, SITE_CSS, loadSkins, readSkin, themeForSkin, withCurrent } 
 import { prepareImage, formatBytes, isImagePath, referencedImages } from "../site/images.js";
 import { readSiteFields, patchSiteField } from "../site/siteData.js";
 import { readAlbum, writeAlbum, defaultCaption, albumPath } from "../site/album.js";
+import { readNews, writeNews, detachSheet, fetchSheetNews } from "../site/news.js";
+import { checkSite } from "../site/publishCheck.js";
 import { TEXT_FILE, planRelocation } from "../site/relocate.js";
 import { TEXT_SIZE_FILES, readTextSize, writeTextSize, carryTextSize } from "../site/textSize.js";
 import {
@@ -47,7 +49,7 @@ import { embedBlock } from "../site/embeds.js";
 import { COLORS_FILE, readPalette, recolorMap, applyColorMap, writePreview, stripPreview, hasPreview, colorsRecord, restoreMap } from "../site/palette.js";
 import { directorySource, detectDevSource, urlSource, normalizePath, stagedSource, resolveFrom } from "../site/source.js";
 import { createPreviewCache, invalidatePreviewCache } from "../site/preview.js";
-import { detectCloud, cloudApi, cloudSource, redeemInviteFromUrl } from "../site/cloud.js";
+import { detectCloud, cloudApi, cloudSource, redeemInviteFromUrl, googleLoginErrorFromUrl } from "../site/cloud.js";
 import { pageLabel, saveMessage } from "../site/labels.js";
 export { pageLabel, saveMessage };
 import {
@@ -164,9 +166,10 @@ export function useProject(notify) {
 
   useEffect(() => {
     (async () => {
+      const googleError = googleLoginErrorFromUrl();
       const invite = await redeemInviteFromUrl();
       const c = await detectCloud();
-      setCloud({ me: null, ...c, error: invite && !invite.ok ? invite.error : c.error || null });
+      setCloud({ me: null, ...c, error: googleError || (invite && !invite.ok ? invite.error : c.error || null) });
     })();
     detectDevSource().then((s) => s && setDevInfo(s));
     if (typeof indexedDB !== "undefined")
@@ -1153,6 +1156,59 @@ export function useProject(notify) {
     }
   }
 
+  // Before publishing: every page (unsaved drafts included) checked for
+  // template leftovers and broken links (publishCheck.js).
+  async function prepublishCheck() {
+    const source = project?.source;
+    if (!source) return [];
+    const pages = await Promise.all(
+      project.pages.map(async (path) => ({ path, html: draftsRef.current[path]?.present ?? (await source.readText(path).catch(() => "")) })),
+    );
+    let files = null;
+    if (source.listFiles) {
+      const list = await source.listFiles("").catch(() => null);
+      if (list?.length) files = new Set(list.map((f) => f.path));
+    }
+    return checkSite({ pages, files, siteFields: siteData?.fields || null });
+  }
+
+  /* --------------------------------------------------------------- news */
+  // The latest news listed in js/data.js (FALLBACK_NEWS). A site that still
+  // reads a Google Sheet (CONFIG.SHEET_ID) shows that sheet instead, so the
+  // panel first offers to copy the sheet in and stop reading it.
+  const news = useMemo(() => (siteData ? readNews(siteData.text) : null), [siteData]);
+  function setNewsItems(items) {
+    setSiteData((s) => {
+      const text = writeNews(s.text, items);
+      return { ...s, text, fields: readSiteFields(text).fields };
+    });
+  }
+  async function importSheetNews() {
+    if (!news?.ok || !news.sheetId) return false;
+    setBusy(true);
+    try {
+      const items = await fetchSheetNews(news.sheetId);
+      setSiteData((s) => {
+        const text = detachSheet(writeNews(s.text, items));
+        return { ...s, text, fields: readSiteFields(text).fields };
+      });
+      notify(`已從試算表搬進 ${items.length} 則消息。確認無誤後按「保存消息」，再按「發布」。`);
+      return true;
+    } catch (e) {
+      setError("沒辦法讀取 Google 試算表：" + e.message + " 也可以按「不搬，直接在這裡管理」，從網站目前的消息開始。");
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+  // Keeps the news already in js/data.js and stops reading the sheet.
+  function detachNewsSheet() {
+    setSiteData((s) => {
+      const text = detachSheet(s.text);
+      return { ...s, text, fields: readSiteFields(text).fields };
+    });
+  }
+
   /* -------------------------------------------------------------- album */
   // The activity photos listed in js/data.js (LOCAL_PHOTOS). New photos are
   // compressed like any image, staged under assets/gallery/, and written
@@ -1466,6 +1522,11 @@ export function useProject(notify) {
     dirtyPages,
     siteData,
     siteDirty,
+    prepublishCheck,
+    news,
+    setNewsItems,
+    importSheetNews,
+    detachNewsSheet,
     labelOf,
     nav: nav
       ? {

@@ -28,8 +28,12 @@ export function bundleTemplates(root = "templates") {
     // bundle carries copies under labsite/skins/<id>/ so a site can switch
     // back to them later, without keeping duplicates in the repo.
     const manifest = files.find((f) => f.path === "labsite/skins.json");
+    let skins = [];
     if (manifest) {
-      for (const skin of JSON.parse(manifest.text).skins || []) {
+      const parsed = JSON.parse(manifest.text);
+      // The skins a new site can start with (the 建立網站 form offers them).
+      skins = (parsed.skins || []).map((s) => ({ id: s.id, name: s.name, description: s.description || "", current: s.id === parsed.current }));
+      for (const skin of parsed.skins || []) {
         if (skin.from !== "css") continue;
         for (const name of ["site.css", "theme.css"]) {
           const target = `labsite/skins/${skin.id}/${name}`;
@@ -45,7 +49,7 @@ export function bundleTemplates(root = "templates") {
     } catch {
       /* no metadata: fall back to the id */
     }
-    const entry = { id, name: meta.name || id, description: meta.description || "", files: files.length };
+    const entry = { id, name: meta.name || id, description: meta.description || "", files: files.length, ...(skins.length ? { skins } : {}) };
     index.push(entry);
     bundles[id] = { ...entry, files };
   }

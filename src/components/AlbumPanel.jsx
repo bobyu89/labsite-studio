@@ -47,7 +47,7 @@ export default function AlbumPanel({ p, writable, galleryPage, openPage, setConf
   };
   const move = (i, d) => reorder(i, i + d);
   const listRef = useRef(null);
-  const { start, rowClass } = useDragReorder(listRef, reorder);
+  const { start, rowClass } = useDragReorder(listRef, reorder, { hold: true });
   return (
     <div className="album-panel">
       <p className="small-note">
@@ -103,7 +103,7 @@ export default function AlbumPanel({ p, writable, galleryPage, openPage, setConf
         <p className="small-note">相簿還是空的；網站目前顯示的是範例圖。加入第一張照片後，範例圖就會換成你的照片。</p>
       ) : (
         <ol className="album-list" ref={listRef} data-list>
-          {photos.length > 1 && writable && <li className="album-hint small-note">用滑鼠按住照片拖曳，就能調整順序。</li>}
+          {photos.length > 1 && writable && <li className="album-hint small-note">按住照片拖曳就能調整順序（手機上先按住一下再移動）。</li>}
           {photos.map((photo, i) => (
             <li key={photo.src + i} data-row className={rowClass(i, photos.length)}>
               <div

@@ -1,3 +1,45 @@
+# v4.17 用 Google 帳號登入、最新消息搬進編輯器、找回 10/26 的功能、推到 main 自動部署
+
+日期：2026-11-03。起因：老師忘記密碼、連結過期都只能找管理者，管理者自己換電腦後也只能開終端機產生登入連結。
+
+## 功能
+- **用 Google 帳號登入**（`cloud/src/google.js`）：OpenID Connect 授權碼流程，`state`＋`nonce` 存在 10 分鐘的 HttpOnly cookie；ID token 直接從 Google token 端點取得，檢查 `iss`、`aud`、`exp`、`nonce`、`email_verified`。只放 `ADMIN_EMAILS` 與至少一個網站的成員進來（`isKnownUser`），其他帳號回到登入頁並說明用的是哪個 Email。登入後沿用原本的 90 天工作階段（`via = google`）。
+- **登入頁**：設定 `GOOGLE_CLIENT_ID`、`GOOGLE_CLIENT_SECRET` 後，主要按鈕變成「用 Google 帳號登入」，Email＋密碼收進「改用 Email 和密碼登入」；沒設定時登入頁維持原樣。錯誤訊息移到標題下方。
+- **成員管理**：Google 登入開啟時，成員欄位提示「老師的 Google Email」，不再顯示每位成員的「登入連結」，改提示請老師打開編輯器按 Google 登入。
+- **自動部署**（`.github/workflows/deploy-cloud.yml`）：推到 `main` 時跑測試、`migrate:remote`、部署兩個 Worker；沒有 `CLOUDFLARE_API_TOKEN` 時略過且不失敗。設定步驟寫在 `cloud/README.md`。
+
+## 自動化
+- `npm test`：178 項，176 通過、2 項 e2e 略過。新增 Google 登入 1 組：未設定時 404 且 `/api/me` 回報 `google: false`；成員與管理者能登入、Email 大小寫正規化；非成員不建立工作階段；缺 state cookie、state 不符、別的 app 的 token（aud）、錯誤 issuer、nonce 不符、過期、Email 未驗證、使用者取消，全部不登入。`npm run build` 通過。
+- 本機雲端（`dev:node --invite-only`，假的 client id）：`/api/auth/google` 302 到 Google 帳號選擇頁，帶正確的 redirect_uri；登入頁桌面與手機寬度截圖確認按鈕、密碼摺疊區、「帳號尚未加入」訊息，無腳本錯誤。
+
+## 最新消息搬進編輯器
+起因：兩位老師網站的最新消息是網站腳本從 Google 試算表讀的，編輯器裡找不到地方改。
+
+- `src/site/news.js`：讀寫 `js/data.js` 的 `FALLBACK_NEWS`（與 `album.js` 讀 `LOCAL_PHOTOS` 同樣做法，不執行檔案、陣列以外逐字元不變、保留 CRLF），依日期新到舊排序；`detachSheet` 把 `CONFIG.SHEET_ID` 清空並把原 ID 留在註解（不動 `EVENTS_SHEET_ID`）；`fetchSheetNews` 用網站同樣的 gviz 端點，先讀 `news` 分頁、沒有再讀第一個分頁。兩個網站在 `SHEET_ID` 為空時本來就顯示 `FALLBACK_NEWS`，網站程式不用改。
+- 「最新消息」分頁（`NewsPanel.jsx`）：還在讀試算表的網站先顯示「從試算表搬進來」（或「不搬，直接在這裡管理」）；之後可新增（日期、分類、中文、英文、連結）、展開修改、刪除，「保存消息」寫回 `js/data.js`。
+
+### 驗證
+- `npm test`：186 項，184 通過、2 項 e2e 略過（新增 `news.test.js` 8 項：讀取、寫回與排序、CRLF、清空試算表 ID、拒絕看不懂的寫法、日期格式、gviz 解析（含 `Date(y,m,d)`）、`news` 分頁退回第一分頁）。`npm run build` 通過。
+- 瀏覽器實測（Chromium，開發伺服器模式，宋、卓老師網站 GitHub 版本的副本）：按「從試算表搬進來」從**真的 Google 試算表**讀到 8 則／14 則 → 新增一則 → 保存 → `js/data.js` 有新消息、`SHEET_ID` 已清空 → 預覽首頁的最新消息第一則就是新加的那則；兩站都沒有腳本錯誤。
+
+## 找回 10/26 部署但沒有進 GitHub 的功能
+起因：線上的 `labsite-studio-cloud` 是 2026-10-26 從另一台電腦（Windows，檔案是 CRLF）部署的，分岔點在 c865e9c（v4.16 之前），原始碼沒有推上 GitHub。直接部署 main 會讓這些功能消失；線上版也沒有 v4.16（頁面與選單、影片與地圖、直接打字）。從線上的 Worker 與編輯器組件逐段比對後在原始碼重建：
+
+- **後端**（線上 Worker 未壓縮，照原樣還原）：`cloud/src/overview.js`（`GET /api/admin/overview`）、`templates.js` 的 `applySkin`（建站時選版型）、`siteData.js` 的 `SITE_FIELDS`（每欄的說明、分組、未使用欄位、範例值判斷）。重建後的 Worker 與線上版逐句比對，線上的每一句都在。
+- **編輯器**（線上是壓縮過的單檔，依功能重寫）：管理者「總覽」頁（`AdminOverview.jsx`，網站／成員／近期動態／需要注意）、發布前檢查（`publishCheck.js` 與發布對話框的 `PublishChecks`，有警告時按鈕變「仍要發布」）、研究室資料分組與範例標示、【】強調色標題（`page.js` 的 `richRun`／`setRichText`）、建站時選版型、手機長按拖曳排序（`useDragReorder` 的 `hold`）、手機版「看預覽」與點預覽後捲到欄位、操作手冊連結。
+- **模板**：新增「手札」「期刊」兩種版型（`templates/basic/labsite/skins/`），`templates/index.json` 列出版型；`public/manual.html`（老師操作手冊）照線上版放回。其餘模板檔案與 GitHub 版只差換行（CRLF），未改。
+- 以 `prettier` 格式化兩份組件、把壓縮後的短變數名遮蔽後比對，確認剩下的差異都只是變數名稱或格式。
+
+### 驗證
+- `npm test`：191 項，189 通過、2 項 e2e 略過（新增 `restored.test.js` 5 組：欄位說明與範例值、發布前檢查（範例文字、示意圖、空連結、壞連結、缺替代文字、研究室資料）、【】標題讀寫、版型清單與 `applySkin`、總覽 API 與權限）。`npm run build` 無警告。
+- 本機雲端瀏覽器實測：用「期刊」版型建站 → 總覽顯示 1 個網站、待發布、「沒有成員」提醒 → 研究室資料分組與「範例」標記 → 發布對話框顯示發布前檢查並改為「仍要發布」；沒有腳本錯誤。
+
+
+## 尚未驗證
+- **還沒有用真的 Google OAuth client 走完整流程**（需要管理者在 Google Cloud 建立 client 並把兩個 secret 填進 Cloudflare）。
+- 自動部署 workflow 還沒在 GitHub Actions 上跑過（需要 `CLOUDFLARE_API_TOKEN`）。
+- 最新消息還沒在雲端版（LabSite Cloud）上實際搬過；雲端網站的 `js/data.js` 可能已在雲端改過，與 GitHub 版本不同。
+
 # v4.16 頁面與選單、直接打字、影片與地圖、跨瀏覽器測試
 
 日期：2026-10-23。

@@ -164,7 +164,7 @@ export default function SitePreview({
         <iframe key={reloads} ref={frame} title="真實網站預覽" srcDoc={srcdoc} sandbox="allow-scripts" />
       </div>
       <p className="canvas-caption">
-        {inline ? "直接點預覽中的文字就能打字（Enter 完成、Esc 取消）；" : "點預覽中的文字或圖片即可在左側編輯；"}
+        {inline ? "直接點預覽中的文字就能打字（Enter 完成、Esc 取消）；" : "點預覽中的文字或圖片就會跳到它的編輯欄位；"}
         預覽會執行網站自己的腳本，最新消息與照片來自線上來源。
         {missing.length > 0 && <> 找不到：{missing.join("、")}</>}
       </p>

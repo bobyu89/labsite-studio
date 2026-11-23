@@ -1,0 +1,33 @@
+/* Theme tokens for the 期刊 (journal) skin. Same variable names as every
+   skin, so a lab's colours can be carried across; fonts are loaded here. */
+@import url("https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700;900&family=Source+Serif+4:ital,wght@0,400;0,600;0,700;0,900;1,400;1,600&family=Noto+Sans+TC:wght@500;700&family=IBM+Plex+Sans:wght@500;600&display=swap");
+
+/* A printed journal: black ink on white paper, one deep colour per section
+   used only for rules and small labels, and journal red (--mark) for the
+   section numbers and the page you are on. */
+:root {
+  --zone-research: #1d4f7a;
+  --zone-team: #2c5e4f;
+  --zone-publications: #7d2a2a;
+  --zone-join: #3a3f6b;
+  --on-zone: #ffffff;
+  --on-join: #ffffff;
+
+  /* Section numbers, "you are here" and focus: the only red on the site. */
+  --mark: #b5121b;
+
+  --ink: #161616;
+  --ink-soft: #4d4d4d;
+  --wall: #f4f3ef;
+  --plate: #ffffff;
+  --rule: #cfccc4;
+
+  /* Reading text in serif; the small sans for labels, numbers and captions. */
+  --font: "Source Serif 4", "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  --font-label: "IBM Plex Sans", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  /* How much the site moves: none, subtle or lively. Visitors who ask their
+     system for reduced motion always get none. */
+  --motion: subtle;
+  --radius: 0px;
+  --max: 1120px;
+}

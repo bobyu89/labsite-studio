@@ -1,29 +1,61 @@
 import React from "react";
 import { Button } from "@radix-ui/themes";
 import { Field } from "./ui";
+import { SITE_FIELDS, SITE_GROUPS, isSampleValue } from "../site/siteData.js";
 
-// Edits the string fields of SITE in js/data.js (name, tagline, contact).
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Edits the string fields of SITE in js/data.js (name, contact), grouped, each
+// with where it shows on the site; template sample values are flagged.
 export default function SiteDataPanel({ siteData, siteDirty, setSiteField, saveSiteData, writable, busy }) {
   if (!siteData)
-    return <p className="small-note">這個網站沒有 js/data.js，或其中沒有 SITE 設定。</p>;
+    return <p className="small-note">這個網站的頁首與頁尾是直接寫在每一頁裡的，請在「編輯內容」點選要改的地方修改。</p>;
+  const samples = siteData.fields.filter((f) => !f.unused && isSampleValue(f.value)).length;
   return (
     <div className="site-data">
-      <p className="small-note">
-        這些值來自 <code>js/data.js</code> 的 SITE 設定，會顯示在頁尾、聯絡資訊與頁首品牌名稱。各頁的 &lt;title&gt; 與主視覺膠囊標籤是寫死的文字，請到對應頁面修改。
-      </p>
-      {siteData.fields.map((f) => (
-        <Field
-          key={f.key}
-          label={f.label + (f.label === f.key ? "" : "（" + f.key + "）")}
-          value={f.value}
-          area={f.value.length > 50}
-          rows={2}
-          onChange={(v) => setSiteField(f.key, v)}
-        />
-      ))}
+      <p className="small-note">這裡的資料會出現在每一頁的頁首和頁尾，改一次，全站一起更新。每一頁的標題請到「分享設定」改。</p>
+      {samples > 0 && (
+        <p className="site-data-warn" role="status">
+          還有 {samples} 項是範本的範例內容（標示「範例」），發布前記得換成研究室的資料。
+        </p>
+      )}
+      {SITE_GROUPS.map(([group, legend]) => {
+        const fields = siteData.fields.filter((f) => (f.group || "other") === group);
+        if (!fields.length) return null;
+        return (
+          <fieldset className="site-data-group" key={group}>
+            <legend>{legend}</legend>
+            {fields.map((f) => {
+              const def = SITE_FIELDS[f.key] || {};
+              const sample = !f.unused && isSampleValue(f.value);
+              const badEmail = def.type === "email" && f.value && !EMAIL.test(f.value);
+              return (
+                <div className={"site-data-field" + (f.unused ? " unused" : "")} key={f.key}>
+                  <Field
+                    label={
+                      <>
+                        {f.label}
+                        {sample && <span className="sample-badge">範例</span>}
+                      </>
+                    }
+                    value={f.value}
+                    area={def.long || f.value.length > 50}
+                    rows={2}
+                    type={def.type === "email" ? "email" : undefined}
+                    onChange={(v) => setSiteField(f.key, v)}
+                  />
+                  {f.where && <span className="small-note">{f.where}</span>}
+                  {badEmail && <span className="small-note error-text">Email 格式看起來不對，例如 lab@school.edu.tw。</span>}
+                </div>
+              );
+            })}
+          </fieldset>
+        );
+      })}
       <Button disabled={!siteDirty || !writable || busy} onClick={saveSiteData}>
-        {writable ? "寫回 js/data.js" : "此來源無法寫入"}
+        {writable ? "保存研究室資料" : "這個網站不能在這裡修改"}
       </Button>
+      {siteDirty && writable && <span className="small-note">保存後一樣要按「發布」，網站才會更新。</span>}
     </div>
   );
 }

@@ -54,6 +54,7 @@ export function cloudApi(fetchImpl = (...a) => fetch(...a)) {
     site: (id) => call("GET", site(id)),
     history: (id, limit = 50) => call("GET", site(id) + "/history?limit=" + limit),
     pending: (id) => call("GET", site(id) + "/pending"),
+    overview: () => call("GET", "/admin/overview"),
     publish: (id, commit) => call("POST", site(id) + "/publish", commit ? { commit } : {}),
     restore: (id, commit) => call("POST", site(id) + "/restore", { commit }),
     addMember: (id, email) => call("POST", site(id) + "/members", { email }),
@@ -82,8 +83,25 @@ export async function redeemInviteFromUrl(loc = location, hist = history, fetchI
   }
 }
 
+// After "Sign in with Google" the server sends failures back as /?login=<reason>.
+// Reads that, removes it from the address bar and returns the message to show.
+export function googleLoginErrorFromUrl(loc = location, hist = history) {
+  const params = new URLSearchParams(loc.search);
+  const reason = params.get("login");
+  if (!reason) return null;
+  const email = params.get("email") || "";
+  params.delete("login");
+  params.delete("email");
+  const rest = params.toString();
+  hist.replaceState(null, "", loc.pathname + (rest ? "?" + rest : "") + (loc.hash || ""));
+  if (reason === "google-unknown")
+    return `這個 Google 帳號（${email}）還沒有被加入任何網站。請確認選的是正確的帳號，或請管理者把這個 Email 加入你網站的成員。`;
+  if (reason === "google-cancelled") return "Google 登入已取消。";
+  return "Google 登入沒有成功，請再試一次。";
+}
+
 // Is this page served by LabSite Cloud, and who is signed in?
-// → { status: "ready", me } | { status: "signed-out", error } | { status: "off" }
+// → { status: "ready", me } | { status: "signed-out", error, google } | { status: "off" }
 export async function detectCloud(fetchImpl = (...a) => fetch(...a)) {
   let res;
   try {
@@ -93,7 +111,7 @@ export async function detectCloud(fetchImpl = (...a) => fetch(...a)) {
   }
   if (!(res.headers.get("Content-Type") || "").includes("json")) return { status: "off" };
   const data = await res.json().catch(() => ({}));
-  if (res.status === 401) return { status: "signed-out", error: data.error || "請先登入。" };
+  if (res.status === 401) return { status: "signed-out", error: data.error || "請先登入。", google: !!data.google };
   if (!res.ok) return { status: "off" };
   return { status: "ready", me: data };
 }

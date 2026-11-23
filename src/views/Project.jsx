@@ -12,6 +12,7 @@ import {
   ArrowSquareOut,
   Images,
   Question,
+  Eye,
 } from "@phosphor-icons/react";
 import { IconButton, Field, download } from "../components/ui";
 import ProjectOpen from "../components/ProjectOpen";
@@ -26,12 +27,13 @@ import SiteThemePanel from "../components/SiteThemePanel";
 import CloudAlbums from "../components/CloudAlbums";
 import { InsertAlbumDialog, AlbumBlockSettings } from "../components/AlbumBlock";
 import { Thumb } from "../components/AlbumPanel";
+import NewsPanel from "../components/NewsPanel";
 import AlbumPanel from "../components/AlbumPanel";
 import RelocatePanel from "../components/RelocatePanel";
 import TextSizePanel from "../components/TextSizePanel";
 import ColorPanel from "../components/ColorPanel";
 import { applyColorMap } from "../site/palette.js";
-import PublishSummary from "../components/PublishSummary";
+import PublishSummary, { PublishChecks } from "../components/PublishSummary";
 import AnimationLibrary from "../components/AnimationLibrary";
 import EmbedDialog from "../components/EmbedDialog";
 import PagesPanel from "../components/PagesPanel";
@@ -138,20 +140,31 @@ export default function Project({ p, device, setDevice, setConfirm }) {
     ...(p.albumsDirty ? ["雲端相簿"] : []),
   ];
   const onPublish = async () => {
-    let pending = null;
-    try {
-      pending = await p.cloudCalls.pending(p.cloudSite.id);
-    } catch {
-      pending = null;
-    }
-    const body = <PublishSummary pending={pending} unsaved={p.anyDirty ? unsavedNames() : []} me={p.cloud.me?.email} />;
+    const [pending, checks] = await Promise.all([
+      p.cloudCalls.pending(p.cloudSite.id).catch(() => null),
+      p.prepublishCheck().catch(() => null),
+    ]);
+    const openCheck = (page) => {
+      setConfirm(null);
+      if (page) {
+        setTab("blocks");
+        if (page !== p.current) switchPage(page);
+      } else setTab("site");
+    };
+    const warn = !!checks?.some((c) => c.level === "warn");
+    const body = (
+      <>
+        <PublishChecks checks={checks} onOpen={openCheck} />
+        <PublishSummary pending={pending} unsaved={p.anyDirty ? unsavedNames() : []} me={p.cloud.me?.email} />
+      </>
+    );
     setConfirm(
       p.anyDirty
         ? {
             title: "先保存，再發布？",
             description: "會先把還沒保存的修改存成一個版本，再把網站更新成最新版本。這次會上線的修改：",
             body,
-            confirmLabel: "保存並發布",
+            confirmLabel: warn ? "仍要保存並發布" : "保存並發布",
             action: async () => {
               if (await p.saveAll()) await p.publishCloud();
             },
@@ -160,7 +173,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
             title: "發布到網站？",
             description: "網站會在幾秒內更新，所有人都看得到；之後仍可在「版本紀錄」還原。這次會上線的修改：",
             body,
-            confirmLabel: "發布",
+            confirmLabel: warn ? "仍要發布" : "發布",
             action: () => p.publishCloud(),
           },
     );
@@ -324,6 +337,14 @@ export default function Project({ p, device, setDevice, setConfirm }) {
               看網站
             </Button>
           )}
+          <Button
+            variant="surface"
+            className="phone-only"
+            onClick={() => document.querySelector(".editor-canvas")?.scrollIntoView({ behavior: "smooth" })}
+          >
+            <Eye size={18} />
+            看預覽
+          </Button>
           <IconButton
             label="下載此頁 HTML"
             onClick={() => download(p.html, p.current.split("/").pop(), "text/html")}
@@ -349,12 +370,13 @@ export default function Project({ p, device, setDevice, setConfirm }) {
       {p.error && (
         <ErrorMessage text={p.error} onClose={() => p.setError(null)} />
       )}
-      {guide && <EditorGuide onClose={() => setGuide(false)} isCloud={isCloud} hasAlbum={!!p.album?.ok} />}
+      {guide && <EditorGuide onClose={() => setGuide(false)} isCloud={isCloud} hasAlbum={!!p.album?.ok} hasNews={!!p.news && p.news.reason !== "missing"} />}
       <div className={"editor-layout project" + (tab === "pair" ? " wide-inspector" : "")}>
         <aside className="inspector">
           <div className="inspector-tabs">
             {[
               ["blocks", "編輯內容"],
+              ...(p.news && p.news.reason !== "missing" ? [["news", "最新消息"]] : []),
               ["pages", "頁面與選單"],
               ...(p.album?.ok ? [["album", "活動相簿"]] : []),
               ["site", "研究室資料"],
@@ -365,7 +387,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
             ].map(([id, label]) => (
               <button key={id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}>
                 {label}
-                {(id === "site" || id === "album") && p.siteDirty && <span className="unsaved-dot" aria-label="未保存" />}
+                {(id === "site" || id === "album" || id === "news") && p.siteDirty && <span className="unsaved-dot" aria-label="未保存" />}
                 {id === "pages" && p.nav?.dirty && <span className="unsaved-dot" aria-label="未保存" />}
                 {id === "theme" && p.textSize?.dirty && <span className="unsaved-dot" aria-label="未保存" />}
                 {id === "pair" && p.pairStatus[p.current] === "diff" && <span className="unsaved-dot" aria-label="結構不同" />}
@@ -385,6 +407,10 @@ export default function Project({ p, device, setDevice, setConfirm }) {
               <ColorPanel p={p} writable={writable} />
               <TextSizePanel p={p} writable={writable} />
               {p.theme && <SiteThemePanel p={p} />}
+            </div>
+          ) : tab === "news" && p.news ? (
+            <div className="inspector-body">
+              <NewsPanel p={p} writable={writable} setConfirm={setConfirm} />
             </div>
           ) : tab === "album" && p.album?.ok ? (
             <div className="inspector-body">
@@ -622,6 +648,9 @@ export default function Project({ p, device, setDevice, setConfirm }) {
             setTab("blocks");
             p.setSelected(i);
             p.setFocus(path);
+            // On a phone the editor sits above the preview: bring the field into view.
+            if (!typing && window.matchMedia("(max-width: 767px)").matches)
+              document.querySelector(".inspector")?.scrollIntoView({ behavior: "smooth" });
           }}
           onNavigate={switchPage}
           onDropImage={writable ? (i, path, file) => p.replaceImage(i, path, file) : null}

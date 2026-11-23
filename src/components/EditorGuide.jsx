@@ -20,7 +20,7 @@ function remember() {
   }
 }
 
-export default function EditorGuide({ onClose, isCloud, hasAlbum }) {
+export default function EditorGuide({ onClose, isCloud, hasAlbum, hasNews }) {
   const close = () => {
     remember();
     onClose();
@@ -45,6 +45,7 @@ export default function EditorGuide({ onClose, isCloud, hasAlbum }) {
           <span>
             直接在左邊改字。照片按「換一張照片」，或把電腦裡的照片拖到預覽的圖片上。成員照片：點成員的圓形頭像。
             {hasAlbum && " 活動照片：到「活動相簿」分頁一次加入很多張。"}
+            {hasNews && " 最新消息：到「最新消息」分頁新增或修改。"}
           </span>
         </li>
         <li>
@@ -58,7 +59,13 @@ export default function EditorGuide({ onClose, isCloud, hasAlbum }) {
         </li>
       </ol>
       <div className="editor-guide-foot">
-        <span className="small-note">之後可以按上方的「使用說明」再打開這張說明。</span>
+        <span className="small-note">
+          之後可以按上方的「使用說明」再打開這張說明。換照片、相簿、發布與找回舊版的詳細步驟，請看
+          <a className="text-link" href="/manual.html" target="_blank" rel="noopener">
+            完整操作手冊
+          </a>
+          。
+        </span>
         <Button size="2" onClick={close}>
           知道了，開始修改
         </Button>
