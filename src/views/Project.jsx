@@ -26,6 +26,7 @@ import SiteThemePanel from "../components/SiteThemePanel";
 import CloudAlbums from "../components/CloudAlbums";
 import { InsertAlbumDialog, AlbumBlockSettings } from "../components/AlbumBlock";
 import { Thumb } from "../components/AlbumPanel";
+import NewsPanel from "../components/NewsPanel";
 import AlbumPanel from "../components/AlbumPanel";
 import RelocatePanel from "../components/RelocatePanel";
 import TextSizePanel from "../components/TextSizePanel";
@@ -349,12 +350,13 @@ export default function Project({ p, device, setDevice, setConfirm }) {
       {p.error && (
         <ErrorMessage text={p.error} onClose={() => p.setError(null)} />
       )}
-      {guide && <EditorGuide onClose={() => setGuide(false)} isCloud={isCloud} hasAlbum={!!p.album?.ok} />}
+      {guide && <EditorGuide onClose={() => setGuide(false)} isCloud={isCloud} hasAlbum={!!p.album?.ok} hasNews={!!p.news && p.news.reason !== "missing"} />}
       <div className={"editor-layout project" + (tab === "pair" ? " wide-inspector" : "")}>
         <aside className="inspector">
           <div className="inspector-tabs">
             {[
               ["blocks", "編輯內容"],
+              ...(p.news && p.news.reason !== "missing" ? [["news", "最新消息"]] : []),
               ["pages", "頁面與選單"],
               ...(p.album?.ok ? [["album", "活動相簿"]] : []),
               ["site", "研究室資料"],
@@ -365,7 +367,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
             ].map(([id, label]) => (
               <button key={id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}>
                 {label}
-                {(id === "site" || id === "album") && p.siteDirty && <span className="unsaved-dot" aria-label="未保存" />}
+                {(id === "site" || id === "album" || id === "news") && p.siteDirty && <span className="unsaved-dot" aria-label="未保存" />}
                 {id === "pages" && p.nav?.dirty && <span className="unsaved-dot" aria-label="未保存" />}
                 {id === "theme" && p.textSize?.dirty && <span className="unsaved-dot" aria-label="未保存" />}
                 {id === "pair" && p.pairStatus[p.current] === "diff" && <span className="unsaved-dot" aria-label="結構不同" />}
@@ -385,6 +387,10 @@ export default function Project({ p, device, setDevice, setConfirm }) {
               <ColorPanel p={p} writable={writable} />
               <TextSizePanel p={p} writable={writable} />
               {p.theme && <SiteThemePanel p={p} />}
+            </div>
+          ) : tab === "news" && p.news ? (
+            <div className="inspector-body">
+              <NewsPanel p={p} writable={writable} setConfirm={setConfirm} />
             </div>
           ) : tab === "album" && p.album?.ok ? (
             <div className="inspector-body">

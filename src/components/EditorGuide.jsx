@@ -20,7 +20,7 @@ function remember() {
   }
 }
 
-export default function EditorGuide({ onClose, isCloud, hasAlbum }) {
+export default function EditorGuide({ onClose, isCloud, hasAlbum, hasNews }) {
   const close = () => {
     remember();
     onClose();
@@ -45,6 +45,7 @@ export default function EditorGuide({ onClose, isCloud, hasAlbum }) {
           <span>
             直接在左邊改字。照片按「換一張照片」，或把電腦裡的照片拖到預覽的圖片上。成員照片：點成員的圓形頭像。
             {hasAlbum && " 活動照片：到「活動相簿」分頁一次加入很多張。"}
+            {hasNews && " 最新消息：到「最新消息」分頁新增或修改。"}
           </span>
         </li>
         <li>
