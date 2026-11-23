@@ -28,6 +28,7 @@ import { prepareImage, formatBytes, isImagePath, referencedImages } from "../sit
 import { readSiteFields, patchSiteField } from "../site/siteData.js";
 import { readAlbum, writeAlbum, defaultCaption, albumPath } from "../site/album.js";
 import { readNews, writeNews, detachSheet, fetchSheetNews } from "../site/news.js";
+import { checkSite } from "../site/publishCheck.js";
 import { TEXT_FILE, planRelocation } from "../site/relocate.js";
 import { TEXT_SIZE_FILES, readTextSize, writeTextSize, carryTextSize } from "../site/textSize.js";
 import {
@@ -1155,6 +1156,22 @@ export function useProject(notify) {
     }
   }
 
+  // Before publishing: every page (unsaved drafts included) checked for
+  // template leftovers and broken links (publishCheck.js).
+  async function prepublishCheck() {
+    const source = project?.source;
+    if (!source) return [];
+    const pages = await Promise.all(
+      project.pages.map(async (path) => ({ path, html: draftsRef.current[path]?.present ?? (await source.readText(path).catch(() => "")) })),
+    );
+    let files = null;
+    if (source.listFiles) {
+      const list = await source.listFiles("").catch(() => null);
+      if (list?.length) files = new Set(list.map((f) => f.path));
+    }
+    return checkSite({ pages, files, siteFields: siteData?.fields || null });
+  }
+
   /* --------------------------------------------------------------- news */
   // The latest news listed in js/data.js (FALLBACK_NEWS). A site that still
   // reads a Google Sheet (CONFIG.SHEET_ID) shows that sheet instead, so the
@@ -1505,6 +1522,7 @@ export function useProject(notify) {
     dirtyPages,
     siteData,
     siteDirty,
+    prepublishCheck,
     news,
     setNewsItems,
     importSheetNews,

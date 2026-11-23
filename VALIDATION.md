@@ -1,4 +1,4 @@
-# v4.17 用 Google 帳號登入、推到 main 自動部署、最新消息搬進編輯器
+# v4.17 用 Google 帳號登入、最新消息搬進編輯器、找回 10/26 的功能、推到 main 自動部署
 
 日期：2026-11-03。起因：老師忘記密碼、連結過期都只能找管理者，管理者自己換電腦後也只能開終端機產生登入連結。
 
@@ -21,6 +21,19 @@
 ### 驗證
 - `npm test`：186 項，184 通過、2 項 e2e 略過（新增 `news.test.js` 8 項：讀取、寫回與排序、CRLF、清空試算表 ID、拒絕看不懂的寫法、日期格式、gviz 解析（含 `Date(y,m,d)`）、`news` 分頁退回第一分頁）。`npm run build` 通過。
 - 瀏覽器實測（Chromium，開發伺服器模式，宋、卓老師網站 GitHub 版本的副本）：按「從試算表搬進來」從**真的 Google 試算表**讀到 8 則／14 則 → 新增一則 → 保存 → `js/data.js` 有新消息、`SHEET_ID` 已清空 → 預覽首頁的最新消息第一則就是新加的那則；兩站都沒有腳本錯誤。
+
+## 找回 10/26 部署但沒有進 GitHub 的功能
+起因：線上的 `labsite-studio-cloud` 是 2026-10-26 從另一台電腦（Windows，檔案是 CRLF）部署的，分岔點在 c865e9c（v4.16 之前），原始碼沒有推上 GitHub。直接部署 main 會讓這些功能消失；線上版也沒有 v4.16（頁面與選單、影片與地圖、直接打字）。從線上的 Worker 與編輯器組件逐段比對後在原始碼重建：
+
+- **後端**（線上 Worker 未壓縮，照原樣還原）：`cloud/src/overview.js`（`GET /api/admin/overview`）、`templates.js` 的 `applySkin`（建站時選版型）、`siteData.js` 的 `SITE_FIELDS`（每欄的說明、分組、未使用欄位、範例值判斷）。重建後的 Worker 與線上版逐句比對，線上的每一句都在。
+- **編輯器**（線上是壓縮過的單檔，依功能重寫）：管理者「總覽」頁（`AdminOverview.jsx`，網站／成員／近期動態／需要注意）、發布前檢查（`publishCheck.js` 與發布對話框的 `PublishChecks`，有警告時按鈕變「仍要發布」）、研究室資料分組與範例標示、【】強調色標題（`page.js` 的 `richRun`／`setRichText`）、建站時選版型、手機長按拖曳排序（`useDragReorder` 的 `hold`）、手機版「看預覽」與點預覽後捲到欄位、操作手冊連結。
+- **模板**：新增「手札」「期刊」兩種版型（`templates/basic/labsite/skins/`），`templates/index.json` 列出版型；`public/manual.html`（老師操作手冊）照線上版放回。其餘模板檔案與 GitHub 版只差換行（CRLF），未改。
+- 以 `prettier` 格式化兩份組件、把壓縮後的短變數名遮蔽後比對，確認剩下的差異都只是變數名稱或格式。
+
+### 驗證
+- `npm test`：191 項，189 通過、2 項 e2e 略過（新增 `restored.test.js` 5 組：欄位說明與範例值、發布前檢查（範例文字、示意圖、空連結、壞連結、缺替代文字、研究室資料）、【】標題讀寫、版型清單與 `applySkin`、總覽 API 與權限）。`npm run build` 無警告。
+- 本機雲端瀏覽器實測：用「期刊」版型建站 → 總覽顯示 1 個網站、待發布、「沒有成員」提醒 → 研究室資料分組與「範例」標記 → 發布對話框顯示發布前檢查並改為「仍要發布」；沒有腳本錯誤。
+
 
 ## 尚未驗證
 - **還沒有用真的 Google OAuth client 走完整流程**（需要管理者在 Google Cloud 建立 client 並把兩個 secret 填進 Cloudflare）。

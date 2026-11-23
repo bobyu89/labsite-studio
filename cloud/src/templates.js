@@ -23,6 +23,33 @@ export async function templateFiles(env, requestUrl, id) {
   }));
 }
 
+// Starts a new site in one of the template's skins (labsite/skins/<id>/):
+// that skin's site.css and theme.css become the site's, and skins.json says
+// which one is current. No skin keeps the template's own look.
+const SKIN_ID = /^[a-z0-9][a-z0-9-]{0,39}$/;
+export function applySkin(files, skin) {
+  if (!skin) return files;
+  if (!SKIN_ID.test(String(skin))) throw new RepoError(400, "版型代號不正確：" + skin);
+  const find = (p) => files.find((f) => f.path === p);
+  const site = find(`labsite/skins/${skin}/site.css`);
+  const theme = find(`labsite/skins/${skin}/theme.css`);
+  const manifest = find("labsite/skins.json");
+  if (!site || !theme || !manifest) throw new RepoError(400, "這個模板沒有版型：" + skin);
+  let skins;
+  try {
+    skins = JSON.parse(dec.decode(manifest.bytes));
+  } catch {
+    throw new RepoError(500, "模板的版型清單讀不到。");
+  }
+  skins.current = skin;
+  const replace = {
+    "css/site.css": site.bytes,
+    "css/theme.css": theme.bytes,
+    "labsite/skins.json": enc.encode(JSON.stringify(skins, null, 2) + "\n"),
+  };
+  return files.map((f) => (replace[f.path] ? { ...f, bytes: replace[f.path] } : f));
+}
+
 // Puts the new lab's name everywhere the template used its placeholder name
 // (labsite/template.json → placeholder.nameZh): page titles, headings,
 // snippets and js/data.js. Without that metadata only SITE.nameZh is set.

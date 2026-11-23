@@ -2,19 +2,45 @@
 // without evaluating the file. Only double-quoted, single-line values are
 // exposed; numbers and nested objects stay untouched.
 
-export const SITE_LABELS = {
-  nameZh: "研究室名稱",
-  nameEn: "英文名稱",
-  tagline: "標語",
-  taglineEn: "英文標語",
-  pi: "主持人",
-  piEn: "主持人（英文）",
-  dept: "系所單位",
-  deptEn: "系所單位（英文）",
-  email: "聯絡 Email",
-  phone: "電話",
-  scholar: "Google Scholar 網址",
+// What each field is and where it shows on the site, so a teacher knows what
+// they are changing. Fields the current layouts do not show are marked unused.
+export const SITE_FIELDS = {
+  nameZh: { label: "研究室中文名稱", where: "每一頁左上角、頁尾與版權。", group: "name" },
+  nameEn: { label: "研究室英文名稱", where: "中文頁左上角名稱下方的小字；英文頁的左上角與頁尾。", group: "name" },
+  dept: { label: "系所單位", where: "頁尾，研究室名稱下方。", group: "contact" },
+  deptEn: { label: "系所單位（英文）", where: "英文頁的頁尾。", group: "contact" },
+  address: { label: "地址", where: "頁尾。", group: "contact", long: true },
+  addressEn: { label: "地址（英文）", where: "英文頁的頁尾。", group: "contact", long: true },
+  email: { label: "聯絡 Email", where: "頁尾，訪客點一下就能寄信。", group: "contact", type: "email" },
+  phone: { label: "電話", where: "頁尾。", group: "contact" },
+  tagline: {
+    label: "一句話介紹",
+    where: "目前版面沒有顯示這一行；首頁的介紹文字請在首頁主視覺直接點選修改。",
+    group: "other",
+    unused: true,
+    long: true,
+  },
+  taglineEn: {
+    label: "一句話介紹（英文）",
+    where: "目前版面沒有顯示這一行；英文首頁的介紹請在英文首頁直接修改。",
+    group: "other",
+    unused: true,
+    long: true,
+  },
+  pi: { label: "主持人", group: "other" },
+  piEn: { label: "主持人（英文）", group: "other" },
+  scholar: { label: "Google Scholar 網址", group: "other", type: "url" },
 };
+export const SITE_LABELS = Object.fromEntries(Object.entries(SITE_FIELDS).map(([k, v]) => [k, v.label]));
+export const SITE_GROUPS = [
+  ["name", "研究室名稱"],
+  ["contact", "單位與聯絡方式"],
+  ["other", "其他"],
+];
+
+// Template placeholder values ("範例", example.edu, the demo lab's name).
+const SAMPLE = /範例|sample|example\.(?:edu|com|org)|0000-0000|Zhixing/i;
+export const isSampleValue = (v) => SAMPLE.test(String(v || ""));
 
 const BLOCK = /const\s+SITE\s*=\s*\{/;
 const ENTRY = /^(\s*)([A-Za-z_$][\w$]*)\s*:\s*"((?:[^"\\\n]|\\.)*)"/;
@@ -47,6 +73,9 @@ export function readSiteFields(text) {
       fields.push({
         key: m[2],
         label: SITE_LABELS[m[2]] || m[2],
+        ...(SITE_FIELDS[m[2]]
+          ? { where: SITE_FIELDS[m[2]].where, group: SITE_FIELDS[m[2]].group, unused: !!SITE_FIELDS[m[2]].unused }
+          : { group: "other" }),
         value: unescape(m[3]),
         start: valueStart,
         end: valueStart + m[3].length,

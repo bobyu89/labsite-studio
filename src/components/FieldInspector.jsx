@@ -127,8 +127,9 @@ function Fields({ fields, index, focus, setFocus, setText, setAttr, replaceImage
         const cls = "field-item" + (focus === k ? " focused" : "");
         if (f.kind === "text")
           return (
-            <div className={cls} data-el={k} key={n} onFocusCapture={() => setFocus(k)}>
+            <div className={cls} data-el={k} data-rich={f.rich ? "" : undefined} key={n} onFocusCapture={() => setFocus(k)}>
               <Field label={f.label} value={f.value} area={f.long} rows={f.long ? 3 : undefined} onChange={(v) => setText(index, f.path, v)} />
+              {f.rich && <span className="small-note">用【】框起來的字會顯示成強調色，例如：讓【智慧醫療】走進現場。</span>}
             </div>
           );
         if (f.kind === "link")
@@ -287,6 +288,14 @@ export default function FieldInspector({ html, index, focus, grabFocus = true, s
   useEffect(() => {
     if (!focus || !ref.current) return;
     const el = ref.current.querySelector('[data-el="' + focus + '"]');
+    if (!el) {
+      // A click on an accent word inside a 【】 heading focuses the heading's field.
+      const parts = focus.split(".");
+      for (let n = parts.length - 1; n > 0; n--) {
+        const up = parts.slice(0, n).join(".");
+        if (ref.current.querySelector('[data-el="' + up + '"][data-rich]')) return setFocus(up);
+      }
+    }
     if (el) {
       const box = ref.current.closest(".inspector-body");
       if (box) {

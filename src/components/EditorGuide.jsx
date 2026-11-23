@@ -59,7 +59,13 @@ export default function EditorGuide({ onClose, isCloud, hasAlbum, hasNews }) {
         </li>
       </ol>
       <div className="editor-guide-foot">
-        <span className="small-note">之後可以按上方的「使用說明」再打開這張說明。</span>
+        <span className="small-note">
+          之後可以按上方的「使用說明」再打開這張說明。換照片、相簿、發布與找回舊版的詳細步驟，請看
+          <a className="text-link" href="/manual.html" target="_blank" rel="noopener">
+            完整操作手冊
+          </a>
+          。
+        </span>
         <Button size="2" onClick={close}>
           知道了，開始修改
         </Button>

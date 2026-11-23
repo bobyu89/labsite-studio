@@ -79,12 +79,12 @@ function PhotoGrid({ p, photos, onChange, pick, onPick, cover, onCover, moveTarg
     next.splice(to, 0, next.splice(from, 1)[0]);
     onChange(next);
   };
-  const { start, rowClass } = useDragReorder(listRef, reorder, { grid: true });
+  const { start, rowClass } = useDragReorder(listRef, reorder, { grid: true, hold: true });
   const swap = (i, d) => reorder(i, i + d);
   if (!photos.length) return <p className="small-note">這本相簿還沒有照片。</p>;
   return (
     <>
-      {!pick && writable && photos.length > 1 && <p className="small-note">用滑鼠按住照片拖曳，就能調整順序。</p>}
+      {!pick && writable && photos.length > 1 && <p className="small-note">按住照片拖曳就能調整順序（手機上先按住一下再移動）。</p>}
     <ul className="ca-grid" ref={listRef} data-list>
       {photos.map((ph, i) => (
         <li key={ph.src + i} className={"ca-tile" + rowClass(i, photos.length)} data-row>

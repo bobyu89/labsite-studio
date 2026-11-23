@@ -1,0 +1,33 @@
+/* Theme tokens for the 手札 (notebook) skin. Same variable names as every
+   skin, so a lab's colours can be carried across; fonts are loaded here. */
+@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=LXGW+WenKai+TC:wght@400;700&family=Nunito:wght@400;600;700;800;900&display=swap");
+
+/* Zones are the coloured index tabs of a care notebook: sage, lavender,
+   rose and denim. The highlighter (--mark) underlines headings and marks
+   the page you are on. */
+:root {
+  --zone-research: #2f6b5e;
+  --zone-team: #5e4a8c;
+  --zone-publications: #a3384f;
+  --zone-join: #2d5d86;
+  --on-zone: #ffffff;
+  --on-join: #ffffff;
+
+  /* Highlighter: heading underlines, "you are here" and focus. */
+  --mark: #ffd866;
+
+  --ink: #2a2622;
+  --ink-soft: #5b544d;
+  --wall: #f2f5f3;
+  --plate: #ffffff;
+  --rule: #d6dfda;
+
+  /* Rounded Latin first, then Chinese; headings use the hand-written Kai. */
+  --font: "Nunito", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  --font-hand: "LXGW WenKai TC", "Noto Sans TC", "Kaiti TC", "DFKai-SB", serif;
+  /* How much the site moves: none, subtle or lively. Visitors who ask their
+     system for reduced motion always get none. */
+  --motion: subtle;
+  --radius: 14px;
+  --max: 1160px;
+}

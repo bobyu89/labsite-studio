@@ -23,6 +23,7 @@ import { Field } from "../components/ui";
 import Project from "./Project";
 import UiSize from "../components/UiSize";
 import DeviceLogin from "../components/DeviceLogin";
+import AdminOverview from "../components/AdminOverview";
 import { PasswordLoginForm, PasswordDialog, PasswordButton } from "../components/PasswordLogin";
 
 const fmt = (t) => (t ? new Intl.DateTimeFormat("zh-TW", { dateStyle: "medium", timeStyle: "short" }).format(t) : "");
@@ -266,21 +267,23 @@ function ImportCard({ p }) {
 // Starts a new lab site from one of the templates shipped with the editor.
 function TemplateCard({ p }) {
   const [templates, setTemplates] = useState(null);
-  const [form, setForm] = useState({ template: "", slug: "", name: "" });
+  const [form, setForm] = useState({ template: "", skin: "", slug: "", name: "" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const set = (k) => (v) => setForm((f) => ({ ...f, [k]: v }));
+  const defaultSkin = (t) => (t?.skins || []).find((s) => s.current)?.id || t?.skins?.[0]?.id || "";
   useEffect(() => {
     fetch("/templates/index.json", { cache: "no-store" })
       .then((r) => (r.ok && (r.headers.get("Content-Type") || "").includes("json") ? r.json() : []))
       .then((list) => {
         setTemplates(list);
-        if (list[0]) setForm((f) => ({ ...f, template: f.template || list[0].id }));
+        if (list[0]) setForm((f) => (f.template ? f : { ...f, template: list[0].id, skin: defaultSkin(list[0]) }));
       })
       .catch(() => setTemplates([]));
   }, []);
   if (templates && !templates.length) return null;
   const chosen = templates?.find((t) => t.id === form.template);
+  const skins = chosen?.skins || [];
   return (
     <section className="open-card cloud-import">
       <SquaresFour size={28} />
@@ -293,7 +296,12 @@ function TemplateCard({ p }) {
           setBusy(true);
           setError(null);
           try {
-            const r = await p.cloudCalls.importSite({ template: form.template, slug: form.slug.trim(), name: form.name.trim() });
+            const r = await p.cloudCalls.importSite({
+              template: form.template,
+              skin: form.skin || undefined,
+              slug: form.slug.trim(),
+              name: form.name.trim(),
+            });
             await p.refreshCloud();
             setForm((f) => ({ ...f, slug: "", name: "" }));
             p.notify?.(`已用模板建立「${r.site.name}」，可以開始編輯了。`);
@@ -306,7 +314,14 @@ function TemplateCard({ p }) {
       >
         <label className="field">
           <span>模板</span>
-          <select value={form.template} onChange={(e) => set("template")(e.target.value)} disabled={!templates}>
+          <select
+            value={form.template}
+            onChange={(e) => {
+              const t = templates.find((x) => x.id === e.target.value);
+              setForm((f) => ({ ...f, template: e.target.value, skin: defaultSkin(t) }));
+            }}
+            disabled={!templates}
+          >
             {(templates || []).map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}
@@ -314,7 +329,21 @@ function TemplateCard({ p }) {
             ))}
           </select>
         </label>
-        {chosen?.description && <p className="small-note">{chosen.description}</p>}
+        {chosen?.description && skins.length <= 1 && <p className="small-note">{chosen.description}</p>}
+        {skins.length > 1 && (
+          <fieldset className="skin-choice">
+            <legend>版型（之後可以在「外觀」分頁換）</legend>
+            {skins.map((sk) => (
+              <label key={sk.id} className={"skin-option" + (form.skin === sk.id ? " selected" : "")}>
+                <input type="radio" name="skin" value={sk.id} checked={form.skin === sk.id} onChange={() => set("skin")(sk.id)} />
+                <span>
+                  <strong>{sk.name}</strong>
+                  <small>{sk.description}</small>
+                </span>
+              </label>
+            ))}
+          </fieldset>
+        )}
         <Field label="研究室名稱" value={form.name} onChange={set("name")} placeholder="護理創新研究室" required />
         <Field label="網址代稱（小寫英文、數字、連字號）" value={form.slug} onChange={set("slug")} placeholder="nursing-innovation" required />
         <Button size="3" type="submit" disabled={busy || !form.template || !form.slug.trim() || !form.name.trim()}>
@@ -326,17 +355,53 @@ function TemplateCard({ p }) {
   );
 }
 
+function HomeTabs({ view, setView }) {
+  return (
+    <div className="segmented home-tabs" role="tablist" aria-label="首頁內容">
+      {[
+        ["sites", "網站"],
+        ["overview", "總覽"],
+      ].map(([id, label]) => (
+        <button key={id} role="tab" aria-selected={view === id} className={view === id ? "active" : ""} onClick={() => setView(id)}>
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function CloudHome({ p, onSetPassword }) {
   const me = p.cloud.me;
+  const [view, setView] = useState("sites");
+  if (me.admin && view === "overview")
+    return (
+      <>
+        <div className="page-heading compact home-heading">
+          <div>
+            <h1>總覽</h1>
+            <p>所有網站的狀態、誰可以編輯、最近發生了什麼。只有管理者看得到。</p>
+          </div>
+          <HomeTabs view={view} setView={setView} />
+        </div>
+        <AdminOverview p={p} />
+      </>
+    );
   return (
     <>
-      <div className="page-heading compact">
+      <div className="page-heading compact home-heading">
         <div>
           <h1>我的網站</h1>
-          <p>選一個網站開始編輯。保存會留下版本紀錄；按「發布」後，網站才會更新給所有人看。</p>
+          <p>
+            選一個網站開始編輯。保存會留下版本紀錄；按「發布」後，網站才會更新給所有人看。第一次使用？請看
+            <a className="text-link" href="/manual.html" target="_blank" rel="noopener">
+              操作手冊
+            </a>
+            。
+          </p>
         </div>
+        {me.admin && <HomeTabs view={view} setView={setView} />}
       </div>
-      {me.via === "session" && !me.hasPassword && (
+      {me.via === "session" && !me.hasPassword && !me.google && (
         <div className="message password-nudge" role="status">
           <span>
             <strong>設定一組密碼</strong>，之後換電腦或用手機，只要輸入 Email 和密碼就能登入。

@@ -25,7 +25,8 @@ import { fromBase64, enc } from "./bytes.js";
 import { contentType } from "./mime.js";
 import { zip } from "./zip.js";
 import { fetchRepoFiles, backupToGitHub, backupAll, parseRepo } from "./github.js";
-import { templateFiles, personalize } from "./templates.js";
+import { templateFiles, personalize, applySkin } from "./templates.js";
+import { adminOverview } from "./overview.js";
 import { aiThemes, aiUsage, AI_DAILY_LIMIT } from "./ai.js";
 import {
   RepoError,
@@ -266,17 +267,20 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
     return c.json({ email: user.email, url: new URL(c.req.url).origin + "/?invite=" + token, expiresAt });
   });
 
+  // 總覽: every site's state, the people, recent activity (admins only).
+  app.get("/api/admin/overview", requireAdmin, async (c) => c.json(await adminOverview(c.env, siteView)));
+
   /* --------------------------------------------------------- sites */
   app.post("/api/sites", requireAdmin, async (c) => {
     const body = await c.req.json().catch(() => ({}));
     if (body.template) {
-      const files = personalize(await templateFiles(c.env, c.req.url, body.template), { name: body.name });
+      const files = personalize(applySkin(await templateFiles(c.env, c.req.url, body.template), body.skin), { name: body.name });
       const site = await createSite(c.env, {
         slug: body.slug,
         name: body.name || body.slug,
         files,
         author: c.get("user").email,
-        message: `從模板「${body.template}」建立網站`,
+        message: `從模板「${body.template}」建立網站` + (body.skin ? `（版型 ${body.skin}）` : ""),
         live: false,
         source: "template:" + body.template,
       });

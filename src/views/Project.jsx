@@ -12,6 +12,7 @@ import {
   ArrowSquareOut,
   Images,
   Question,
+  Eye,
 } from "@phosphor-icons/react";
 import { IconButton, Field, download } from "../components/ui";
 import ProjectOpen from "../components/ProjectOpen";
@@ -32,7 +33,7 @@ import RelocatePanel from "../components/RelocatePanel";
 import TextSizePanel from "../components/TextSizePanel";
 import ColorPanel from "../components/ColorPanel";
 import { applyColorMap } from "../site/palette.js";
-import PublishSummary from "../components/PublishSummary";
+import PublishSummary, { PublishChecks } from "../components/PublishSummary";
 import AnimationLibrary from "../components/AnimationLibrary";
 import EmbedDialog from "../components/EmbedDialog";
 import PagesPanel from "../components/PagesPanel";
@@ -139,20 +140,31 @@ export default function Project({ p, device, setDevice, setConfirm }) {
     ...(p.albumsDirty ? ["雲端相簿"] : []),
   ];
   const onPublish = async () => {
-    let pending = null;
-    try {
-      pending = await p.cloudCalls.pending(p.cloudSite.id);
-    } catch {
-      pending = null;
-    }
-    const body = <PublishSummary pending={pending} unsaved={p.anyDirty ? unsavedNames() : []} me={p.cloud.me?.email} />;
+    const [pending, checks] = await Promise.all([
+      p.cloudCalls.pending(p.cloudSite.id).catch(() => null),
+      p.prepublishCheck().catch(() => null),
+    ]);
+    const openCheck = (page) => {
+      setConfirm(null);
+      if (page) {
+        setTab("blocks");
+        if (page !== p.current) switchPage(page);
+      } else setTab("site");
+    };
+    const warn = !!checks?.some((c) => c.level === "warn");
+    const body = (
+      <>
+        <PublishChecks checks={checks} onOpen={openCheck} />
+        <PublishSummary pending={pending} unsaved={p.anyDirty ? unsavedNames() : []} me={p.cloud.me?.email} />
+      </>
+    );
     setConfirm(
       p.anyDirty
         ? {
             title: "先保存，再發布？",
             description: "會先把還沒保存的修改存成一個版本，再把網站更新成最新版本。這次會上線的修改：",
             body,
-            confirmLabel: "保存並發布",
+            confirmLabel: warn ? "仍要保存並發布" : "保存並發布",
             action: async () => {
               if (await p.saveAll()) await p.publishCloud();
             },
@@ -161,7 +173,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
             title: "發布到網站？",
             description: "網站會在幾秒內更新，所有人都看得到；之後仍可在「版本紀錄」還原。這次會上線的修改：",
             body,
-            confirmLabel: "發布",
+            confirmLabel: warn ? "仍要發布" : "發布",
             action: () => p.publishCloud(),
           },
     );
@@ -325,6 +337,14 @@ export default function Project({ p, device, setDevice, setConfirm }) {
               看網站
             </Button>
           )}
+          <Button
+            variant="surface"
+            className="phone-only"
+            onClick={() => document.querySelector(".editor-canvas")?.scrollIntoView({ behavior: "smooth" })}
+          >
+            <Eye size={18} />
+            看預覽
+          </Button>
           <IconButton
             label="下載此頁 HTML"
             onClick={() => download(p.html, p.current.split("/").pop(), "text/html")}
@@ -628,6 +648,9 @@ export default function Project({ p, device, setDevice, setConfirm }) {
             setTab("blocks");
             p.setSelected(i);
             p.setFocus(path);
+            // On a phone the editor sits above the preview: bring the field into view.
+            if (!typing && window.matchMedia("(max-width: 767px)").matches)
+              document.querySelector(".inspector")?.scrollIntoView({ behavior: "smooth" });
           }}
           onNavigate={switchPage}
           onDropImage={writable ? (i, path, file) => p.replaceImage(i, path, file) : null}
