@@ -5,7 +5,7 @@ name: Deploy LabSite Cloud to Cloudflare
 # CLOUDFLARE_API_TOKEN (permissions: Workers Scripts: Edit, D1: Edit) and,
 # if the token can see more than one account, CLOUDFLARE_ACCOUNT_ID.
 # Without the token the job only prints how to set it up and still passes.
-# Worker secrets (GOOGLE_CLIENT_SECRET, ANTHROPIC_API_KEY, …) live in the
+# Worker secrets (ANTHROPIC_API_KEY, GITHUB_BACKUP_TOKEN, …) live in the
 # Cloudflare dashboard; a deploy does not touch them.
 on:
   push:
