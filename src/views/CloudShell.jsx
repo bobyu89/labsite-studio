@@ -167,52 +167,58 @@ function SiteCard({ p, site, admin }) {
   const [manage, setManage] = useState(false);
   const backup = site.backup || {};
   return (
-    <section className="open-card cloud-site">
-      <div className="cloud-site-head">
-        <h3>{site.name}</h3>
-        {site.unpublished ? (
-          <Badge color="amber" variant="soft">
-            有尚未發布的修改
-          </Badge>
-        ) : (
-          <Badge color="teal" variant="soft">
-            已發布
-          </Badge>
-        )}
-      </div>
-      {site.url && (
-        <a className="cloud-site-url" href={site.url} target="_blank" rel="noreferrer">
-          {site.url.replace(/^https?:\/\//, "")} <ArrowSquareOut size={13} />
-        </a>
-      )}
-      {admin && (
-        <p className={"cloud-backup" + (backup.status === "error" ? " error-text" : "")}>
-          <GithubLogo size={14} /> 備份{site.github ? "到 " + site.github : ""}：
-          {backup.status === "ok"
-            ? "已備份到最新（" + fmt(backup.at) + "）"
-            : backup.status === "partial"
-              ? "備份中，" + backup.error
-              : backup.status === "error"
-                ? "失敗（" + backup.error + "）"
-                : backup.status === "skipped"
-                  ? "還沒設定 GitHub 備份金鑰"
-                  : "等待第一次備份（每小時自動檢查）"}
-        </p>
-      )}
-      <div className="button-row">
-        <Button size="3" onClick={() => p.openCloud(site)} disabled={p.busy}>
-          <PencilSimple size={18} /> 開啟編輯
-        </Button>
-        <Button size="3" variant="surface" asChild>
-          <a href={p.cloudCalls.exportUrl(site.id, "published")} download>
-            <DownloadSimple size={18} /> 下載整站
-          </a>
-        </Button>
-        {admin && (
-          <Button size="3" variant="ghost" onClick={() => setManage(!manage)}>
-            <UsersThree size={18} /> 成員
+    <section className="site-row">
+      <div className="site-row-main">
+        <div className="site-row-text">
+          <h3>{site.name}</h3>
+          <p className={site.unpublished ? "site-row-state pending" : "site-row-state"}>
+            {site.unpublished ? "有修改尚未發布，訪客看到的還是舊的" : "網站是最新的"}
+            {site.url && (
+              <>
+                　・　
+                <a href={site.url} target="_blank" rel="noreferrer">
+                  {site.url.replace(/^https?:\/\//, "")}
+                </a>
+              </>
+            )}
+          </p>
+          {admin && (
+            <p className={"cloud-backup" + (backup.status === "error" ? " error-text" : "")}>
+              <GithubLogo size={14} /> 備份{site.github ? "到 " + site.github : ""}：
+              {backup.status === "ok"
+                ? "已備份到最新（" + fmt(backup.at) + "）"
+                : backup.status === "partial"
+                  ? "備份中，" + backup.error
+                  : backup.status === "error"
+                    ? "失敗（" + backup.error + "）"
+                    : backup.status === "skipped"
+                      ? "還沒設定 GitHub 備份金鑰"
+                      : "等待第一次備份（每小時自動檢查）"}
+            </p>
+          )}
+        </div>
+        <div className="button-row">
+          {admin && (
+            <Button size="3" variant="surface" color="gray" onClick={() => setManage(!manage)} aria-expanded={manage}>
+              <UsersThree size={18} /> 成員
+            </Button>
+          )}
+          <Button size="3" variant="surface" color="gray" asChild>
+            <a href={p.cloudCalls.exportUrl(site.id, "published")} download title="下載整個網站的檔案">
+              <DownloadSimple size={18} /> 下載
+            </a>
           </Button>
-        )}
+          {site.url && (
+            <Button size="3" variant="surface" color="gray" asChild>
+              <a href={site.url} target="_blank" rel="noreferrer">
+                <ArrowSquareOut size={18} /> 看網站
+              </a>
+            </Button>
+          )}
+          <Button size="3" onClick={() => p.openCloud(site)} disabled={p.busy}>
+            <PencilSimple size={18} /> 修改
+          </Button>
+        </div>
       </div>
       {admin && manage && <Members p={p} site={site} />}
     </section>
@@ -424,14 +430,31 @@ function CloudHome({ p, onSetPassword }) {
           <span>你的帳號（{me.email}）還沒有被加入任何網站，請聯絡管理者把你加入。</span>
         </div>
       )}
-      <div className="open-grid cloud-grid">
+      <div className="site-list">
         {me.sites.map((s) => (
           <SiteCard key={s.id} p={p} site={s} admin={me.admin} />
         ))}
-        {me.admin && <TemplateCard p={p} />}
-        {me.admin && <ImportCard p={p} />}
-        {me.admin && me.via !== "access" && <InviteCard p={p} />}
+        {me.sites.length === 0 && me.admin && <p className="muted site-list-empty">還沒有網站。用下面的「新增網站」建立第一個。</p>}
       </div>
+      {me.admin && (
+        <section className="admin-tools">
+          <h2>管理者</h2>
+          <details>
+            <summary>新增網站（用模板）</summary>
+            <TemplateCard p={p} />
+          </details>
+          <details>
+            <summary>從 GitHub 匯入網站</summary>
+            <ImportCard p={p} />
+          </details>
+          {me.via !== "access" && (
+            <details>
+              <summary>產生登入連結</summary>
+              <InviteCard p={p} />
+            </details>
+          )}
+        </section>
+      )}
     </>
   );
 }

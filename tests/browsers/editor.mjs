@@ -75,8 +75,6 @@ async function run(t) {
     }
     await press(nav);
     await press(page.getByRole("button", { name: "開啟 basic" }));
-    // A site opens on 你想做什麼？; this job leads into the editor.
-    await press(page.locator(".task-card", { hasText: "改網頁上的文字或照片" }));
     await preview.locator("h1.directory__title[data-ls-text]").waitFor({ timeout: 15000 });
   });
 
@@ -141,20 +139,18 @@ async function run(t) {
   });
 
   await step("保存並寫回檔案", async () => {
-    await press(page.getByRole("button", { name: "保存", exact: true }));
+    // One 保存 in the top bar saves every changed page (the move was copied to the English page too).
+    const save = page.locator(".studio-bar").getByRole("button", { name: /^保存/ });
+    await press(save);
     await until(() => {
       const html = read("index.html");
       return html.includes(">實證護理研究室<") && html.includes("output=embed") && html.indexOf('class="news"') < html.indexOf('class="statement"') && exists("css/labsite-blocks.css");
     }, { message: "index.html 沒有寫入預期的修改" });
-    // The move was copied to the English page, which 保存 (this page only)
-    // leaves unsaved: 全部保存 must be offered.
-    const all = page.getByRole("button", { name: /^全部保存/ });
-    await press(all);
     await until(() => {
       const en = read("en/index.html");
       return en.indexOf('class="news"') < en.indexOf('class="statement"');
     }, { message: "英文頁的排序沒有一起保存" });
-    await all.waitFor({ state: "detached" });
+    await until(() => save.isDisabled(), { message: "保存後按鈕應該停用" });
   });
 
   await step("新增頁面（中英各一頁並放進選單）", async () => {

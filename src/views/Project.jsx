@@ -1,20 +1,17 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Button, Badge } from "@radix-ui/themes";
+import { Button } from "@radix-ui/themes";
 import {
   ArrowCounterClockwise,
   ArrowClockwise,
   FloppyDisk,
   DownloadSimple,
-  FolderOpen,
   WarningCircle,
   X,
   RocketLaunch,
   ArrowSquareOut,
-  Images,
   Question,
   Eye,
-  House,
-  CheckCircle,
+  CaretLeft,
 } from "@phosphor-icons/react";
 import { IconButton, Field, download } from "../components/ui";
 import ProjectOpen from "../components/ProjectOpen";
@@ -30,7 +27,6 @@ import CloudAlbums from "../components/CloudAlbums";
 import { InsertAlbumDialog, AlbumBlockSettings } from "../components/AlbumBlock";
 import { Thumb } from "../components/AlbumPanel";
 import NewsPanel from "../components/NewsPanel";
-import TaskHome, { TASK_ICONS } from "../components/TaskHome";
 import AddPublication, { publicationPages } from "../components/AddPublication";
 import AlbumPanel from "../components/AlbumPanel";
 import RelocatePanel from "../components/RelocatePanel";
@@ -94,11 +90,8 @@ export default function Project({ p, device, setDevice, setConfirm }) {
   // but leaves the keyboard focus in the page.
   const [grabFocus, setGrabFocus] = useState(true);
   const [guide, setGuide] = useState(() => !guideDismissed());
-  // 你想做什麼？ is what a site opens on; picking a job leads into the editor.
-  const [home, setHome] = useState(true);
   const [addPub, setAddPub] = useState(false);
-  const openedSite = p.project?.source;
-  useEffect(() => setHome(true), [openedSite]);
+  const [allPages, setAllPages] = useState(false);
   // A photo dropped anywhere else would make the browser open the file and
   // leave the editor; catch it and say where photos go instead.
   useEffect(() => {
@@ -227,209 +220,114 @@ export default function Project({ p, device, setDevice, setConfirm }) {
     );
   const zh = p.pages.filter((x) => !x.startsWith("en/"));
   const en = p.pages.filter((x) => x.startsWith("en/"));
-  const option = (path) => (
-    <option key={path} value={path}>
-      {p.labelOf(path)}
-      {p.dirtyPages.includes(path) ? " ●" : ""}
-      {p.pairStatus[path] === "diff" ? " ⚠" : ""}
-      {"　" + path}
-    </option>
-  );
   const switchPage = (path) => {
     p.boundary();
     p.openPage(path);
   };
-  // Leaves 你想做什麼？ for one tab (and page) of the editor.
   const enter = (toTab, page) => {
-    setHome(false);
     setTab(toTab);
     if (page && page !== p.current) switchPage(page);
   };
   const hasNews = !!p.news && p.news.reason !== "missing";
   const membersPage = p.pages.find((x) => !x.startsWith("en/") && /(^|\/)(members?|team|people)\.html?$/i.test(x));
-  const tasks = [
-    publicationPages(p.pages).length > 0 && {
-      id: "pub",
-      title: "新增一篇論文",
-      hint: "貼上論文資料，自動排到最前面，中英文頁一起加。",
-      run: () => setAddPub(true),
-    },
+  const openPhotos = () => (p.album?.ok ? setTab("album") : setPhotos({}));
+  // 快速新增: the things a lab adds again and again, one click from anywhere.
+  const quick = [
+    publicationPages(p.pages).length > 0 && { id: "pub", title: "論文", run: () => setAddPub(true) },
+    hasNews && { id: "news", title: "最新消息", run: () => setTab("news") },
     membersPage && {
       id: "members",
-      title: "更新成員",
-      hint: "新增或修改成員、換成員照片。",
+      title: "成員",
       run: () => {
         enter("blocks", membersPage);
-        p.notify("在右邊預覽點要改的成員；要新增成員，在左邊的成員清單按「新增」。");
+        p.notify("在預覽點要改的成員；要新增成員，在右邊的成員清單按「新增」。");
       },
     },
-    (p.album?.ok || p.canListAssets) && {
-      id: "photos",
-      title: "加活動照片",
-      hint: "可以一次選很多張，會自動縮小。",
-      run: () => {
-        setHome(false);
-        if (p.album?.ok) setTab("album");
-        else setPhotos({});
-      },
-    },
-    hasNews && { id: "news", title: "發最新消息", hint: "新增、修改或刪除首頁的最新消息。", run: () => enter("news") },
-    {
-      id: "text",
-      title: "改網頁上的文字或照片",
-      hint: "在預覽裡點要改的地方，就能修改。",
-      run: () => enter("blocks"),
-    },
-    p.siteData && { id: "contact", title: "改聯絡資料", hint: "研究室名稱、Email、電話、地址。", run: () => enter("site") },
-  ]
-    .filter(Boolean)
-    .map((t) => ({ ...t, icon: TASK_ICONS[t.id] }));
-  const moreTasks = [
-    { title: "頁面與選單", run: () => enter("pages") },
-    ...(p.theme || p.textSize?.available ? [{ title: "外觀與字體大小", run: () => enter("theme") }] : []),
-    ...(isCloud ? [{ title: "找回舊版本", run: () => enter("history") }] : []),
-    { title: "使用說明", run: () => (setHome(false), setGuide(true)) },
-  ];
+    (p.album?.ok || p.canListAssets) && { id: "photos", title: "活動照片", run: openPhotos },
+  ].filter(Boolean);
+  const dot = (label) => <span className="unsaved-dot" aria-label={label} />;
+  const more = [
+    hasNews && { id: "news", title: "最新消息", mark: p.siteDirty && dot("未保存") },
+    { id: "pages", title: "頁面與選單", mark: p.nav?.dirty && dot("未保存") },
+    { id: "site", title: "研究室資料", mark: p.siteDirty && dot("未保存") },
+    (p.theme || p.textSize?.available) && { id: "theme", title: "外觀與字體大小", mark: p.textSize?.dirty && dot("未保存") },
+    { id: "pair", title: "中英對照", mark: p.pairStatus[p.current] === "diff" && dot("結構不同") },
+    { id: "head", title: "分享設定" },
+  ].filter(Boolean);
+  const PANEL_TITLES = { news: "最新消息", pages: "頁面與選單", site: "研究室資料", theme: "外觀與字體大小", pair: "中英對照", head: "分享設定", album: "活動相簿", history: "舊版本" };
+  const inEnglish = p.current?.startsWith("en/");
+  const pageList = inEnglish ? en : zh;
+  const state = unsavedCount > 0 ? "dirty" : isCloud && p.cloudSite?.unpublished ? "pending" : "live";
+  const close = () =>
+    p.anyDirty
+      ? setConfirm({ title: "離開這個網站？", description: "有 " + unsavedCount + " 處修改尚未保存，離開後會遺失。", action: p.closeProject })
+      : p.closeProject();
   return (
-    <>
-      <div className="editor-heading project-heading">
-        <div>
-          <h1>
-            {p.project.source.name}
-            <Badge color={writable ? "teal" : "gray"} variant="soft" className="project-badge">
-              {isCloud
-                ? "雲端"
-                : p.project.source.kind === "directory"
-                ? "本機資料夾"
-                : p.project.source.kind === "dev"
-                  ? "開發伺服器"
-                  : p.project.source.kind === "github"
-                    ? writable
-                      ? "GitHub"
-                      : "GitHub 唯讀"
-                    : "線上唯讀"}
-            </Badge>
-          </h1>
-          <p>
-            {isCloud ? (
-              unsavedCount > 0 ? (
-                <span className="edit-state dirty">有 {unsavedCount} 個檔案改了還沒保存</span>
-              ) : p.cloudSite?.unpublished ? (
-                <span className="edit-state pending">已保存，還沒發布：大家看到的還是舊網站</span>
-              ) : (
-                <span className="edit-state live">大家看到的就是目前這個版本</span>
-              )
-            ) : !writable
-              ? "此來源無法寫回，可下載修改後的頁面。"
-              : p.project.source.kind === "github"
-                ? "每次保存是一個 commit（含這一頁換的圖片）；網站的 GitHub Pages 一兩分鐘後自動更新。"
-                : "保存會直接改寫原始檔；用 git 檢視變更後再提交與推送。"}
-          </p>
-          {isCloud && p.cloudSite?.url && (
-            <p className="site-address">
-              網站網址：
-              <a href={p.cloudSite.url} target="_blank" rel="noopener">
-                {p.cloudSite.url.replace(/^https?:\/\//, "")}
-              </a>
-            </p>
-          )}
-        </div>
-        <div className="button-row">
-          {p.pair && (
-            <Button
-              variant="ghost"
-              className="lang-switch-btn"
-              disabled={p.busy}
-              onClick={() => switchPage(p.pair)}
-              title={"切換到 " + p.pair}
-            >
-              {p.current.startsWith("en/") ? "中文版" : "English"}
-            </Button>
-          )}
-          <label className="page-picker">
-            <span>頁面</span>
-            <select value={p.current || ""} onChange={(e) => switchPage(e.target.value)} disabled={p.busy}>
-              <optgroup label="中文">{zh.map(option)}</optgroup>
-              {en.length > 0 && <optgroup label="English">{en.map(option)}</optgroup>}
-            </select>
-          </label>
-          <IconButton label="復原" onClick={p.undo} disabled={!p.canUndo}>
-            <ArrowCounterClockwise size={19} />
-          </IconButton>
-          <IconButton label="重做" onClick={p.redo} disabled={!p.canRedo}>
-            <ArrowClockwise size={19} />
-          </IconButton>
-          <Button variant="soft" color="gray" onClick={() => setHome((h) => !h)} aria-expanded={home} title="回到「你想做什麼？」">
-            <House size={18} />
-            我想做…
-          </Button>
-          <Button variant="soft" color="gray" onClick={() => (home ? (setHome(false), setGuide(true)) : setGuide((g) => !g))} aria-expanded={guide}>
-            <Question size={18} />
-            使用說明
-          </Button>
-          <Button onClick={() => p.savePage()} disabled={!p.dirty || !writable || p.busy} title="保存這一頁的修改">
+    <div className="studio">
+      <div className="studio-bar">
+        <button type="button" className="studio-site" onClick={close} title="回到網站列表">
+          <CaretLeft size={16} />
+          <strong>{p.project.source.name}</strong>
+        </button>
+        <IconButton label="復原" onClick={p.undo} disabled={!p.canUndo}>
+          <ArrowCounterClockwise size={19} />
+        </IconButton>
+        <IconButton label="重做" onClick={p.redo} disabled={!p.canRedo}>
+          <ArrowClockwise size={19} />
+        </IconButton>
+        <span className="studio-page">
+          <strong>{p.labelOf(p.current)}</strong>
+          <span>{p.current}</span>
+        </span>
+        <span className={"studio-state " + state} role="status">
+          {state === "dirty"
+            ? `${unsavedCount} 處修改尚未保存`
+            : state === "pending"
+              ? "已保存，尚未發布"
+              : isCloud
+                ? "網站是最新的"
+                : !writable
+                  ? "這個來源不能寫回"
+                  : ""}
+        </span>
+        {writable && (unsavedCount > 0 || !isCloud) && (
+          <Button variant={isCloud ? "surface" : "solid"} color={isCloud ? "gray" : undefined} onClick={p.saveAll} disabled={unsavedCount === 0 || p.busy}>
             <FloppyDisk size={18} />
-            {p.busy ? "處理中" : "保存"}
+            {p.busy ? "處理中" : unsavedCount > 1 ? `保存（${unsavedCount}）` : "保存"}
           </Button>
-          {/* Also when only other pages are unsaved (e.g. the English page a
-              section move was copied to): 保存 covers this page only. */}
-          {unsavedCount > (p.dirty ? 1 : 0) && (
-            <Button variant="surface" onClick={p.saveAll} disabled={!writable || p.busy}>
-              全部保存（{unsavedCount}）
-            </Button>
-          )}
-          {isCloud && (
-            <Button
-              color="orange"
-              onClick={onPublish}
-              disabled={p.busy || (!p.cloudSite?.unpublished && !p.anyDirty)}
-              title={!p.cloudSite?.unpublished && !p.anyDirty ? "沒有需要發布的修改" : "把網站更新成最新版本"}
-            >
-              <RocketLaunch size={18} />
-              發布
-            </Button>
-          )}
-          {p.canListAssets && (
-            <Button variant="surface" onClick={() => setPhotos({})} title="網站自己的照片與相簿">
-              <Images size={18} />
-              雲端相簿
-            </Button>
-          )}
-          {isCloud && p.cloudSite?.url && (
-            <Button variant="surface" onClick={() => window.open(p.cloudSite.url, "_blank", "noopener")} title={"在新分頁打開 " + p.cloudSite.url}>
-              <ArrowSquareOut size={18} />
-              看網站
-            </Button>
-          )}
+        )}
+        {isCloud && p.cloudSite?.url && (
+          <Button variant="surface" color="gray" onClick={() => window.open(p.cloudSite.url, "_blank", "noopener")} title={"在新分頁打開 " + p.cloudSite.url}>
+            <ArrowSquareOut size={18} />
+            看網站
+          </Button>
+        )}
+        {isCloud && (
           <Button
-            variant="surface"
-            className="phone-only"
-            onClick={() => document.querySelector(".editor-canvas")?.scrollIntoView({ behavior: "smooth" })}
+            color="orange"
+            onClick={onPublish}
+            disabled={p.busy || (!p.cloudSite?.unpublished && !p.anyDirty)}
+            title={!p.cloudSite?.unpublished && !p.anyDirty ? "沒有需要發布的修改" : "把網站更新成最新版本"}
           >
-            <Eye size={18} />
-            看預覽
+            <RocketLaunch size={18} />
+            發布
           </Button>
-          <IconButton
-            label="下載此頁 HTML"
-            onClick={() => download(p.html, p.current.split("/").pop(), "text/html")}
-          >
-            <DownloadSimple size={18} />
-          </IconButton>
-          <IconButton
-            label="關閉專案"
-            onClick={() =>
-              p.anyDirty
-                ? setConfirm({
-                    title: "關閉專案？",
-                    description: "有 " + unsavedCount + " 個檔案尚未保存，關閉後修改會遺失。",
-                    action: p.closeProject,
-                  })
-                : p.closeProject()
-            }
-          >
-            <X size={18} />
-          </IconButton>
-        </div>
+        )}
+        <Button
+          variant="surface"
+          color="gray"
+          className="phone-only"
+          onClick={() => document.querySelector(".editor-canvas")?.scrollIntoView({ behavior: "smooth" })}
+        >
+          <Eye size={18} />
+          看預覽
+        </Button>
+        <IconButton label="使用說明" onClick={() => setGuide((g) => !g)}>
+          <Question size={19} />
+        </IconButton>
+        <IconButton label="下載此頁 HTML" onClick={() => download(p.html, p.current.split("/").pop(), "text/html")}>
+          <DownloadSimple size={18} />
+        </IconButton>
       </div>
       {p.error && (
         <ErrorMessage text={p.error} onClose={() => p.setError(null)} />
@@ -442,143 +340,77 @@ export default function Project({ p, device, setDevice, setConfirm }) {
           setAddPub(false);
           enter("blocks", page);
           p.notify(
-            `已加到「${heading || p.labelOf(page)}」最前面並重新編號${mirrored ? "，英文頁也加了" : ""}。確認沒問題後，按${isCloud ? "下方的「保存並發布」" : "「全部保存」"}。`,
+            `已加到「${heading || p.labelOf(page)}」最前面並重新編號${mirrored ? "，英文頁也加了" : ""}。確認沒問題後，按上方的${isCloud ? "「發布」" : "「保存」"}。`,
           );
         }}
       />
-      {home && <TaskHome tasks={tasks} more={moreTasks} onClose={() => setHome(false)} />}
-      {!home && guide && <EditorGuide onClose={() => setGuide(false)} isCloud={isCloud} hasAlbum={!!p.album?.ok} hasNews={!!p.news && p.news.reason !== "missing"} />}
-      <div className={"editor-layout project" + (tab === "pair" ? " wide-inspector" : "")} hidden={home}>
-        <aside className="inspector">
-          <div className="inspector-tabs">
-            {[
-              ["blocks", "編輯內容"],
-              ...(p.news && p.news.reason !== "missing" ? [["news", "最新消息"]] : []),
-              ["pages", "頁面與選單"],
-              ...(p.album?.ok ? [["album", "活動相簿"]] : []),
-              ["site", "研究室資料"],
-              ...(p.theme || p.textSize?.available ? [["theme", "外觀"]] : []),
-              ["pair", "中英對照"],
-              ["head", "分享設定"],
-              ...(isCloud ? [["history", "版本紀錄"]] : []),
-            ].map(([id, label]) => (
-              <button key={id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}>
-                {label}
-                {(id === "site" || id === "album" || id === "news") && p.siteDirty && <span className="unsaved-dot" aria-label="未保存" />}
-                {id === "pages" && p.nav?.dirty && <span className="unsaved-dot" aria-label="未保存" />}
-                {id === "theme" && p.textSize?.dirty && <span className="unsaved-dot" aria-label="未保存" />}
-                {id === "pair" && p.pairStatus[p.current] === "diff" && <span className="unsaved-dot" aria-label="結構不同" />}
+      {guide && <EditorGuide onClose={() => setGuide(false)} isCloud={isCloud} hasAlbum={!!p.album?.ok} hasNews={hasNews} />}
+      <div className={"studio-body" + (tab === "pair" ? " wide-inspector" : "")}>
+        <aside className="studio-left" aria-label="頁面與內容">
+          <div className="studio-seg" role="group" aria-label="面板">
+            <button type="button" className={tab === "blocks" ? "active" : ""} onClick={() => setTab("blocks")}>
+              內容
+            </button>
+            {(p.album?.ok || p.canListAssets) && (
+              <button type="button" className={tab === "album" ? "active" : ""} onClick={openPhotos}>
+                照片
               </button>
-            ))}
+            )}
+            {isCloud && (
+              <button type="button" className={tab === "history" ? "active" : ""} onClick={() => setTab("history")}>
+                舊版本
+              </button>
+            )}
           </div>
-          {tab === "pages" ? (
-            <div className="inspector-body">
-              <PagesPanel p={p} writable={writable} openPage={switchPage} setConfirm={setConfirm} />
-            </div>
-          ) : tab === "history" && isCloud ? (
-            <div className="inspector-body">
-              <CloudHistory p={p} setConfirm={setConfirm} />
-            </div>
-          ) : tab === "theme" && (p.theme || p.textSize?.available) ? (
-            <div className="inspector-body">
-              <ColorPanel p={p} writable={writable} />
-              <TextSizePanel p={p} writable={writable} />
-              {p.theme && <SiteThemePanel p={p} />}
-            </div>
-          ) : tab === "news" && p.news ? (
-            <div className="inspector-body">
-              <NewsPanel p={p} writable={writable} setConfirm={setConfirm} />
-            </div>
-          ) : tab === "album" && p.album?.ok ? (
-            <div className="inspector-body">
-              <AlbumPanel
-                p={p}
-                writable={writable}
-                galleryPage={p.pages.find((x) => /(^|\/)gallery\.html$/.test(x) && x.startsWith("en/") === p.current.startsWith("en/"))}
-                openPage={switchPage}
-                setConfirm={setConfirm}
-              />
-            </div>
-          ) : tab === "site" ? (
-            <div className="inspector-body">
-              <SiteDataPanel
-                siteData={p.siteData}
-                siteDirty={p.siteDirty}
-                setSiteField={p.setSiteField}
-                saveSiteData={p.saveSiteData}
-                writable={writable}
-                busy={p.busy}
-              />
-              {p.canListAssets && writable && <RelocatePanel p={p} writable={writable} setConfirm={setConfirm} />}
-            </div>
-          ) : tab === "pair" ? (
-            <>
-              <SectionList
-                sections={sections}
-                selected={selected}
-                onSelect={(i) => {
-                  p.setSelected(i);
-                  p.setFocus(null);
-                }}
-                onMove={p.move}
-                onDuplicate={p.duplicate}
-                onRemove={(i) =>
-                  setConfirm({
-                    title: "刪除「" + sections[i].title + "」？",
-                    description: "會從這一頁移除整個區塊與相鄰分隔線；可用復原找回。",
-                    action: () => p.remove(i),
-                  })
-                }
-              />
-              <div className="inspector-body">
-                <PairPanel p={p} selected={selected} />
+          {writable && quick.length > 0 && (
+            <section>
+              <h2>快速新增</h2>
+              <div className="studio-quick">
+                {quick.map((q) => (
+                  <button type="button" key={q.id} onClick={q.run}>
+                    ＋ {q.title}
+                  </button>
+                ))}
               </div>
-            </>
-          ) : tab === "head" ? (
-            <div className="inspector-body">
-              {head && (
-                <>
-                  <Field label="頁面標題（瀏覽器分頁與分享標題）" value={head.title} onChange={(title) => p.setHead({ title })} />
-                  <Field
-                    label="頁面描述（搜尋引擎與分享摘要）"
-                    value={head.description}
-                    area
-                    rows={3}
-                    onChange={(description) => p.setHead({ description })}
-                  />
-                  <p className="small-note">同步更新 og 與 twitter 的對應標籤。</p>
-                  {p.canListAssets && (
-                    <div className="share-image">
-                      <span className="field-label">分享預覽圖（貼到 LINE、Facebook 時出現的圖）</span>
-                      {head.image ? (
-                        <div className="share-image-row">
-                          <Thumb p={p} src={assetOf(head.image)} />
-                          <code title={head.image}>{head.image.split("/").pop()}</code>
-                        </div>
-                      ) : (
-                        <p className="small-note">這一頁還沒有分享預覽圖。</p>
-                      )}
-                      <Button
-                        size="1"
-                        variant="soft"
-                        disabled={!writable}
-                        onClick={() => pickPhoto("選分享預覽圖", (path) => p.setHead({ image: shareUrl(path) }))}
-                      >
-                        從雲端相簿選
-                      </Button>
-                      <p className="small-note">建議用橫式照片（約 1200×630）。每一頁可以不同。</p>
-                    </div>
-                  )}
-                </>
+            </section>
+          )}
+          <section>
+            <h2>
+              頁面
+              {p.pair && (
+                <span className="studio-lang" role="group" aria-label="語言">
+                  <button type="button" className={inEnglish ? "" : "active"} disabled={p.busy} onClick={() => inEnglish && switchPage(p.pair)}>
+                    中文
+                  </button>
+                  <button type="button" className={inEnglish ? "active" : ""} disabled={p.busy} onClick={() => !inEnglish && switchPage(p.pair)}>
+                    English
+                  </button>
+                </span>
+              )}
+            </h2>
+            <div className={"studio-pages" + (allPages ? " all" : "")}>
+              {pageList.map((path, i) => (
+                <button
+                  type="button"
+                  key={path}
+                  className={(path === p.current ? "active" : "") + (i >= 6 && path !== p.current ? " extra" : "")}
+                  disabled={p.busy}
+                  onClick={() => switchPage(path)}
+                  title={path}
+                >
+                  {p.labelOf(path)}
+                  {p.dirtyPages.includes(path) && dot("未保存")}
+                </button>
+              ))}
+              {pageList.length > 6 && (
+                <button type="button" className="studio-pages-toggle" onClick={() => setAllPages((v) => !v)}>
+                  {allPages ? "收起" : `其他 ${pageList.length - 6} 頁…`}
+                </button>
               )}
             </div>
-          ) : (
-            <>
-              <div className="page-label">
-                <FolderOpen size={17} />
-                <strong>{p.labelOf(p.current)}</strong>
-                <span>{p.current}{p.dirty ? " · 未保存" : ""}</span>
-              </div>
+          </section>
+          <section>
+            <h2>這一頁由上到下</h2>
               {sections.length === 0 && (
                 <div className="message" role="status">
                   <WarningCircle size={20} />
@@ -638,6 +470,114 @@ export default function Project({ p, device, setDevice, setConfirm }) {
                   </Button>
                 </div>
               )}
+          </section>
+          <section>
+            <h2>更多設定</h2>
+            <div className="studio-more">
+              {more.map((m) => (
+                <button type="button" key={m.id} className={tab === m.id ? "active" : ""} onClick={() => setTab(m.id)}>
+                  {m.title}
+                  {m.mark}
+                </button>
+              ))}
+            </div>
+          </section>
+        </aside>
+        <aside className="studio-right inspector" aria-label="修改選到的內容">
+          {tab !== "blocks" && (
+            <div className="studio-panel-head">
+              <button type="button" onClick={() => setTab("blocks")}>
+                <CaretLeft size={14} /> 回到內容
+              </button>
+              <strong>{PANEL_TITLES[tab]}</strong>
+            </div>
+          )}
+          {tab === "pages" ? (
+            <div className="inspector-body">
+              <PagesPanel p={p} writable={writable} openPage={switchPage} setConfirm={setConfirm} />
+            </div>
+          ) : tab === "history" && isCloud ? (
+            <div className="inspector-body">
+              <CloudHistory p={p} setConfirm={setConfirm} />
+            </div>
+          ) : tab === "theme" && (p.theme || p.textSize?.available) ? (
+            <div className="inspector-body">
+              <ColorPanel p={p} writable={writable} />
+              <TextSizePanel p={p} writable={writable} />
+              {p.theme && <SiteThemePanel p={p} />}
+            </div>
+          ) : tab === "news" && p.news ? (
+            <div className="inspector-body">
+              <NewsPanel p={p} writable={writable} setConfirm={setConfirm} />
+            </div>
+          ) : tab === "album" && p.album?.ok ? (
+            <div className="inspector-body">
+              <AlbumPanel
+                p={p}
+                writable={writable}
+                galleryPage={p.pages.find((x) => /(^|\/)gallery\.html$/.test(x) && x.startsWith("en/") === p.current.startsWith("en/"))}
+                openPage={switchPage}
+                setConfirm={setConfirm}
+              />
+            </div>
+          ) : tab === "site" ? (
+            <div className="inspector-body">
+              <SiteDataPanel
+                siteData={p.siteData}
+                siteDirty={p.siteDirty}
+                setSiteField={p.setSiteField}
+                saveSiteData={p.saveSiteData}
+                writable={writable}
+                busy={p.busy}
+              />
+              {p.canListAssets && writable && <RelocatePanel p={p} writable={writable} setConfirm={setConfirm} />}
+            </div>
+          ) : tab === "pair" ? (
+            <>
+              <div className="inspector-body">
+                <PairPanel p={p} selected={selected} />
+              </div>
+            </>
+          ) : tab === "head" ? (
+            <div className="inspector-body">
+              {head && (
+                <>
+                  <Field label="頁面標題（瀏覽器分頁與分享標題）" value={head.title} onChange={(title) => p.setHead({ title })} />
+                  <Field
+                    label="頁面描述（搜尋引擎與分享摘要）"
+                    value={head.description}
+                    area
+                    rows={3}
+                    onChange={(description) => p.setHead({ description })}
+                  />
+                  <p className="small-note">同步更新 og 與 twitter 的對應標籤。</p>
+                  {p.canListAssets && (
+                    <div className="share-image">
+                      <span className="field-label">分享預覽圖（貼到 LINE、Facebook 時出現的圖）</span>
+                      {head.image ? (
+                        <div className="share-image-row">
+                          <Thumb p={p} src={assetOf(head.image)} />
+                          <code title={head.image}>{head.image.split("/").pop()}</code>
+                        </div>
+                      ) : (
+                        <p className="small-note">這一頁還沒有分享預覽圖。</p>
+                      )}
+                      <Button
+                        size="1"
+                        variant="soft"
+                        disabled={!writable}
+                        onClick={() => pickPhoto("選分享預覽圖", (path) => p.setHead({ image: shareUrl(path) }))}
+                      >
+                        從雲端相簿選
+                      </Button>
+                      <p className="small-note">建議用橫式照片（約 1200×630）。每一頁可以不同。</p>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          ) : (
+            <>
               <div className="inspector-body">
                 <h3 className="inspector-subtitle">
                   {sections[selected]?.title}
@@ -738,32 +678,6 @@ export default function Project({ p, device, setDevice, setConfirm }) {
           setDevice={setDevice}
         />
       </div>
-      {isCloud && writable && (
-        <div className={"publish-bar " + (unsavedCount > 0 ? "dirty" : p.cloudSite?.unpublished ? "pending" : "live")} role="status">
-          {unsavedCount > 0 ? (
-            <span>
-              <strong>有 {unsavedCount} 處修改還沒保存</strong>，網站還沒更新。
-            </span>
-          ) : p.cloudSite?.unpublished ? (
-            <span>
-              <strong>已保存，還沒發布</strong>：大家看到的還是舊網站。
-            </span>
-          ) : (
-            <span className="publish-bar-ok">
-              <CheckCircle size={18} weight="fill" /> 網站是最新的，沒有待發布的修改。
-            </span>
-          )}
-          {p.cloudSite?.url && (
-            <a className="text-link" href={p.cloudSite.url} target="_blank" rel="noopener">
-              看網站
-            </a>
-          )}
-          <Button size="3" color="orange" onClick={onPublish} disabled={p.busy || (!p.cloudSite?.unpublished && !p.anyDirty)}>
-            <RocketLaunch size={18} />
-            {unsavedCount > 0 ? "保存並發布" : "發布"}
-          </Button>
-        </div>
-      )}
-    </>
+    </div>
   );
 }

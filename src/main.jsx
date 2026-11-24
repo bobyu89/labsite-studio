@@ -9,8 +9,8 @@ applyUiSize();
 createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <Theme
-      accentColor="teal"
-      grayColor="slate"
+      accentColor="gray"
+      grayColor="gray"
       radius="medium"
       appearance="light"
     >
