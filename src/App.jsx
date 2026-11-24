@@ -706,9 +706,12 @@ export default function App() {
           {confirm?.body}
           <div className="dialog-actions">
             <AlertDialog.Cancel>
-              <Button variant="surface">取消</Button>
+              <Button variant="surface" color="gray">
+                {confirm?.cancelLabel || "取消"}
+              </Button>
             </AlertDialog.Cancel>
             <Button
+              color={confirm?.confirmColor}
               onClick={() => {
                 confirm.action();
                 setConfirm(null);

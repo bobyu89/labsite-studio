@@ -147,6 +147,7 @@ export function useProject(notify) {
   // written in the same commit as the page that references them.
   const [staged, setStaged] = useState({});
   const [busy, setBusy] = useState(false);
+  const saveQueue = useRef(Promise.resolve());
   // { status: "idle" | "saving" | "saved" | "error", at, error }
   const [autosave, setAutosave] = useState({ status: "idle", at: null, error: null });
   const [error, setError] = useState(null);
@@ -394,6 +395,8 @@ export function useProject(notify) {
     if (!cloudSiteId) return false;
     setBusy(true);
     try {
+      // An autosave still on its way must land first, or the version before it would go live.
+      await saveQueue.current;
       const { site } = await cloudCalls.publish(cloudSiteId, commitId);
       await refreshCloud();
       const backup = site.backup?.status === "error" ? "GitHub 備份失敗：" + site.backup.error : "";
@@ -411,6 +414,7 @@ export function useProject(notify) {
     if (!cloudSiteId) return false;
     setBusy(true);
     try {
+      await saveQueue.current;
       const r = await cloudCalls.restore(cloudSiteId, commitId);
       await refreshCloud();
       await openSource(cloudSource(r.site), current);
@@ -1387,7 +1391,6 @@ export function useProject(notify) {
   // (optionally) js/data.js, written together — a single commit on GitHub.
   // Saves run one after another: an autosave still on its way never overlaps
   // the save (or publish) a person just asked for.
-  const saveQueue = useRef(Promise.resolve());
   function commitFiles(what, opts) {
     const run = saveQueue.current.then(() => writeChanges(what, opts));
     saveQueue.current = run.catch(() => {});

@@ -172,6 +172,8 @@ export default function Project({ p, device, setDevice, setConfirm }) {
             description: "會先把剛改的內容存好，再把網站更新成最新版本。這次會上線的修改：",
             body,
             confirmLabel: warn ? "仍要發布" : "發布",
+            confirmColor: "orange",
+            cancelLabel: "先不要",
             action: async () => {
               if (await p.saveAll()) done(await p.publishCloud(undefined, { message: false }));
             },
@@ -181,6 +183,8 @@ export default function Project({ p, device, setDevice, setConfirm }) {
             description: "網站會在幾秒內更新，所有人都看得到。這次會上線的修改：",
             body,
             confirmLabel: warn ? "仍要發布" : "發布",
+            confirmColor: "orange",
+            cancelLabel: "先不要",
             action: async () => done(await p.publishCloud(undefined, { message: false })),
           },
     );
@@ -548,6 +552,12 @@ export default function Project({ p, device, setDevice, setConfirm }) {
                   {m.mark}
                 </button>
               ))}
+              {p.canListAssets && p.albums && (
+                <button type="button" onClick={() => setPhotos({})}>
+                  雲端相簿與素材庫
+                  {p.albumsDirty && dot("未保存")}
+                </button>
+              )}
             </div>
           </section>
         </aside>
@@ -748,7 +758,8 @@ export default function Project({ p, device, setDevice, setConfirm }) {
           onInline={writable ? (i, path, changes) => p.inlineEdit(i, path, changes) : null}
           onInlineBroken={() => p.notify("這段文字裡有粗體、連結之類的格式被刪掉了，已還原。請改在左邊的欄位修改。")}
           canPlayMotion={!!p.theme?.vars["--motion"]}
-          device={device}
+          // 中英對照 takes the room of the second preview.
+          device={tab === "pair" && device === "both" ? "desktop" : device}
           setDevice={setDevice}
         />
       </div>

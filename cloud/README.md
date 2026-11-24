@@ -109,17 +109,24 @@ npx --prefix cloud wrangler secret put GITHUB_BACKUP_TOKEN -c cloud/wrangler.api
 
 沒有設定時備份會顯示「未設定備份 token」，不影響發布。單次發布超過 40 個檔案變更時不自動備份（免費方案每個請求最多 50 個對外連線），請改用「下載整站」。
 
-### （選用）AI 外觀
+### （選用）AI 助手與 AI 外觀
 
-老師在「外觀」分頁用一句話描述想要的感覺，由 Claude（`claude-opus-5-5`）產生 3 組配色與字體；伺服器會把每一組都修正到 WCAG AA 對比才回傳。每個網站每天最多 20 次（`cloud/src/ai.js` 的 `AI_DAILY_LIMIT`），每次都記在 `events` 表。
+- **AI 助手**：老師在編輯畫面右上角用一句話寫想怎麼改，Claude（`claude-opus-5-5`）回覆提案卡片（修改文字、新增最新消息、修改研究室資料、新增論文），老師按「套用」才會改；助手不會發布。伺服器只轉送並清理提案（`cloud/src/ai.js` 的 `aiAssist`），不改任何檔案。
+- **AI 外觀**：在「外觀」用一句話描述想要的感覺，產生 3 組配色與字體；每一組都修正到 WCAG AA 對比才回傳。
 
-需要一把 Anthropic API 金鑰，由你自己設定為 Worker 的 secret（金鑰不會進 git，也不會傳到瀏覽器）：
+兩者共用一把 Anthropic API 金鑰、每個網站每天的次數上限（預設 20）與各網站的開關，每次使用都記在 `events` 表。
+
+**放金鑰**：管理者登入後，在「我的網站」下方的「管理者 › AI 助手設定」貼上金鑰（到 <https://console.anthropic.com/settings/keys> 建立）。儲存前會先測試連線；儲存後頁面只顯示最後 4 碼。金鑰存在 D1 的 `settings` 表（明文），只有 Worker 呼叫 API 時讀取，任何 API 回應都不含金鑰。想把金鑰放在 Cloudflare 而不是資料庫，可以改設 secret，它會優先於頁面上的設定：
 
 ```bash
 npx --prefix cloud wrangler secret put ANTHROPIC_API_KEY -c cloud/wrangler.api.toml
 ```
 
-沒有設定時，編輯器不顯示這個功能。本機想試介面但沒有金鑰，可用 `npm --prefix cloud run dev:node:ai-mock`，它回傳固定的模擬方案，不會呼叫 API。
+沒有金鑰時，編輯器不顯示這兩個功能。本機想試介面但沒有金鑰：`npm --prefix cloud run dev:node:ai-mock` 會回傳固定的模擬回應，不呼叫 API；加上 `-- --no-key` 則從沒有金鑰的狀態開始，用來試「AI 助手設定」頁（任何 `sk-ant-…` 格式的字串都會通過模擬的連線測試）。
+
+### 自動保存
+
+雲端網站的修改在停止輸入 20 秒後（或分頁切到背景時）自動存成草稿，版本紀錄標「自動保存」。同一人兩小時內連續的自動保存只留一筆（新的取代舊的，`commits.auto_since`）；已發布、已備份到 GitHub 的版本不會被取代。外觀的修改不自動保存。被取代版本的檔案內容目前不會回收。
 
 ### （選用）改用 R2 存檔案
 
