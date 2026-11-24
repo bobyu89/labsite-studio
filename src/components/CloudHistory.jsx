@@ -42,6 +42,7 @@ export default function CloudHistory({ p, setConfirm }) {
           <li key={c.id} className={"history-item" + (c.published ? " is-published" : "")}>
             <div className="history-head">
               <strong>{c.message}</strong>
+              {c.auto && <span className="history-auto">自動保存</span>}
               {c.published && (
                 <Badge color="teal" variant="soft">
                   網站目前版本

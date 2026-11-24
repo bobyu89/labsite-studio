@@ -38,7 +38,7 @@ export function PasswordLoginForm({ onLogin }) {
           {error}
         </p>
       )}
-      <Button size="3" type="submit" disabled={busy || !email || !password}>
+      <Button size="3" color="orange" type="submit" disabled={busy || !email || !password}>
         {busy ? "登入中…" : "登入"}
       </Button>
     </form>

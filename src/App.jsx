@@ -73,7 +73,24 @@ export default function App() {
   const [importOpen, setImportOpen] = useState(false);
   const requestImport = () => setImportOpen(true);
   const [preview, setPreview] = useState(false);
-  const [device, setDevice] = useState("desktop");
+  // Preview size: 並排 (computer + phone) on a wide screen, remembered once chosen.
+  const [device, setDeviceState] = useState(() => {
+    try {
+      const saved = localStorage.getItem("labsite.device");
+      if (["both", "desktop", "mobile"].includes(saved)) return saved;
+    } catch {
+      /* storage blocked: use the default */
+    }
+    return typeof window !== "undefined" && window.innerWidth >= 1500 ? "both" : "desktop";
+  });
+  const setDevice = (value) => {
+    setDeviceState(value);
+    try {
+      localStorage.setItem("labsite.device", value);
+    } catch {
+      /* not remembered, still applied */
+    }
+  };
   const [publish, setPublish] = useState(false);
   const [publishStep, setPublishStep] = useState(-1);
   const [snapshot, setSnapshot] = useState(null);
@@ -431,7 +448,7 @@ export default function App() {
         <div className="preview-toolbar">
           <div className="device-picker">
             <Button
-              variant={device === "desktop" ? "soft" : "ghost"}
+              variant={device !== "mobile" ? "soft" : "ghost"}
               onClick={() => setDevice("desktop")}
             >
               <Desktop size={18} />
@@ -453,7 +470,7 @@ export default function App() {
             匯出網站
           </Button>
         </div>
-        <div className={"full-preview " + device}>
+        <div className={"full-preview " + (device === "mobile" ? "mobile" : "desktop")}>
           <iframe
             title="完整網站預覽"
             srcDoc={doc}

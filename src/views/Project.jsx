@@ -13,7 +13,7 @@ import {
   Eye,
   CaretLeft,
 } from "@phosphor-icons/react";
-import { IconButton, Field, download } from "../components/ui";
+import { IconButton, Field, Modal, download } from "../components/ui";
 import ProjectOpen from "../components/ProjectOpen";
 import SectionList from "../components/SectionList";
 import FieldInspector from "../components/FieldInspector";
@@ -28,6 +28,7 @@ import { InsertAlbumDialog, AlbumBlockSettings } from "../components/AlbumBlock"
 import { Thumb } from "../components/AlbumPanel";
 import NewsPanel from "../components/NewsPanel";
 import AddPublication, { publicationPages } from "../components/AddPublication";
+import Assistant from "../components/Assistant";
 import AlbumPanel from "../components/AlbumPanel";
 import RelocatePanel from "../components/RelocatePanel";
 import TextSizePanel from "../components/TextSizePanel";
@@ -92,6 +93,8 @@ export default function Project({ p, device, setDevice, setConfirm }) {
   const [guide, setGuide] = useState(() => !guideDismissed());
   const [addPub, setAddPub] = useState(false);
   const [allPages, setAllPages] = useState(false);
+  // After publishing: { previous } — the version visitors saw before, so it can be put back.
+  const [published, setPublished] = useState(null);
   // A photo dropped anywhere else would make the browser open the file and
   // leave the editor; catch it and say where photos go instead.
   useEffect(() => {
@@ -160,23 +163,25 @@ export default function Project({ p, device, setDevice, setConfirm }) {
         <PublishSummary pending={pending} unsaved={p.anyDirty ? unsavedNames() : []} me={p.cloud.me?.email} />
       </>
     );
+    const previous = p.cloudSite?.published || null;
+    const done = (ok) => ok && setPublished({ previous });
     setConfirm(
       p.anyDirty
         ? {
-            title: "先保存，再發布？",
-            description: "會先把還沒保存的修改存成一個版本，再把網站更新成最新版本。這次會上線的修改：",
+            title: "發布到網站？",
+            description: "會先把剛改的內容存好，再把網站更新成最新版本。這次會上線的修改：",
             body,
-            confirmLabel: warn ? "仍要保存並發布" : "保存並發布",
+            confirmLabel: warn ? "仍要發布" : "發布",
             action: async () => {
-              if (await p.saveAll()) await p.publishCloud();
+              if (await p.saveAll()) done(await p.publishCloud(undefined, { message: false }));
             },
           }
         : {
             title: "發布到網站？",
-            description: "網站會在幾秒內更新，所有人都看得到；之後仍可在「版本紀錄」還原。這次會上線的修改：",
+            description: "網站會在幾秒內更新，所有人都看得到。這次會上線的修改：",
             body,
             confirmLabel: warn ? "仍要發布" : "發布",
-            action: () => p.publishCloud(),
+            action: async () => done(await p.publishCloud(undefined, { message: false })),
           },
     );
   };
@@ -254,14 +259,40 @@ export default function Project({ p, device, setDevice, setConfirm }) {
     { id: "pair", title: "中英對照", mark: p.pairStatus[p.current] === "diff" && dot("結構不同") },
     { id: "head", title: "分享設定" },
   ].filter(Boolean);
-  const PANEL_TITLES = { news: "最新消息", pages: "頁面與選單", site: "研究室資料", theme: "外觀與字體大小", pair: "中英對照", head: "分享設定", album: "活動相簿", history: "舊版本" };
+  const PANEL_TITLES = { ai: "AI 助手", news: "最新消息", pages: "頁面與選單", site: "研究室資料", theme: "外觀與字體大小", pair: "中英對照", head: "分享設定", album: "活動相簿", history: "舊版本" };
   const inEnglish = p.current?.startsWith("en/");
   const pageList = inEnglish ? en : zh;
   const state = unsavedCount > 0 ? "dirty" : isCloud && p.cloudSite?.unpublished ? "pending" : "live";
-  const close = () =>
-    p.anyDirty
-      ? setConfirm({ title: "離開這個網站？", description: "有 " + unsavedCount + " 處修改尚未保存，離開後會遺失。", action: p.closeProject })
-      : p.closeProject();
+  const auto = p.autosave;
+  // On LabSite Cloud edits save themselves; only looks (colours, type) wait for 保存.
+  const stateText =
+    auto.on && auto.status === "saving"
+      ? "正在自動保存…"
+      : auto.on && auto.pending
+        ? auto.status === "error"
+          ? "自動保存沒有成功，請按「保存」"
+          : "修改會自動保存"
+        : state === "dirty"
+          ? auto.on
+            ? "外觀的修改尚未保存"
+            : `${unsavedCount} 處修改尚未保存`
+          : state === "pending"
+            ? auto.on
+              ? "已自動保存，尚未發布"
+              : "已保存，尚未發布"
+            : isCloud
+              ? "網站是最新的"
+              : !writable
+                ? "這個來源不能寫回"
+                : "";
+  const aiOn = isCloud && writable && !!p.ai?.available;
+  const close = async () => {
+    // Store what was just typed before leaving; only unsaved looks still need a decision.
+    const stored = auto.on && auto.pending ? await p.flushAutosave() : true;
+    const left = auto.on ? (stored ? (p.textSize?.dirty ? 1 : 0) : unsavedCount) : unsavedCount;
+    if (left > 0) setConfirm({ title: "離開這個網站？", description: "有 " + left + " 處修改尚未保存，離開後會遺失。", action: p.closeProject });
+    else p.closeProject();
+  };
   return (
     <div className="studio">
       <div className="studio-bar">
@@ -279,21 +310,19 @@ export default function Project({ p, device, setDevice, setConfirm }) {
           <strong>{p.labelOf(p.current)}</strong>
           <span>{p.current}</span>
         </span>
-        <span className={"studio-state " + state} role="status">
-          {state === "dirty"
-            ? `${unsavedCount} 處修改尚未保存`
-            : state === "pending"
-              ? "已保存，尚未發布"
-              : isCloud
-                ? "網站是最新的"
-                : !writable
-                  ? "這個來源不能寫回"
-                  : ""}
+        <span className={"studio-state " + (auto.on && auto.pending && auto.status === "error" ? "dirty" : auto.on && auto.pending ? "pending" : state)} role="status">
+          {stateText}
         </span>
         {writable && (unsavedCount > 0 || !isCloud) && (
-          <Button variant={isCloud ? "surface" : "solid"} color={isCloud ? "gray" : undefined} onClick={p.saveAll} disabled={unsavedCount === 0 || p.busy}>
+          <Button
+            variant={isCloud ? "surface" : "solid"}
+            color={isCloud ? "gray" : undefined}
+            onClick={p.saveAll}
+            disabled={unsavedCount === 0 || p.busy}
+            title={auto.on ? "現在就存成草稿（平常會自動保存）" : undefined}
+          >
             <FloppyDisk size={18} />
-            {p.busy ? "處理中" : unsavedCount > 1 ? `保存（${unsavedCount}）` : "保存"}
+            {p.busy ? "處理中" : auto.on ? "保存" : unsavedCount > 1 ? `保存（${unsavedCount}）` : "保存"}
           </Button>
         )}
         {isCloud && p.cloudSite?.url && (
@@ -344,7 +373,46 @@ export default function Project({ p, device, setDevice, setConfirm }) {
           );
         }}
       />
-      {guide && <EditorGuide onClose={() => setGuide(false)} isCloud={isCloud} hasAlbum={!!p.album?.ok} hasNews={hasNews} />}
+      <Modal
+        open={!!published}
+        onClose={() => setPublished(null)}
+        title="已經發布"
+        description="訪客現在看到的是最新的網站（幾秒內更新）。"
+      >
+        <div className="published-actions">
+          {p.cloudSite?.url && (
+            <Button
+              onClick={() => {
+                window.open(p.cloudSite.url, "_blank", "noopener");
+                setPublished(null);
+              }}
+            >
+              <ArrowSquareOut size={18} /> 看網站
+            </Button>
+          )}
+          <Button variant="surface" color="gray" onClick={() => setPublished(null)}>
+            繼續修改
+          </Button>
+        </div>
+        {published?.previous && published.previous !== p.cloudSite?.published && (
+          <div className="published-undo">
+            <span>發現改錯了？可以讓網站回到發布前的樣子；你剛才的修改會留在草稿裡。</span>
+            <Button
+              variant="surface"
+              color="gray"
+              disabled={p.busy}
+              onClick={async () => {
+                const previous = published.previous;
+                setPublished(null);
+                await p.publishCloud(previous, { message: "網站已回到發布前的樣子。你的修改還在草稿裡，改好後再按「發布」。" });
+              }}
+            >
+              回到上一版
+            </Button>
+          </div>
+        )}
+      </Modal>
+      {guide && <EditorGuide onClose={() => setGuide(false)} isCloud={isCloud} hasAlbum={!!p.album?.ok} hasNews={hasNews} hasAi={aiOn} />}
       <div className={"studio-body" + (tab === "pair" ? " wide-inspector" : "")}>
         <aside className="studio-left" aria-label="頁面與內容">
           <div className="studio-seg" role="group" aria-label="面板">
@@ -492,7 +560,12 @@ export default function Project({ p, device, setDevice, setConfirm }) {
               <strong>{PANEL_TITLES[tab]}</strong>
             </div>
           )}
-          {tab === "pages" ? (
+          {aiOn && (
+            <div hidden={tab !== "blocks" && tab !== "ai"}>
+              <Assistant p={p} selected={selected} full={tab === "ai"} onOpen={() => setTab("ai")} onShow={() => setTab("ai")} />
+            </div>
+          )}
+          {tab === "ai" && aiOn ? null : tab === "pages" ? (
             <div className="inspector-body">
               <PagesPanel p={p} writable={writable} openPage={switchPage} setConfirm={setConfirm} />
             </div>
@@ -529,6 +602,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
                 saveSiteData={p.saveSiteData}
                 writable={writable}
                 busy={p.busy}
+                autosave={p.autosave.on}
               />
               {p.canListAssets && writable && <RelocatePanel p={p} writable={writable} setConfirm={setConfirm} />}
             </div>

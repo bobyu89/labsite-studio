@@ -61,6 +61,11 @@ export function cloudApi(fetchImpl = (...a) => fetch(...a)) {
     removeMember: (id, email) => call("DELETE", site(id) + "/members/" + encodeURIComponent(email)),
     backup: (id) => call("POST", site(id) + "/backup", {}),
     aiTheme: (id, description) => call("POST", site(id) + "/ai-theme", { description }),
+    assistant: (id, body) => call("POST", site(id) + "/assistant", body),
+    aiSettings: () => call("GET", "/admin/ai"),
+    saveAiSettings: (patch) => call("PUT", "/admin/ai", patch),
+    removeAiKey: () => call("DELETE", "/admin/ai"),
+    testAiKey: (key) => call("POST", "/admin/ai/test", key ? { key } : {}),
     exportUrl: (id, ref = "draft") => "/api" + site(id) + "/export?ref=" + ref,
     fetchImpl,
   };
@@ -134,7 +139,8 @@ export function cloudSource(site, fetchImpl = (...a) => fetch(...a)) {
     },
     readText: async (path) => (await raw(path)).text(),
     readBlob: async (path) => (await raw(path)).blob(),
-    async writeFiles(files, message) {
+    // opts.auto marks an autosave: the server keeps one history entry per sitting.
+    async writeFiles(files, message, opts = {}) {
       const baseHashes = {};
       const body = [];
       for (const f of files) {
@@ -148,7 +154,7 @@ export function cloudSource(site, fetchImpl = (...a) => fetch(...a)) {
               : { path, base64: toBase64(new Uint8Array(await f.blob.arrayBuffer())) },
         );
       }
-      const data = await request(fetchImpl, "POST", base + "/commits", { message, base: baseHashes, files: body });
+      const data = await request(fetchImpl, "POST", base + "/commits", { message, base: baseHashes, files: body, ...(opts.auto ? { auto: true } : {}) });
       for (const [path, hash] of Object.entries(data.hashes || {}))
         if (hash === null) hashes.delete(path);
         else hashes.set(path, hash);

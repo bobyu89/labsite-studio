@@ -25,7 +25,7 @@ import { zip } from "./zip.js";
 import { fetchRepoFiles, backupToGitHub, backupAll, parseRepo } from "./github.js";
 import { templateFiles, personalize, applySkin } from "./templates.js";
 import { adminOverview } from "./overview.js";
-import { aiThemes, aiUsage, AI_DAILY_LIMIT } from "./ai.js";
+import { aiThemes, aiAssist, aiUsage, aiConfig, aiEnabledFor, aiAdminView, saveAiSettings, removeAiKey, testAiKey } from "./ai.js";
 import {
   RepoError,
   isAdmin,
@@ -74,6 +74,7 @@ const commitView = (c, site) =>
     message: c.message,
     changed: c.changed,
     at: c.created_at,
+    auto: c.auto_since != null,
     published: site ? c.id === site.published_commit : undefined,
     draft: site ? c.id === site.draft_commit : undefined,
   };
@@ -173,12 +174,14 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
   app.get("/api/me", async (c) => {
     const user = c.get("user");
     const sites = await sitesFor(c.env, user.email);
+    const ai = await aiConfig(c.env);
     return c.json({
       email: user.email,
       admin: user.admin,
       via: user.via,
       hasPassword: user.via === "session" ? await hasPassword(c.env, user.email) : false,
-      ai: !!c.env.ANTHROPIC_API_KEY,
+      ai: !!ai.key,
+      aiOff: sites.filter((s) => ai.off.has(s.id)).map((s) => s.id),
       sites: sites.map((s) => siteView(c.env, s)),
     });
   });
@@ -230,6 +233,26 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
 
   // 總覽: every site's state, the people, recent activity (admins only).
   app.get("/api/admin/overview", requireAdmin, async (c) => c.json(await adminOverview(c.env, siteView)));
+
+  // AI 助手設定. The key goes in and never comes back out: every reply
+  // carries only its last four characters.
+  app.get("/api/admin/ai", requireAdmin, async (c) => c.json(await aiAdminView(c.env)));
+  app.put("/api/admin/ai", requireAdmin, async (c) => {
+    const body = await c.req.json().catch(() => ({}));
+    if (body.key !== undefined && c.env.ANTHROPIC_API_KEY)
+      throw new RepoError(409, "金鑰目前由 Cloudflare 的 ANTHROPIC_API_KEY 設定提供，請到 Cloudflare 更換。");
+    await saveAiSettings(c.env, { key: body.key, dailyLimit: body.dailyLimit, off: body.off }, c.get("user").email);
+    return c.json(await aiAdminView(c.env));
+  });
+  app.delete("/api/admin/ai", requireAdmin, async (c) => {
+    if (c.env.ANTHROPIC_API_KEY) throw new RepoError(409, "金鑰目前由 Cloudflare 的 ANTHROPIC_API_KEY 設定提供，請到 Cloudflare 移除。");
+    await removeAiKey(c.env);
+    return c.json(await aiAdminView(c.env));
+  });
+  app.post("/api/admin/ai/test", requireAdmin, async (c) => {
+    const body = await c.req.json().catch(() => ({}));
+    return c.json(await testAiKey(c.env, body.key, fetchImpl));
+  });
 
   /* --------------------------------------------------------- sites */
   app.post("/api/sites", requireAdmin, async (c) => {
@@ -319,6 +342,7 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
       base: body.base || {},
       author: c.get("user").email,
       message: message(body.message, `更新 ${files.length} 個檔案`),
+      auto: body.auto === true,
     });
     const fresh = await getSite(c.env, site.id);
     const tree = await loadTree(c.env, result.commit.tree_id);
@@ -375,17 +399,35 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
     return c.json({ commit: commitView(result.commit, fresh), changed: result.changed, noop: result.noop, site: siteView(c.env, fresh) });
   });
 
-  // One sentence in, three contrast-checked themes out. Logged per site and
-  // capped per day, so a busy editor cannot run up the bill.
-  app.post("/api/sites/:id/ai-theme", async (c) => {
+  // Both AI features share one key, one daily cap per site and one on/off
+  // switch per site (the admin's 「AI 助手設定」 page).
+  const aiGate = async (c) => {
     const site = c.get("site");
-    const body = await c.req.json().catch(() => ({}));
+    const config = await aiConfig(c.env);
+    if (!config.key) throw new RepoError(503, "AI 功能尚未設定（管理者需要在「AI 助手設定」放入 API 金鑰）。");
+    if (!aiEnabledFor(config, site.id)) throw new RepoError(403, "管理者沒有為這個網站開啟 AI 功能。");
     const used = await aiUsage(c.env, site.id);
-    if (used >= AI_DAILY_LIMIT)
-      return c.json({ error: `這個網站今天已經用了 ${used} 次 AI 外觀，明天再試，或先用「產生 6 組」。` }, 429);
-    const themes = await aiThemes(c.env, body.description, fetchImpl);
+    if (used >= config.dailyLimit)
+      throw new RepoError(429, `這個網站今天的 AI 次數用完了（${used} 次），明天自動恢復。其他功能照常使用。`);
+    return { site, config, remaining: config.dailyLimit - used - 1 };
+  };
+
+  // One sentence in, three contrast-checked themes out.
+  app.post("/api/sites/:id/ai-theme", async (c) => {
+    const { site, config, remaining } = await aiGate(c);
+    const body = await c.req.json().catch(() => ({}));
+    const themes = await aiThemes(c.env, body.description, fetchImpl, config.key);
     await logEvent(c.env, site.id, "ai_theme", null, c.get("user").email, String(body.description || "").slice(0, 300));
-    return c.json({ themes, remaining: AI_DAILY_LIMIT - used - 1 });
+    return c.json({ themes, remaining });
+  });
+
+  // The editing assistant: proposals only; the editor applies what the teacher accepts.
+  app.post("/api/sites/:id/assistant", async (c) => {
+    const { site, config, remaining } = await aiGate(c);
+    const body = await c.req.json().catch(() => ({}));
+    const result = await aiAssist(c.env, body, fetchImpl, config.key);
+    await logEvent(c.env, site.id, "ai_assist", null, c.get("user").email, String(body.message || "").slice(0, 300));
+    return c.json({ ...result, remaining });
   });
 
   app.get("/api/sites/:id/export", async (c) => {

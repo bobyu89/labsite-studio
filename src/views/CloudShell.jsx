@@ -25,6 +25,7 @@ import UiSize from "../components/UiSize";
 import DeviceLogin from "../components/DeviceLogin";
 import AdminOverview from "../components/AdminOverview";
 import { PasswordLoginForm, PasswordDialog, PasswordButton } from "../components/PasswordLogin";
+import AiSettings from "../components/AiSettings";
 
 const fmt = (t) => (t ? new Intl.DateTimeFormat("zh-TW", { dateStyle: "medium", timeStyle: "short" }).format(t) : "");
 
@@ -371,9 +372,10 @@ function HomeTabs({ view, setView }) {
   );
 }
 
-function CloudHome({ p, onSetPassword }) {
+function CloudHome({ p, onSetPassword, setConfirm }) {
   const me = p.cloud.me;
   const [view, setView] = useState("sites");
+  if (me.admin && view === "ai") return <AiSettings p={p} onBack={() => setView("sites")} setConfirm={setConfirm} />;
   if (me.admin && view === "overview")
     return (
       <>
@@ -393,7 +395,7 @@ function CloudHome({ p, onSetPassword }) {
         <div>
           <h1>我的網站</h1>
           <p>
-            選一個網站開始編輯。保存會留下版本紀錄；按「發布」後，網站才會更新給所有人看。第一次使用？請看
+            選一個網站開始修改。修改會自動存成草稿；按「發布」後，網站才會更新給所有人看。第一次使用？請看
             <a className="text-link" href="/manual.html" target="_blank" rel="noopener">
               操作手冊
             </a>
@@ -434,6 +436,10 @@ function CloudHome({ p, onSetPassword }) {
       {me.admin && (
         <section className="admin-tools">
           <h2>管理者</h2>
+          <button type="button" className="admin-link" onClick={() => setView("ai")}>
+            <span>AI 助手設定</span>
+            <span className="muted">{me.ai ? "已開啟" : "尚未設定金鑰"}</span>
+          </button>
           <details>
             <summary>新增網站（用模板）</summary>
             <TemplateCard p={p} />
@@ -465,10 +471,14 @@ export default function CloudShell({ p, notice, setNotice, device, setDevice }) 
         <a
           className="brand"
           href="/"
-          onClick={(e) => {
+          onClick={async (e) => {
             e.preventDefault();
             if (!p.project) return;
-            if (p.anyDirty)
+            // Cloud sites store what was typed first; only unsaved looks still need a decision.
+            const auto = p.autosave;
+            const stored = auto.on && auto.pending ? await p.flushAutosave() : true;
+            const left = auto.on ? !stored || !!p.textSize?.dirty : p.anyDirty;
+            if (left)
               setConfirm({
                 title: "回到網站列表？",
                 description: "有尚未保存的修改，離開後會遺失。",
@@ -516,7 +526,8 @@ export default function CloudShell({ p, notice, setNotice, device, setDevice }) 
       <main id="main" tabIndex={-1} className={"main-content " + (p.project ? "editor-main" : "")}>
         {signedOut ? (
           <div className="signed-out">
-            <h1>登入 LabSite</h1>
+            <h1>登入</h1>
+            <p className="signed-out-lead">用 Email 和密碼登入，修改自己研究室的網站。</p>
             {p.cloud.error && p.cloud.error !== "請先登入。" && (
               <div className="message error" role="alert">
                 <WarningCircle size={20} />
@@ -541,7 +552,7 @@ export default function CloudShell({ p, notice, setNotice, device, setDevice }) 
         ) : p.project ? (
           <Project p={p} device={device} setDevice={setDevice} setConfirm={setConfirm} />
         ) : (
-          <CloudHome p={{ ...p, notify: setNotice }} onSetPassword={() => setPasswordOpen(true)} />
+          <CloudHome p={{ ...p, notify: setNotice }} onSetPassword={() => setPasswordOpen(true)} setConfirm={setConfirm} />
         )}
       </main>
       {me && <PasswordDialog p={p} open={passwordOpen} onClose={() => setPasswordOpen(false)} />}

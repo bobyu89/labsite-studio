@@ -52,6 +52,8 @@ import { createPreviewCache, invalidatePreviewCache } from "../site/preview.js";
 import { detectCloud, cloudApi, cloudSource, redeemInviteFromUrl } from "../site/cloud.js";
 import { pageLabel, saveMessage } from "../site/labels.js";
 export { pageLabel, saveMessage };
+// How long after the last change a cloud site's edits are saved as a draft.
+export const AUTOSAVE_DELAY = 20_000;
 import {
   NAV_FILES,
   readNav,
@@ -145,6 +147,8 @@ export function useProject(notify) {
   // written in the same commit as the page that references them.
   const [staged, setStaged] = useState({});
   const [busy, setBusy] = useState(false);
+  // { status: "idle" | "saving" | "saved" | "error", at, error }
+  const [autosave, setAutosave] = useState({ status: "idle", at: null, error: null });
   const [error, setError] = useState(null);
   const [remembered, setRemembered] = useState(null);
   const [devInfo, setDevInfo] = useState(null);
@@ -330,6 +334,7 @@ export function useProject(notify) {
       setSiteData(data);
       setNavFile(navState);
       setProject({ source, pages });
+      setAutosave({ status: "idle", at: null, error: null });
       if (source.kind === "directory")
         dbPut(STORES.projects, LAST, { handle: source.handle, name: source.name, at: Date.now() }).catch(() => {});
       const first = pages.includes(startPage) ? startPage : pages.includes("index.html") ? "index.html" : pages[0];
@@ -384,17 +389,16 @@ export function useProject(notify) {
   const openCloud = (site) => openSource(cloudSource(site));
   const cloudSiteId = project?.source.kind === "cloud" ? project.source.site.id : null;
   const cloudSite = cloudSiteId ? cloud.me?.sites.find((x) => x.id === cloudSiteId) || project.source.site : null;
-  async function publishCloud(commitId) {
+  // opts.message replaces the usual "已發布" notice (false: say nothing, the caller shows its own).
+  async function publishCloud(commitId, opts = {}) {
     if (!cloudSiteId) return false;
     setBusy(true);
     try {
       const { site } = await cloudCalls.publish(cloudSiteId, commitId);
       await refreshCloud();
-      notify(
-        site.backup?.status === "error"
-          ? "已發布，網站幾秒內就會更新。GitHub 備份失敗：" + site.backup.error
-          : "已發布，網站幾秒內就會更新。",
-      );
+      const backup = site.backup?.status === "error" ? "GitHub 備份失敗：" + site.backup.error : "";
+      if (opts.message !== false) notify((opts.message || "已發布，網站幾秒內就會更新。") + backup);
+      else if (backup) notify(backup);
       return true;
     } catch (e) {
       setError("發布失敗：" + e.message);
@@ -1191,7 +1195,7 @@ export function useProject(notify) {
         const text = detachSheet(writeNews(s.text, items));
         return { ...s, text, fields: readSiteFields(text).fields };
       });
-      notify(`已從試算表搬進 ${items.length} 則消息。確認無誤後按「保存消息」，再按「發布」。`);
+      notify(`已從試算表搬進 ${items.length} 則消息。確認無誤後${project?.source.kind === "cloud" ? "" : "按「保存消息」，再"}按「發布」。`);
       return true;
     } catch (e) {
       setError("沒辦法讀取 Google 試算表：" + e.message + " 也可以按「不搬，直接在這裡管理」，從網站目前的消息開始。");
@@ -1349,7 +1353,11 @@ export function useProject(notify) {
   }
   // AI themes (LabSite Cloud with an API key): one sentence → three themes,
   // already contrast-checked by the server. Applying one is setTheme().
-  const aiAvailable = !!cloud.me?.ai && project?.source.kind === "cloud";
+  const aiAvailable = !!cloud.me?.ai && project?.source.kind === "cloud" && !(cloud.me.aiOff || []).includes(project.source.site.id);
+  const askAssistant = (body) => {
+    if (!aiAvailable) throw new Error("這個網站沒有開啟 AI 助手。");
+    return cloudCalls.assistant(project.source.site.id, body);
+  };
   async function generateAiThemes(description) {
     if (!aiAvailable) throw new Error("這個網站沒有開啟 AI 外觀。");
     return cloudCalls.aiTheme(project.source.site.id, description);
@@ -1377,7 +1385,17 @@ export function useProject(notify) {
   /* ------------------------------------------------------------ saving */
   // Every save is one unit: the pages named, the images staged for them and
   // (optionally) js/data.js, written together — a single commit on GitHub.
-  async function commitFiles({ pages = [], site = false, themeFile = false, albums: saveAlbumsFile = false, nav: saveNavFile = false, extra = [] }) {
+  // Saves run one after another: an autosave still on its way never overlaps
+  // the save (or publish) a person just asked for.
+  const saveQueue = useRef(Promise.resolve());
+  function commitFiles(what, opts) {
+    const run = saveQueue.current.then(() => writeChanges(what, opts));
+    saveQueue.current = run.catch(() => {});
+    return run;
+  }
+  // opts.auto: an autosave — quiet (no message, the buttons stay usable) and
+  // marked so the server keeps one history entry per sitting.
+  async function writeChanges({ pages = [], site = false, themeFile = false, albums: saveAlbumsFile = false, nav: saveNavFile = false, extra = [] }, { auto = false } = {}) {
     if (!project) return false;
     if (!project.source.writable) {
       setError("網址來源無法寫回，請用「下載此頁」取得修改後的檔案。");
@@ -1437,10 +1455,12 @@ export function useProject(notify) {
     }
     if (!files.length) return false;
     const names = files.map((f) => f.path);
-    const message = saveMessage(files);
-    setBusy(true);
+    const message = (auto ? "自動保存：" : "") + saveMessage(files);
+    const savedSite = site && siteData ? siteData.text : null;
+    if (auto) setAutosave((a) => ({ ...a, status: "saving" }));
+    else setBusy(true);
     try {
-      const commit = await project.source.writeFiles(files, message);
+      const commit = await project.source.writeFiles(files, message, { auto });
       setOriginals((o) => {
         const next = { ...o };
         for (const path of pages) if (drafts[path]) next[path] = drafts[path].present;
@@ -1452,9 +1472,10 @@ export function useProject(notify) {
           for (const t of assets) delete next[t];
           return next;
         });
-      if (site && siteData) {
+      if (savedSite !== null) {
         invalidatePreviewCache(cache.current, SITE_DATA);
-        setSiteData((sd) => ({ ...sd, original: sd.text }));
+        // What was sent, not what is on screen now: typing may have gone on meanwhile.
+        setSiteData((sd) => (sd ? { ...sd, original: savedSite } : sd));
       }
       if (savedTheme !== null) setThemeState((t) => (t ? { ...t, original: savedTheme } : t));
       if (savedText !== null) setTextCss((c) => (c ? { ...c, original: savedText } : c));
@@ -1471,6 +1492,11 @@ export function useProject(notify) {
         setSkin((k) => (k ? { ...k, original: savedSkin.text, current: savedSkin.pending || k.current, pending: null } : k));
       const what = names.length === 1 ? names[0] : names.length + " 個檔案";
       const kind = project.source.kind;
+      setAutosave({ status: "saved", at: Date.now(), error: null });
+      if (auto) {
+        refreshCloud();
+        return true;
+      }
       notify(
         kind === "cloud"
           ? `已保存 ${what}（版本 ${String(commit || "").slice(0, 7)}）。按「發布」後網站才會更新。`
@@ -1481,12 +1507,40 @@ export function useProject(notify) {
       if (kind === "cloud") refreshCloud();
       return true;
     } catch (e) {
-      setError("寫入失敗：" + e.message);
+      if (auto) setAutosave({ status: "error", at: Date.now(), error: e.message });
+      else setError("寫入失敗：" + e.message);
       return false;
     } finally {
-      setBusy(false);
+      if (!auto) setBusy(false);
     }
   }
+
+  // Autosave (LabSite Cloud only): what was typed is stored as a draft a short
+  // while after the last change, and when the tab goes to the background.
+  // Looks (colours, type) are left out — trying one on should not save it.
+  const autosaveOn = project?.source.kind === "cloud" && !!project.source.writable;
+  const contentDirty = dirtyPages.length > 0 || siteDirty || albumsDirty || navFileDirty;
+  const flushRef = useRef(null);
+  flushRef.current = async () => {
+    if (!autosaveOn || !contentDirty) return true;
+    return commitFiles(
+      { pages: dirtyPages, site: siteDirty, albums: albumsDirty, nav: navFileDirty, extra: albumsDirty ? await missingRuntime() : [] },
+      { auto: true },
+    );
+  };
+  useEffect(() => {
+    if (!autosaveOn || !contentDirty || busy) return;
+    const timer = setTimeout(() => flushRef.current(), AUTOSAVE_DELAY);
+    return () => clearTimeout(timer);
+    // Any edit restarts the wait, so nothing is sent in the middle of a sentence.
+  }, [autosaveOn, contentDirty, busy, drafts, siteData?.text, albumsFile?.text, navFile?.text, staged]);
+  useEffect(() => {
+    const onHide = () => {
+      if (document.visibilityState === "hidden") flushRef.current?.();
+    };
+    document.addEventListener("visibilitychange", onHide);
+    return () => document.removeEventListener("visibilitychange", onHide);
+  }, []);
   const savePage = (path = current) => commitFiles({ pages: [path] });
   const saveAll = async () =>
     commitFiles({ pages: dirtyPages, site: siteDirty, themeFile: themeDirty, albums: albumsDirty, nav: navFileDirty, extra: albumsDirty ? await missingRuntime() : [] });
@@ -1565,7 +1619,9 @@ export function useProject(notify) {
       : null,
     setTextSize,
     skins: skin ? { list: skin.list, current: skin.current, pending: skin.pending } : null,
-    ai: { available: aiAvailable, generate: generateAiThemes },
+    ai: { available: aiAvailable, generate: generateAiThemes, ask: askAssistant },
+    autosave: { ...autosave, on: autosaveOn, pending: autosaveOn && contentDirty },
+    flushAutosave: () => flushRef.current(),
     previewSkin,
     setTheme,
     revertTheme,

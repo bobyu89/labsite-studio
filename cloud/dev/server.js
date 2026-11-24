@@ -5,8 +5,9 @@
 // Like production: no R2 (file contents go to D1). Flags:
 //   --invite-only   ignore DEV_AUTH; sign in only with invite links
 //   --r2            keep file contents in a folder acting as R2
-//   --ai-mock       answer the Claude API with canned themes (no key needed),
-//                   to work on the AI theme UI offline
+//   --ai-mock       answer the Claude API with canned themes and assistant
+//                   proposals (no key needed), to work on the AI UI offline
+//   --no-key        with --ai-mock: start without a key, to try 「AI 助手設定」
 //
 //   npm run build            (in labsite-studio/, to refresh ../dist)
 //   npm --prefix cloud run dev:node
@@ -66,19 +67,48 @@ const mockThemes = [
   { name: "研討會海報", rationale: "（模擬回應）高對比的學術配色。", research: "#1d3f73", team: "#a33b2a", publications: "#2f5d50", join: "#5b4b8a", ink: "#111418", wall: "#f1f2f4", font: "scholar", radius: 0 },
   { name: "春日校園", rationale: "（模擬回應）偏淺的綠色會被自動調深。", research: "#8fd19e", team: "#9ecbe8", publications: "#f2b880", join: "#c9a0dc", ink: "#333333", wall: "#f5f7f2", font: "public", radius: 10 },
 ];
+// The assistant's canned answers: picks a proposal from words in the request,
+// using the ids the editor sent, so 套用 can be tried end to end.
+function mockAssist(body) {
+  const last = String(body.messages.at(-1)?.content || "");
+  const ask = last.slice(last.lastIndexOf("老師說：") + 4);
+  let context = {};
+  try {
+    context = JSON.parse(last.slice(last.indexOf("<site_context>") + 14, last.indexOf("</site_context>")));
+  } catch {
+    /* answer without proposals */
+  }
+  const fields = context.page?.fields || [];
+  const today = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+  if (/消息/.test(ask))
+    return { reply: "（模擬回應）我準備在最新消息加這一則，確認後按套用。", changes: [{ type: "add_news", date: today, category: "公告", zh: "（示範）" + ask.replace(/^.*?[：:]/, "").slice(0, 60), en: "(Demo) News item written by the mock assistant.", link: "" }] };
+  if (/電話/.test(ask)) return { reply: "（模擬回應）我準備把電話改成這個號碼。", changes: [{ type: "set_site", key: "phone", value: (ask.match(/[\d-]{7,}/) || ["02-8792-3100"])[0] }] };
+  if (/論文/.test(ask) && context.publicationLists?.length)
+    return { reply: "（模擬回應）我準備把這篇加到清單最前面。", changes: [{ type: "add_publication", list: context.publicationLists[0].id, citation: "Wang, X. M., & Sung, C. M. (2026). A demo reference from the mock assistant. Journal of Advanced Nursing, 82(3), 1234-1245.", bold: context.publicationLists[0].usualBoldName || "Sung, C. M.", journal: "Journal of Advanced Nursing", url: "https://doi.org/10.1111/jan.99999" }] };
+  if (/哪裡/.test(ask)) return { reply: "（模擬回應）論文在「成果發表」那一頁：左邊的頁面清單點「成果發表」，或直接按「＋ 論文」。", changes: [] };
+  if (!fields.length) return { reply: "（模擬回應）這一頁沒有可以修改的文字。", changes: [] };
+  return { reply: "（模擬回應）我準備修改這一段，確認後按套用。", changes: [{ type: "set_text", field: fields[0].id, text: fields[0].text + "（示範修改）" }] };
+}
 const mockFetch = async (url, init) => {
   if (!String(url).includes("api.anthropic.com")) return fetch(url, init);
+  if (String(url).includes("/v1/models/"))
+    return new Response(JSON.stringify({ id: "claude-opus-5-5", type: "model", display_name: "Claude Opus 5.5", created_at: "2026-01-01T00:00:00Z" }), {
+      headers: { "Content-Type": "application/json" },
+    });
   await new Promise((r) => setTimeout(r, 800));
+  const body = JSON.parse(init?.body || "{}");
+  const assist = !!body.output_config?.format?.schema?.properties?.changes;
   return new Response(
     JSON.stringify({
       id: "msg_mock", type: "message", role: "assistant", model: "claude-opus-5-5",
-      content: [{ type: "text", text: JSON.stringify({ themes: mockThemes }) }],
+      content: [{ type: "text", text: JSON.stringify(assist ? mockAssist(body) : { themes: mockThemes }) }],
       stop_reason: "end_turn", stop_sequence: null, usage: { input_tokens: 0, output_tokens: 0 },
     }),
     { headers: { "Content-Type": "application/json" } },
   );
 };
-if (flags.has("--ai-mock")) env.ANTHROPIC_API_KEY = env.ANTHROPIC_API_KEY || "mock";
+// --no-key: leave the key unset, to try the 「AI 助手設定」 page (any sk-ant-… value passes the mock).
+if (flags.has("--ai-mock") && !flags.has("--no-key")) env.ANTHROPIC_API_KEY = env.ANTHROPIC_API_KEY || "mock";
 const app = createApp(flags.has("--ai-mock") ? { fetchImpl: mockFetch } : {});
 
 function listen(port, handler) {

@@ -29,7 +29,7 @@ export default function PreviewCanvas({ doc, device, setDevice }) {
           {device === "mobile" ? "390 px" : "自適應"}
         </span>
       </div>
-      <div className={"canvas-frame " + device}>
+      <div className={"canvas-frame " + (device === "mobile" ? "mobile" : "desktop")}>
         <iframe
           title="編輯中的網站預覽"
           srcDoc={doc}

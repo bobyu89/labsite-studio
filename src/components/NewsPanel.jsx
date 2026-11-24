@@ -54,7 +54,7 @@ export default function NewsPanel({ p, writable, setConfirm }) {
         <div className="news-callout">
           <strong>這個網站的最新消息目前來自 Google 試算表</strong>
           <p>
-            搬進編輯器之後，就在這裡新增、修改消息，按「保存消息」再按「發布」網站就會更新，不用再開試算表。
+            搬進編輯器之後，就在這裡新增、修改消息，按「發布」網站就會更新，不用再開試算表。
             會先把試算表裡現有的消息複製過來，試算表本身不會被刪除或修改。
           </p>
           <Button size="3" disabled={!writable || p.busy} onClick={() => p.importSheetNews()}>
@@ -105,7 +105,8 @@ export default function NewsPanel({ p, writable, setConfirm }) {
   return (
     <div className="news-panel">
       <p className="small-note">
-        首頁會顯示最新的 3 則，其他的按「查看全部」才看得到。改完按「保存消息」，再按上方的「發布」，網站才會更新。
+        首頁會顯示最新的 3 則，其他的按「查看全部」才看得到。
+        {p.autosave?.on ? "修改會自動存成草稿；按上方的「發布」，網站才會更新。" : "改完按「保存消息」，再按上方的「發布」，網站才會更新。"}
       </p>
       {draft ? (
         <div className="news-new">
@@ -146,9 +147,11 @@ export default function NewsPanel({ p, writable, setConfirm }) {
         ))}
       </ul>
       {items.length === 0 && <p className="small-note">還沒有任何消息。</p>}
-      <Button disabled={!p.siteDirty || !writable || p.busy} onClick={p.saveSiteData}>
-        <FloppyDisk size={18} /> 保存消息
-      </Button>
+      {!p.autosave?.on && (
+        <Button disabled={!p.siteDirty || !writable || p.busy} onClick={p.saveSiteData}>
+          <FloppyDisk size={18} /> 保存消息
+        </Button>
+      )}
     </div>
   );
 }
