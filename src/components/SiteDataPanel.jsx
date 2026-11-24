@@ -7,7 +7,7 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Edits the string fields of SITE in js/data.js (name, contact), grouped, each
 // with where it shows on the site; template sample values are flagged.
-export default function SiteDataPanel({ siteData, siteDirty, setSiteField, saveSiteData, writable, busy }) {
+export default function SiteDataPanel({ siteData, siteDirty, setSiteField, saveSiteData, writable, busy, autosave = false }) {
   if (!siteData)
     return <p className="small-note">這個網站的頁首與頁尾是直接寫在每一頁裡的，請在「編輯內容」點選要改的地方修改。</p>;
   const samples = siteData.fields.filter((f) => !f.unused && isSampleValue(f.value)).length;
@@ -52,10 +52,16 @@ export default function SiteDataPanel({ siteData, siteDirty, setSiteField, saveS
           </fieldset>
         );
       })}
-      <Button disabled={!siteDirty || !writable || busy} onClick={saveSiteData}>
-        {writable ? "保存研究室資料" : "這個網站不能在這裡修改"}
-      </Button>
-      {siteDirty && writable && <span className="small-note">保存後一樣要按「發布」，網站才會更新。</span>}
+      {autosave && writable ? (
+        <span className="small-note">修改會自動存成草稿；按上方的「發布」，網站才會更新。</span>
+      ) : (
+        <>
+          <Button disabled={!siteDirty || !writable || busy} onClick={saveSiteData}>
+            {writable ? "保存研究室資料" : "這個網站不能在這裡修改"}
+          </Button>
+          {siteDirty && writable && <span className="small-note">保存後一樣要按「發布」，網站才會更新。</span>}
+        </>
+      )}
     </div>
   );
 }

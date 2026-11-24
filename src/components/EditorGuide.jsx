@@ -20,7 +20,7 @@ function remember() {
   }
 }
 
-export default function EditorGuide({ onClose, isCloud, hasAlbum, hasNews }) {
+export default function EditorGuide({ onClose, isCloud, hasAlbum, hasNews, hasAi }) {
   const close = () => {
     remember();
     onClose();
@@ -37,23 +37,23 @@ export default function EditorGuide({ onClose, isCloud, hasAlbum, hasNews }) {
         <li>
           <CursorClick size={26} />
           <strong>點選要改的地方</strong>
-          <span>在右邊的網站預覽裡點一下文字或照片，左邊就會出現可以修改的欄位。要改別頁，用上方的「頁面」選單。</span>
+          <span>在中間的網站預覽裡點一下文字或照片，右邊就會出現可以修改的欄位。要改別頁，在左邊的「頁面」點那一頁。</span>
         </li>
         <li>
           <PencilSimpleLine size={26} />
           <strong>改文字、換照片</strong>
           <span>
-            直接在左邊改字。照片按「換一張照片」，或把電腦裡的照片拖到預覽的圖片上。成員照片：點成員的圓形頭像。
-            {hasAlbum && " 活動照片：到「活動相簿」分頁一次加入很多張。"}
-            {hasNews && " 最新消息：到「最新消息」分頁新增或修改。"}
+            直接在右邊改字，或在預覽裡點文字直接打。照片按「換一張照片」，或把電腦裡的照片拖到預覽的圖片上。
+            {" 常用的新增（論文、" + (hasNews ? "最新消息、" : "") + "成員" + (hasAlbum ? "、活動照片" : "") + "）在左上角的「快速新增」。"}
+            {hasAi && " 也可以在右上角的「AI 助手」直接寫想怎麼改，助手會先給你看，按「套用」才會改。"}
           </span>
         </li>
         <li>
           <RocketLaunch size={26} />
-          <strong>{isCloud ? "保存，再發布" : "保存"}</strong>
+          <strong>{isCloud ? "確認後按「發布」" : "保存"}</strong>
           <span>
             {isCloud
-              ? "「保存」會留下一個版本，只有編輯者看得到；按「發布」後，大家看到的網站才會更新。改錯了可以按復原，或到「版本紀錄」找回舊版。"
+              ? "修改會自動存成草稿，只有編輯者看得到，關掉視窗也不會不見。按「發布」後，大家看到的網站才會更新。改錯了可以按復原，或到左上角的「舊版本」找回來。"
               : "「保存」會把修改寫回網站檔案。改錯了可以按復原。"}
           </span>
         </li>

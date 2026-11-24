@@ -25,6 +25,7 @@ import UiSize from "../components/UiSize";
 import DeviceLogin from "../components/DeviceLogin";
 import AdminOverview from "../components/AdminOverview";
 import { PasswordLoginForm, PasswordDialog, PasswordButton } from "../components/PasswordLogin";
+import AiSettings from "../components/AiSettings";
 
 const fmt = (t) => (t ? new Intl.DateTimeFormat("zh-TW", { dateStyle: "medium", timeStyle: "short" }).format(t) : "");
 
@@ -137,7 +138,7 @@ function Members({ p, site }) {
                 <Trash size={15} />
               </button>
             </div>
-            {p.cloud.me.via !== "access" && !p.cloud.me.google && <InviteLink p={p} email={m.email} />}
+            {p.cloud.me.via !== "access" && <InviteLink p={p} email={m.email} />}
           </li>
         ))}
       </ul>
@@ -148,16 +149,11 @@ function Members({ p, site }) {
           if (email.trim()) run(() => p.cloudCalls.addMember(site.id, email.trim()));
         }}
       >
-        <input type="email" placeholder={p.cloud.me.google ? "老師的 Google Email" : "老師的 Email"} value={email} onChange={(e) => setEmail(e.target.value)} aria-label="新增成員 Email" />
+        <input type="email" placeholder="老師的 Email" value={email} onChange={(e) => setEmail(e.target.value)} aria-label="新增成員 Email" />
         <Button size="1" type="submit" disabled={busy || !email.trim()}>
           <Plus size={14} /> 加入
         </Button>
       </form>
-      {p.cloud.me.google && (
-        <span className="small-note">
-          加入後，請老師打開 {location.origin} 按「用 Google 帳號登入」，不用再傳登入連結。
-        </span>
-      )}
       {error && <span className="error-text small-note">{error}</span>}
     </div>
   );
@@ -167,52 +163,58 @@ function SiteCard({ p, site, admin }) {
   const [manage, setManage] = useState(false);
   const backup = site.backup || {};
   return (
-    <section className="open-card cloud-site">
-      <div className="cloud-site-head">
-        <h3>{site.name}</h3>
-        {site.unpublished ? (
-          <Badge color="amber" variant="soft">
-            有尚未發布的修改
-          </Badge>
-        ) : (
-          <Badge color="teal" variant="soft">
-            已發布
-          </Badge>
-        )}
-      </div>
-      {site.url && (
-        <a className="cloud-site-url" href={site.url} target="_blank" rel="noreferrer">
-          {site.url.replace(/^https?:\/\//, "")} <ArrowSquareOut size={13} />
-        </a>
-      )}
-      {admin && (
-        <p className={"cloud-backup" + (backup.status === "error" ? " error-text" : "")}>
-          <GithubLogo size={14} /> 備份{site.github ? "到 " + site.github : ""}：
-          {backup.status === "ok"
-            ? "已備份到最新（" + fmt(backup.at) + "）"
-            : backup.status === "partial"
-              ? "備份中，" + backup.error
-              : backup.status === "error"
-                ? "失敗（" + backup.error + "）"
-                : backup.status === "skipped"
-                  ? "還沒設定 GitHub 備份金鑰"
-                  : "等待第一次備份（每小時自動檢查）"}
-        </p>
-      )}
-      <div className="button-row">
-        <Button size="3" onClick={() => p.openCloud(site)} disabled={p.busy}>
-          <PencilSimple size={18} /> 開啟編輯
-        </Button>
-        <Button size="3" variant="surface" asChild>
-          <a href={p.cloudCalls.exportUrl(site.id, "published")} download>
-            <DownloadSimple size={18} /> 下載整站
-          </a>
-        </Button>
-        {admin && (
-          <Button size="3" variant="ghost" onClick={() => setManage(!manage)}>
-            <UsersThree size={18} /> 成員
+    <section className="site-row">
+      <div className="site-row-main">
+        <div className="site-row-text">
+          <h3>{site.name}</h3>
+          <p className={site.unpublished ? "site-row-state pending" : "site-row-state"}>
+            {site.unpublished ? "有修改尚未發布，訪客看到的還是舊的" : "網站是最新的"}
+            {site.url && (
+              <>
+                　・　
+                <a href={site.url} target="_blank" rel="noreferrer">
+                  {site.url.replace(/^https?:\/\//, "")}
+                </a>
+              </>
+            )}
+          </p>
+          {admin && (
+            <p className={"cloud-backup" + (backup.status === "error" ? " error-text" : "")}>
+              <GithubLogo size={14} /> 備份{site.github ? "到 " + site.github : ""}：
+              {backup.status === "ok"
+                ? "已備份到最新（" + fmt(backup.at) + "）"
+                : backup.status === "partial"
+                  ? "備份中，" + backup.error
+                  : backup.status === "error"
+                    ? "失敗（" + backup.error + "）"
+                    : backup.status === "skipped"
+                      ? "還沒設定 GitHub 備份金鑰"
+                      : "等待第一次備份（每小時自動檢查）"}
+            </p>
+          )}
+        </div>
+        <div className="button-row">
+          {admin && (
+            <Button size="3" variant="surface" color="gray" onClick={() => setManage(!manage)} aria-expanded={manage}>
+              <UsersThree size={18} /> 成員
+            </Button>
+          )}
+          <Button size="3" variant="surface" color="gray" asChild>
+            <a href={p.cloudCalls.exportUrl(site.id, "published")} download title="下載整個網站的檔案">
+              <DownloadSimple size={18} /> 下載
+            </a>
           </Button>
-        )}
+          {site.url && (
+            <Button size="3" variant="surface" color="gray" asChild>
+              <a href={site.url} target="_blank" rel="noreferrer">
+                <ArrowSquareOut size={18} /> 看網站
+              </a>
+            </Button>
+          )}
+          <Button size="3" onClick={() => p.openCloud(site)} disabled={p.busy}>
+            <PencilSimple size={18} /> 修改
+          </Button>
+        </div>
       </div>
       {admin && manage && <Members p={p} site={site} />}
     </section>
@@ -370,9 +372,10 @@ function HomeTabs({ view, setView }) {
   );
 }
 
-function CloudHome({ p, onSetPassword }) {
+function CloudHome({ p, onSetPassword, setConfirm }) {
   const me = p.cloud.me;
   const [view, setView] = useState("sites");
+  if (me.admin && view === "ai") return <AiSettings p={p} onBack={() => setView("sites")} setConfirm={setConfirm} />;
   if (me.admin && view === "overview")
     return (
       <>
@@ -392,7 +395,7 @@ function CloudHome({ p, onSetPassword }) {
         <div>
           <h1>我的網站</h1>
           <p>
-            選一個網站開始編輯。保存會留下版本紀錄；按「發布」後，網站才會更新給所有人看。第一次使用？請看
+            選一個網站開始修改。修改會自動存成草稿；按「發布」後，網站才會更新給所有人看。第一次使用？請看
             <a className="text-link" href="/manual.html" target="_blank" rel="noopener">
               操作手冊
             </a>
@@ -401,7 +404,7 @@ function CloudHome({ p, onSetPassword }) {
         </div>
         {me.admin && <HomeTabs view={view} setView={setView} />}
       </div>
-      {me.via === "session" && !me.hasPassword && !me.google && (
+      {me.via === "session" && !me.hasPassword && (
         <div className="message password-nudge" role="status">
           <span>
             <strong>設定一組密碼</strong>，之後換電腦或用手機，只要輸入 Email 和密碼就能登入。
@@ -424,14 +427,35 @@ function CloudHome({ p, onSetPassword }) {
           <span>你的帳號（{me.email}）還沒有被加入任何網站，請聯絡管理者把你加入。</span>
         </div>
       )}
-      <div className="open-grid cloud-grid">
+      <div className="site-list">
         {me.sites.map((s) => (
           <SiteCard key={s.id} p={p} site={s} admin={me.admin} />
         ))}
-        {me.admin && <TemplateCard p={p} />}
-        {me.admin && <ImportCard p={p} />}
-        {me.admin && me.via !== "access" && <InviteCard p={p} />}
+        {me.sites.length === 0 && me.admin && <p className="muted site-list-empty">還沒有網站。用下面的「新增網站」建立第一個。</p>}
       </div>
+      {me.admin && (
+        <section className="admin-tools">
+          <h2>管理者</h2>
+          <button type="button" className="admin-link" onClick={() => setView("ai")}>
+            <span>AI 助手設定</span>
+            <span className="muted">{me.ai ? "已開啟" : "尚未設定金鑰"}</span>
+          </button>
+          <details>
+            <summary>新增網站（用模板）</summary>
+            <TemplateCard p={p} />
+          </details>
+          <details>
+            <summary>從 GitHub 匯入網站</summary>
+            <ImportCard p={p} />
+          </details>
+          {me.via !== "access" && (
+            <details>
+              <summary>產生登入連結</summary>
+              <InviteCard p={p} />
+            </details>
+          )}
+        </section>
+      )}
     </>
   );
 }
@@ -447,10 +471,14 @@ export default function CloudShell({ p, notice, setNotice, device, setDevice }) 
         <a
           className="brand"
           href="/"
-          onClick={(e) => {
+          onClick={async (e) => {
             e.preventDefault();
             if (!p.project) return;
-            if (p.anyDirty)
+            // Cloud sites store what was typed first; only unsaved looks still need a decision.
+            const auto = p.autosave;
+            const stored = auto.on && auto.pending ? await p.flushAutosave() : true;
+            const left = auto.on ? !stored || !!p.textSize?.dirty : p.anyDirty;
+            if (left)
               setConfirm({
                 title: "回到網站列表？",
                 description: "有尚未保存的修改，離開後會遺失。",
@@ -498,57 +526,33 @@ export default function CloudShell({ p, notice, setNotice, device, setDevice }) 
       <main id="main" tabIndex={-1} className={"main-content " + (p.project ? "editor-main" : "")}>
         {signedOut ? (
           <div className="signed-out">
-            <h1>登入 LabSite</h1>
+            <h1>登入</h1>
+            <p className="signed-out-lead">用 Email 和密碼登入，修改自己研究室的網站。</p>
             {p.cloud.error && p.cloud.error !== "請先登入。" && (
               <div className="message error" role="alert">
                 <WarningCircle size={20} />
                 <span>{p.cloud.error}</span>
               </div>
             )}
-            {p.cloud.google ? (
-              <>
-                <Button asChild size="4" className="google-login">
-                  <a href="/api/auth/google">用 Google 帳號登入</a>
-                </Button>
-                <p className="google-login-note">用你被加入網站時的那個 Google 帳號（Gmail 或學校的 Google 帳號），不用另外記密碼。</p>
-                <details className="password-alt">
-                  <summary>改用 Email 和密碼登入</summary>
-                  <PasswordLoginForm
-                    onLogin={async (email, password) => {
-                      await p.cloudCalls.passwordLogin(email, password);
-                      location.reload();
-                    }}
-                  />
-                </details>
-                <div className="signed-out-help">
-                  <p>
-                    <strong>按了還是進不去？</strong>請管理者在你網站的「成員」加入你的 Google Email。
-                  </p>
-                </div>
-              </>
-            ) : (
-              <>
-                <PasswordLoginForm
-                  onLogin={async (email, password) => {
-                    await p.cloudCalls.passwordLogin(email, password);
-                    location.reload();
-                  }}
-                />
-                <div className="signed-out-help">
-                  <p>
-                    <strong>第一次使用、還沒設定密碼，或忘記密碼？</strong>請打開管理者傳給你的登入連結，登入後按右上角「設定密碼」。
-                  </p>
-                  <p>
-                    <strong>另一台裝置已經登入？</strong>在那台裝置按右上角「其他裝置登入」，用這台的相機掃 QR code 也可以。
-                  </p>
-                </div>
-              </>
-            )}
+            <PasswordLoginForm
+              onLogin={async (email, password) => {
+                await p.cloudCalls.passwordLogin(email, password);
+                location.reload();
+              }}
+            />
+            <div className="signed-out-help">
+              <p>
+                <strong>第一次使用、還沒設定密碼，或忘記密碼？</strong>請打開管理者傳給你的登入連結，登入後按右上角「設定密碼」。
+              </p>
+              <p>
+                <strong>另一台裝置已經登入？</strong>在那台裝置按右上角「其他裝置登入」，用這台的相機掃 QR code 也可以。
+              </p>
+            </div>
           </div>
         ) : p.project ? (
           <Project p={p} device={device} setDevice={setDevice} setConfirm={setConfirm} />
         ) : (
-          <CloudHome p={{ ...p, notify: setNotice }} onSetPassword={() => setPasswordOpen(true)} />
+          <CloudHome p={{ ...p, notify: setNotice }} onSetPassword={() => setPasswordOpen(true)} setConfirm={setConfirm} />
         )}
       </main>
       {me && <PasswordDialog p={p} open={passwordOpen} onClose={() => setPasswordOpen(false)} />}
@@ -559,9 +563,12 @@ export default function CloudShell({ p, notice, setNotice, device, setDevice }) 
           {confirm?.body}
           <div className="dialog-actions">
             <AlertDialog.Cancel>
-              <Button variant="surface">取消</Button>
+              <Button variant="surface" color="gray">
+                {confirm?.cancelLabel || "取消"}
+              </Button>
             </AlertDialog.Cancel>
             <Button
+              color={confirm?.confirmColor}
               onClick={() => {
                 confirm.action();
                 setConfirm(null);

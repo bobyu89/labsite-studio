@@ -116,27 +116,53 @@ export async function resolveRef(env, site, ref = "draft") {
   return commitTree(env, site.id, id);
 }
 
+// How long one run of autosaves keeps replacing itself before a new history entry starts.
+export const AUTOSAVE_RUN_MS = 2 * 3600 * 1000;
+
 // Moves the draft forward. `build(tree, head)` returns the new tree (a Map)
 // or throws; it is re-run against the fresh head if another save won the race.
-async function advanceDraft(env, siteId, { author, message, now }, build) {
+//
+// An autosave (`auto`) on top of the same person's earlier autosave replaces
+// it: the new version takes that one's parent, and the replaced row is
+// removed once the draft has moved. A version that is published or already
+// backed up to GitHub is never replaced.
+async function advanceDraft(env, siteId, { author, message, now, auto = false }, build) {
   for (let attempt = 0; attempt < 5; attempt++) {
     const site = await getSite(env, siteId);
     if (!site) throw new RepoError(404, "找不到這個網站。");
     const head = site.draft_commit;
-    const base = head ? (await getCommit(env, head)).tree_id : null;
-    const before = await loadTree(env, base);
+    const headCommit = head ? await getCommit(env, head) : null;
+    const before = await loadTree(env, headCommit ? headCommit.tree_id : null);
     const after = await build(new Map(before), head);
-    const changed = diffTrees(before, after);
-    if (!changed.length) return { commit: await getCommit(env, head), changed, noop: true };
-    const treeId = await saveTree(env, after);
+    if (!diffTrees(before, after).length) return { commit: headCommit, changed: [], noop: true };
     const at = now ?? Date.now();
+    const replace =
+      auto &&
+      !!headCommit &&
+      headCommit.auto_since != null &&
+      headCommit.author === author &&
+      head !== site.published_commit &&
+      head !== site.backup_commit &&
+      at - headCommit.auto_since < AUTOSAVE_RUN_MS &&
+      // Published once and since rolled back: the publish log still points at it.
+      !(await env.DB.prepare("SELECT 1 AS used FROM events WHERE commit_id = ? LIMIT 1").bind(head).first());
+    const parent = replace ? headCommit.parent_id : head;
+    // What this version changes compared with the one before it in the history.
+    const parentCommit = replace ? await getCommit(env, parent) : headCommit;
+    const changed = replace ? diffTrees(await loadTree(env, parentCommit ? parentCommit.tree_id : null), after) : diffTrees(before, after);
+    const treeId = await saveTree(env, after);
     const id = await sha256Hex(JSON.stringify([siteId, head, treeId, author, message, at, randomId()]));
-    const [, update] = await env.DB.batch([
+    const statements = [
       env.DB.prepare(
-        "INSERT INTO commits (id, site_id, parent_id, tree_id, author, message, changed, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-      ).bind(id, siteId, head, treeId, author, message, JSON.stringify(changed), at),
+        "INSERT INTO commits (id, site_id, parent_id, tree_id, author, message, changed, created_at, auto_since) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      ).bind(id, siteId, parent, treeId, author, message, JSON.stringify(changed), at, auto ? (replace ? headCommit.auto_since : at) : null),
       env.DB.prepare("UPDATE sites SET draft_commit = ? WHERE id = ? AND draft_commit IS ?").bind(id, siteId, head),
-    ]);
+    ];
+    if (replace)
+      statements.push(
+        env.DB.prepare("DELETE FROM commits WHERE id = ? AND EXISTS (SELECT 1 FROM sites WHERE id = ? AND draft_commit = ?)").bind(head, siteId, id),
+      );
+    const [, update] = await env.DB.batch(statements);
     if (update.meta.changes === 1) return { commit: await getCommit(env, id), changed, noop: false };
   }
   throw new RepoError(503, "目前太多人同時保存，請再試一次。");
@@ -144,7 +170,7 @@ async function advanceDraft(env, siteId, { author, message, now }, build) {
 
 // files: [{ path, bytes } | { path, delete: true }]
 // base:  { [path]: hash | null } — what the editor loaded; null means "did not exist".
-export async function commitChanges(env, siteId, { files, base = {}, author, message, now }) {
+export async function commitChanges(env, siteId, { files, base = {}, author, message, now, auto = false }) {
   if (!Array.isArray(files) || !files.length) throw new RepoError(400, "沒有要保存的檔案。");
   const prepared = [];
   for (const f of files) {
@@ -153,7 +179,7 @@ export async function commitChanges(env, siteId, { files, base = {}, author, mes
     else prepared.push({ path, ...(await putBlob(env, f.bytes)) });
   }
   const expected = new Map(Object.entries(base).map(([p, h]) => [cleanPath(p), h ?? null]));
-  return advanceDraft(env, siteId, { author, message, now }, (tree) => {
+  return advanceDraft(env, siteId, { author, message, now, auto }, (tree) => {
     const conflicts = [];
     for (const f of prepared) {
       if (!expected.has(f.path)) continue;
@@ -257,13 +283,6 @@ export async function sitesFor(env, email) {
   return (await q.all()).results;
 }
 
-// The admin or a member of at least one site: who may sign in with Google.
-export async function isKnownUser(env, email) {
-  const e = String(email || "").toLowerCase();
-  if (isAdmin(env, e)) return true;
-  return !!(await env.DB.prepare("SELECT 1 AS ok FROM members WHERE email = ? LIMIT 1").bind(e).first());
-}
-
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export async function addMember(env, siteId, email, actor, now) {
   const e = String(email || "").trim().toLowerCase();
@@ -291,6 +310,23 @@ export async function logEvent(env, siteId, kind, commitId, actor, detail, now) 
     "INSERT INTO events (site_id, kind, commit_id, actor, detail, created_at) VALUES (?, ?, ?, ?, ?, ?)",
   )
     .bind(siteId, kind, commitId || null, actor, detail || null, now ?? Date.now())
+    .run();
+}
+
+/* ------------------------------------------------------------ settings */
+export async function getSettings(env, keys) {
+  const marks = keys.map(() => "?").join(", ");
+  const { results } = await env.DB.prepare(`SELECT key, value FROM settings WHERE key IN (${marks})`).bind(...keys).all();
+  return Object.fromEntries(results.map((r) => [r.key, r.value]));
+}
+
+// value null removes the setting.
+export async function setSetting(env, key, value, actor, now) {
+  if (value === null || value === undefined) return env.DB.prepare("DELETE FROM settings WHERE key = ?").bind(key).run();
+  return env.DB.prepare(
+    "INSERT INTO settings (key, value, updated_at, updated_by) VALUES (?, ?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at, updated_by = excluded.updated_by",
+  )
+    .bind(key, String(value), now ?? Date.now(), actor || null)
     .run();
 }
 

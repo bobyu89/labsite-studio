@@ -61,6 +61,11 @@ export function cloudApi(fetchImpl = (...a) => fetch(...a)) {
     removeMember: (id, email) => call("DELETE", site(id) + "/members/" + encodeURIComponent(email)),
     backup: (id) => call("POST", site(id) + "/backup", {}),
     aiTheme: (id, description) => call("POST", site(id) + "/ai-theme", { description }),
+    assistant: (id, body) => call("POST", site(id) + "/assistant", body),
+    aiSettings: () => call("GET", "/admin/ai"),
+    saveAiSettings: (patch) => call("PUT", "/admin/ai", patch),
+    removeAiKey: () => call("DELETE", "/admin/ai"),
+    testAiKey: (key) => call("POST", "/admin/ai/test", key ? { key } : {}),
     exportUrl: (id, ref = "draft") => "/api" + site(id) + "/export?ref=" + ref,
     fetchImpl,
   };
@@ -83,25 +88,8 @@ export async function redeemInviteFromUrl(loc = location, hist = history, fetchI
   }
 }
 
-// After "Sign in with Google" the server sends failures back as /?login=<reason>.
-// Reads that, removes it from the address bar and returns the message to show.
-export function googleLoginErrorFromUrl(loc = location, hist = history) {
-  const params = new URLSearchParams(loc.search);
-  const reason = params.get("login");
-  if (!reason) return null;
-  const email = params.get("email") || "";
-  params.delete("login");
-  params.delete("email");
-  const rest = params.toString();
-  hist.replaceState(null, "", loc.pathname + (rest ? "?" + rest : "") + (loc.hash || ""));
-  if (reason === "google-unknown")
-    return `這個 Google 帳號（${email}）還沒有被加入任何網站。請確認選的是正確的帳號，或請管理者把這個 Email 加入你網站的成員。`;
-  if (reason === "google-cancelled") return "Google 登入已取消。";
-  return "Google 登入沒有成功，請再試一次。";
-}
-
 // Is this page served by LabSite Cloud, and who is signed in?
-// → { status: "ready", me } | { status: "signed-out", error, google } | { status: "off" }
+// → { status: "ready", me } | { status: "signed-out", error } | { status: "off" }
 export async function detectCloud(fetchImpl = (...a) => fetch(...a)) {
   let res;
   try {
@@ -111,7 +99,7 @@ export async function detectCloud(fetchImpl = (...a) => fetch(...a)) {
   }
   if (!(res.headers.get("Content-Type") || "").includes("json")) return { status: "off" };
   const data = await res.json().catch(() => ({}));
-  if (res.status === 401) return { status: "signed-out", error: data.error || "請先登入。", google: !!data.google };
+  if (res.status === 401) return { status: "signed-out", error: data.error || "請先登入。" };
   if (!res.ok) return { status: "off" };
   return { status: "ready", me: data };
 }
@@ -151,7 +139,8 @@ export function cloudSource(site, fetchImpl = (...a) => fetch(...a)) {
     },
     readText: async (path) => (await raw(path)).text(),
     readBlob: async (path) => (await raw(path)).blob(),
-    async writeFiles(files, message) {
+    // opts.auto marks an autosave: the server keeps one history entry per sitting.
+    async writeFiles(files, message, opts = {}) {
       const baseHashes = {};
       const body = [];
       for (const f of files) {
@@ -165,7 +154,7 @@ export function cloudSource(site, fetchImpl = (...a) => fetch(...a)) {
               : { path, base64: toBase64(new Uint8Array(await f.blob.arrayBuffer())) },
         );
       }
-      const data = await request(fetchImpl, "POST", base + "/commits", { message, base: baseHashes, files: body });
+      const data = await request(fetchImpl, "POST", base + "/commits", { message, base: baseHashes, files: body, ...(opts.auto ? { auto: true } : {}) });
       for (const [path, hash] of Object.entries(data.hashes || {}))
         if (hash === null) hashes.delete(path);
         else hashes.set(path, hash);
