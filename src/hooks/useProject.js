@@ -1516,6 +1516,9 @@ export function useProject(notify) {
     mirror,
     setMirror,
     ensurePair,
+    ensureLoaded,
+    // A change to any page, loaded or not yet (the 新增論文 form edits two pages at once).
+    editPage: (page, mutate) => edit(mutate, undefined, page),
     checkPairs,
     original: current ? originals[current] : null,
     dirty: !!current && state?.present !== originals[current],

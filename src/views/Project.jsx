@@ -13,6 +13,8 @@ import {
   Images,
   Question,
   Eye,
+  House,
+  CheckCircle,
 } from "@phosphor-icons/react";
 import { IconButton, Field, download } from "../components/ui";
 import ProjectOpen from "../components/ProjectOpen";
@@ -28,6 +30,8 @@ import CloudAlbums from "../components/CloudAlbums";
 import { InsertAlbumDialog, AlbumBlockSettings } from "../components/AlbumBlock";
 import { Thumb } from "../components/AlbumPanel";
 import NewsPanel from "../components/NewsPanel";
+import TaskHome, { TASK_ICONS } from "../components/TaskHome";
+import AddPublication, { publicationPages } from "../components/AddPublication";
 import AlbumPanel from "../components/AlbumPanel";
 import RelocatePanel from "../components/RelocatePanel";
 import TextSizePanel from "../components/TextSizePanel";
@@ -90,6 +94,11 @@ export default function Project({ p, device, setDevice, setConfirm }) {
   // but leaves the keyboard focus in the page.
   const [grabFocus, setGrabFocus] = useState(true);
   const [guide, setGuide] = useState(() => !guideDismissed());
+  // 你想做什麼？ is what a site opens on; picking a job leads into the editor.
+  const [home, setHome] = useState(true);
+  const [addPub, setAddPub] = useState(false);
+  const openedSite = p.project?.source;
+  useEffect(() => setHome(true), [openedSite]);
   // A photo dropped anywhere else would make the browser open the file and
   // leave the editor; catch it and say where photos go instead.
   useEffect(() => {
@@ -230,6 +239,57 @@ export default function Project({ p, device, setDevice, setConfirm }) {
     p.boundary();
     p.openPage(path);
   };
+  // Leaves 你想做什麼？ for one tab (and page) of the editor.
+  const enter = (toTab, page) => {
+    setHome(false);
+    setTab(toTab);
+    if (page && page !== p.current) switchPage(page);
+  };
+  const hasNews = !!p.news && p.news.reason !== "missing";
+  const membersPage = p.pages.find((x) => !x.startsWith("en/") && /(^|\/)(members?|team|people)\.html?$/i.test(x));
+  const tasks = [
+    publicationPages(p.pages).length > 0 && {
+      id: "pub",
+      title: "新增一篇論文",
+      hint: "貼上論文資料，自動排到最前面，中英文頁一起加。",
+      run: () => setAddPub(true),
+    },
+    membersPage && {
+      id: "members",
+      title: "更新成員",
+      hint: "新增或修改成員、換成員照片。",
+      run: () => {
+        enter("blocks", membersPage);
+        p.notify("在右邊預覽點要改的成員；要新增成員，在左邊的成員清單按「新增」。");
+      },
+    },
+    (p.album?.ok || p.canListAssets) && {
+      id: "photos",
+      title: "加活動照片",
+      hint: "可以一次選很多張，會自動縮小。",
+      run: () => {
+        setHome(false);
+        if (p.album?.ok) setTab("album");
+        else setPhotos({});
+      },
+    },
+    hasNews && { id: "news", title: "發最新消息", hint: "新增、修改或刪除首頁的最新消息。", run: () => enter("news") },
+    {
+      id: "text",
+      title: "改網頁上的文字或照片",
+      hint: "在預覽裡點要改的地方，就能修改。",
+      run: () => enter("blocks"),
+    },
+    p.siteData && { id: "contact", title: "改聯絡資料", hint: "研究室名稱、Email、電話、地址。", run: () => enter("site") },
+  ]
+    .filter(Boolean)
+    .map((t) => ({ ...t, icon: TASK_ICONS[t.id] }));
+  const moreTasks = [
+    { title: "頁面與選單", run: () => enter("pages") },
+    ...(p.theme || p.textSize?.available ? [{ title: "外觀與字體大小", run: () => enter("theme") }] : []),
+    ...(isCloud ? [{ title: "找回舊版本", run: () => enter("history") }] : []),
+    { title: "使用說明", run: () => (setHome(false), setGuide(true)) },
+  ];
   return (
     <>
       <div className="editor-heading project-heading">
@@ -299,7 +359,11 @@ export default function Project({ p, device, setDevice, setConfirm }) {
           <IconButton label="重做" onClick={p.redo} disabled={!p.canRedo}>
             <ArrowClockwise size={19} />
           </IconButton>
-          <Button variant="soft" color="gray" onClick={() => setGuide((g) => !g)} aria-expanded={guide}>
+          <Button variant="soft" color="gray" onClick={() => setHome((h) => !h)} aria-expanded={home} title="回到「你想做什麼？」">
+            <House size={18} />
+            我想做…
+          </Button>
+          <Button variant="soft" color="gray" onClick={() => (home ? (setHome(false), setGuide(true)) : setGuide((g) => !g))} aria-expanded={guide}>
             <Question size={18} />
             使用說明
           </Button>
@@ -370,8 +434,21 @@ export default function Project({ p, device, setDevice, setConfirm }) {
       {p.error && (
         <ErrorMessage text={p.error} onClose={() => p.setError(null)} />
       )}
-      {guide && <EditorGuide onClose={() => setGuide(false)} isCloud={isCloud} hasAlbum={!!p.album?.ok} hasNews={!!p.news && p.news.reason !== "missing"} />}
-      <div className={"editor-layout project" + (tab === "pair" ? " wide-inspector" : "")}>
+      <AddPublication
+        p={p}
+        open={addPub}
+        onClose={() => setAddPub(false)}
+        onAdded={({ page, mirrored, heading }) => {
+          setAddPub(false);
+          enter("blocks", page);
+          p.notify(
+            `已加到「${heading || p.labelOf(page)}」最前面並重新編號${mirrored ? "，英文頁也加了" : ""}。確認沒問題後，按${isCloud ? "下方的「保存並發布」" : "「全部保存」"}。`,
+          );
+        }}
+      />
+      {home && <TaskHome tasks={tasks} more={moreTasks} onClose={() => setHome(false)} />}
+      {!home && guide && <EditorGuide onClose={() => setGuide(false)} isCloud={isCloud} hasAlbum={!!p.album?.ok} hasNews={!!p.news && p.news.reason !== "missing"} />}
+      <div className={"editor-layout project" + (tab === "pair" ? " wide-inspector" : "")} hidden={home}>
         <aside className="inspector">
           <div className="inspector-tabs">
             {[
@@ -661,6 +738,32 @@ export default function Project({ p, device, setDevice, setConfirm }) {
           setDevice={setDevice}
         />
       </div>
+      {isCloud && writable && (
+        <div className={"publish-bar " + (unsavedCount > 0 ? "dirty" : p.cloudSite?.unpublished ? "pending" : "live")} role="status">
+          {unsavedCount > 0 ? (
+            <span>
+              <strong>有 {unsavedCount} 處修改還沒保存</strong>，網站還沒更新。
+            </span>
+          ) : p.cloudSite?.unpublished ? (
+            <span>
+              <strong>已保存，還沒發布</strong>：大家看到的還是舊網站。
+            </span>
+          ) : (
+            <span className="publish-bar-ok">
+              <CheckCircle size={18} weight="fill" /> 網站是最新的，沒有待發布的修改。
+            </span>
+          )}
+          {p.cloudSite?.url && (
+            <a className="text-link" href={p.cloudSite.url} target="_blank" rel="noopener">
+              看網站
+            </a>
+          )}
+          <Button size="3" color="orange" onClick={onPublish} disabled={p.busy || (!p.cloudSite?.unpublished && !p.anyDirty)}>
+            <RocketLaunch size={18} />
+            {unsavedCount > 0 ? "保存並發布" : "發布"}
+          </Button>
+        </div>
+      )}
     </>
   );
 }

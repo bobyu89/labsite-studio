@@ -796,6 +796,15 @@ function numberedNode(item) {
   const text = first.textContent.trim();
   return NUMBER_RE.test(text) ? first : null;
 }
+// A numbered list counts 1, 2, 3… (or on from its start attribute). A first
+// element that merely holds a number, like a year, is not a list number.
+function isNumberedList(container) {
+  const nodes = [...container.children].map(numberedNode);
+  if (!nodes.length || nodes.some((n) => !n)) return false;
+  const nums = nodes.map((n) => Number.parseInt(n.textContent, 10));
+  const start = container.hasAttribute("start") ? Number.parseInt(container.getAttribute("start"), 10) : 1;
+  return nums[0] === start && nums.every((v, i) => i === 0 || v === nums[i - 1] + 1);
+}
 function itemTitle(item) {
   const h = item.querySelector("h1, h2, h3, h4, h5");
   let text = h ? h.textContent : "";
@@ -817,7 +826,7 @@ export function listSummary(container, section) {
   return {
     path: pathOf(container, section),
     label: listLabel(container, items[0]),
-    numbered: items.length > 0 && items.every((it) => numberedNode(it)),
+    numbered: isNumberedList(container),
     items: items.map((it) => ({ path: pathOf(it, section), title: itemTitle(it) })),
   };
 }
@@ -845,14 +854,27 @@ export function describeNode(root, section = root) {
 }
 export const describeItem = (section, itemPath) => describeNode(nodeAt(section, itemPath), section);
 
-function renumber(container) {
-  const items = [...container.children];
-  if (!items.every((it) => numberedNode(it))) return;
-  items.forEach((it, i) => {
+// Numbers a list's items again. A list that continues an earlier one
+// (<ol start="23">) keeps counting from its start, and the numbered lists
+// after this one that carry a start attribute follow along. Callers check
+// isNumberedList before they change the list.
+function renumberFrom(container, first) {
+  [...container.children].forEach((it, i) => {
     const node = numberedNode(it);
+    if (!node) return;
     const suffix = node.textContent.trim().match(/[.．、)]?$/)[0];
-    node.textContent = String(i + 1) + suffix;
+    node.textContent = String(first + i) + suffix;
   });
+  return first + container.children.length;
+}
+function renumber(container) {
+  const start = container.hasAttribute("start") ? Number.parseInt(container.getAttribute("start"), 10) : NaN;
+  let next = renumberFrom(container, Number.isFinite(start) ? start : 1);
+  for (let el = container.nextElementSibling; el; el = el.nextElementSibling) {
+    if (el.tagName !== container.tagName || !el.hasAttribute("start") || !isNumberedList(el)) continue;
+    el.setAttribute("start", String(next));
+    next = renumberFrom(el, next);
+  }
 }
 function gapBefore(node) {
   const prev = node.previousSibling;
@@ -863,19 +885,39 @@ export function addItem(section, containerPath, afterIndex = -1) {
   if (!container || container.nodeType !== 1 || !container.children.length) return false;
   const items = [...container.children];
   const template = items[afterIndex >= 0 && afterIndex < items.length ? afterIndex : items.length - 1];
+  const numbered = isNumberedList(container);
   const copy = template.cloneNode(true);
   copy.removeAttribute("id");
   copy.querySelectorAll("[id]").forEach((n) => n.removeAttribute("id"));
   template.after(section.ownerDocument.createTextNode(gapBefore(template)), copy);
-  renumber(container);
+  if (numbered) renumber(container);
+  return true;
+}
+// A copy of the first item placed at the top of the list, filled in by
+// `fill(copy)` before the list is numbered again. Newest-first lists
+// (publications, news) take new entries here.
+export function addItemAtTop(section, containerPath, fill) {
+  const container = nodeAt(section, containerPath);
+  const first = container?.nodeType === 1 ? container.children[0] : null;
+  if (!first) return false;
+  const numbered = isNumberedList(container);
+  const copy = first.cloneNode(true);
+  copy.removeAttribute("id");
+  copy.querySelectorAll("[id]").forEach((n) => n.removeAttribute("id"));
+  if (fill && fill(copy) === false) return false;
+  // Between the copy and the old first item goes the same gap that separates items.
+  const second = container.children[1];
+  first.before(copy, section.ownerDocument.createTextNode(second ? gapBefore(second) : gapBefore(first)));
+  if (numbered) renumber(container);
   return true;
 }
 export function removeItem(section, containerPath, index) {
   const container = nodeAt(section, containerPath);
   const item = container?.children[index];
   if (!item || container.children.length === 1) return false;
+  const numbered = isNumberedList(container);
   removeWithWhitespace(item);
-  renumber(container);
+  if (numbered) renumber(container);
   return true;
 }
 export function moveItem(section, containerPath, from, to) {
@@ -883,6 +925,7 @@ export function moveItem(section, containerPath, from, to) {
   if (!container) return false;
   const items = [...container.children];
   if (from === to || from < 0 || to < 0 || from >= items.length || to >= items.length) return false;
+  const numbered = isNumberedList(container);
   const doc = section.ownerDocument;
   const slots = items.map((el) => {
     const marker = doc.createComment("labsite-item");
@@ -893,7 +936,7 @@ export function moveItem(section, containerPath, from, to) {
   const [moved] = order.splice(from, 1);
   order.splice(to, 0, moved);
   slots.forEach((marker, i) => marker.replaceWith(order[i]));
-  renumber(container);
+  if (numbered) renumber(container);
   return true;
 }
 

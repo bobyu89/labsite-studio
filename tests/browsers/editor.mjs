@@ -75,6 +75,8 @@ async function run(t) {
     }
     await press(nav);
     await press(page.getByRole("button", { name: "開啟 basic" }));
+    // A site opens on 你想做什麼？; this job leads into the editor.
+    await press(page.locator(".task-card", { hasText: "改網頁上的文字或照片" }));
     await preview.locator("h1.directory__title[data-ls-text]").waitFor({ timeout: 15000 });
   });
 

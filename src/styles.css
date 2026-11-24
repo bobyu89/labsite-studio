@@ -5135,3 +5135,152 @@ h3 {
     grid-row: 2;
   }
 }
+
+/* 你想做什麼？ (TaskHome), the 新增論文 form and the publish bar. */
+.editor-layout[hidden] {
+  display: none;
+}
+.task-home {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  padding: 26px 28px 20px;
+  margin-bottom: 18px;
+}
+.task-home h2 {
+  margin: 0 0 4px;
+  font-size: 24px;
+}
+.task-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 14px;
+  margin: 18px 0 16px;
+}
+.task-card {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+  text-align: left;
+  padding: 18px 18px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--soft);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+.task-card:hover,
+.task-card:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 4px 14px rgba(14, 102, 85, 0.12);
+  transform: translateY(-1px);
+}
+.task-card svg {
+  color: var(--accent);
+}
+.task-card strong {
+  font-size: 18px;
+}
+.task-card span {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.task-more {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 2;
+}
+.task-more .text-link,
+.publish-bar .text-link {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+.quick-add {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+.quick-add-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+}
+.quick-add-preview {
+  border: 1px dashed var(--line);
+  border-radius: 9px;
+  padding: 10px 12px;
+  background: var(--soft);
+}
+.quick-add-preview p {
+  margin: 4px 0 0;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.quick-add-num {
+  color: var(--accent);
+}
+.quick-add-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+}
+.quick-add-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+.publish-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 16px;
+  padding: 12px 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px 12px 0 0;
+  background: #fff;
+  box-shadow: 0 -6px 18px rgba(20, 40, 34, 0.08);
+}
+.publish-bar > span {
+  flex: 1;
+  min-width: 0;
+}
+.publish-bar.dirty {
+  border-color: #f0c9a0;
+  background: #fff7ee;
+}
+.publish-bar.pending {
+  border-color: #f0d9b0;
+  background: #fffaf1;
+}
+.publish-bar-ok {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent);
+}
+@media (max-width: 767px) {
+  .task-home {
+    padding: 18px 16px 14px;
+  }
+  .quick-add-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .publish-bar {
+    flex-wrap: wrap;
+    gap: 8px 12px;
+  }
+  .publish-bar > span {
+    flex-basis: 100%;
+  }
+}
