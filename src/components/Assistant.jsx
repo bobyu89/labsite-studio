@@ -165,8 +165,13 @@ export default function Assistant({ p, selected, sectionCount = 0, open, onOpen,
   // A request picked from 版面靈感: put it in the box to be filled in.
   useEffect(() => {
     if (!seed?.text) return;
-    setText(seed.text);
     onOpen?.();
+    // A ready request (e.g. 請 AI 助手翻譯) goes straight out.
+    if (seed.send) {
+      send(seed.text);
+      return;
+    }
+    setText(seed.text);
     setTimeout(() => {
       const box = input.current;
       if (!box) return;

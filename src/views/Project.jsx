@@ -28,6 +28,9 @@ import { InsertAlbumDialog, AlbumBlockSettings } from "../components/AlbumBlock"
 import { Thumb } from "../components/AlbumPanel";
 import NewsPanel from "../components/NewsPanel";
 import AddPublication, { publicationPages } from "../components/AddPublication";
+import ImportPublications from "../components/ImportPublications";
+import OrcidReminder from "../components/OrcidReminder";
+import SyncNote from "../components/SyncNote";
 import Assistant from "../components/Assistant";
 import PromptBank from "../components/PromptBank";
 import AssistantDock from "../components/AssistantDock";
@@ -94,6 +97,8 @@ export default function Project({ p, device, setDevice, setConfirm }) {
   const [grabFocus, setGrabFocus] = useState(true);
   const [guide, setGuide] = useState(() => !guideDismissed());
   const [addPub, setAddPub] = useState(false);
+  const [bulkPub, setBulkPub] = useState(null); // { n, works?, orcid? }
+  const [orcidNonce, setOrcidNonce] = useState(0);
   // The side columns stick right under the bar, whatever height it wraps to.
   const studioRef = useRef(null);
   const barRef = useRef(null);
@@ -119,6 +124,16 @@ export default function Project({ p, device, setDevice, setConfirm }) {
   const [promptsOpen, setPromptsOpen] = useState(false);
   const [aiSeed, setAiSeed] = useState(null);
   const [aiOpen, setAiOpen] = useState(false);
+  // A request for another page waits until that page is open.
+  const [pendingAsk, setPendingAsk] = useState(null);
+  useEffect(() => {
+    if (pendingAsk && p.current === pendingAsk.page && p.html) {
+      setAiSeed({ text: pendingAsk.text, n: Date.now(), send: true });
+      setAiOpen(true);
+      setPendingAsk(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingAsk, p.current, p.html]);
   // After publishing: { previous } — the version visitors saw before, so it can be put back.
   const [published, setPublished] = useState(null);
   // A photo dropped anywhere else would make the browser open the file and
@@ -171,10 +186,9 @@ export default function Project({ p, device, setDevice, setConfirm }) {
     ...(p.albumsDirty ? ["雲端相簿"] : []),
   ];
   const onPublish = async () => {
-    const [pending, checks] = await Promise.all([
-      p.cloudCalls.pending(p.cloudSite.id).catch(() => null),
-      p.prepublishCheck().catch(() => null),
-    ]);
+    const pending = await p.cloudCalls.pending(p.cloudSite.id).catch(() => null);
+    const changed = [...(pending?.files || []).map((f) => (Array.isArray(f) ? f[0] : f.path || f)), ...(p.dirtyPages || [])];
+    const checks = await p.prepublishCheck(changed).catch(() => null);
     const openCheck = (page) => {
       setConfirm(null);
       if (page) {
@@ -185,7 +199,17 @@ export default function Project({ p, device, setDevice, setConfirm }) {
     const warn = !!checks?.some((c) => c.level === "warn");
     const body = (
       <>
-        <PublishChecks checks={checks} onOpen={openCheck} />
+        <PublishChecks
+          checks={checks}
+          onOpen={openCheck}
+          typoPages={aiOn ? [...new Set(changed.filter((x) => p.pages.includes(x)))].slice(0, 6) : null}
+          onTypos={(page) => {
+            setConfirm(null);
+            setTab("blocks");
+            if (page !== p.current) switchPage(page);
+            setPendingAsk({ page, text: "檢查這一頁有沒有錯字或不通順的地方。" });
+          }}
+        />
         <PublishSummary pending={pending} unsaved={p.anyDirty ? unsavedNames() : []} me={p.cloud.me?.email} />
       </>
     );
@@ -316,6 +340,15 @@ export default function Project({ p, device, setDevice, setConfirm }) {
                 ? "這個來源不能寫回"
                 : "";
   const aiOn = isCloud && writable && !!p.ai?.available;
+  // 中英不同步 for this page: tags in the section list, a note above the fields.
+  const syncMarks = {};
+  for (const x of p.sync || [])
+    if (x.section !== null) syncMarks[x.section] = x.reason === "untranslated" ? "還有中文沒翻" : x.behind === "en" ? "英文未更新" : "中文未更新";
+  const syncHere = (p.sync || []).filter((x) => x.section === selected || x.section === null);
+  const askAi = (text) => {
+    setAiSeed({ text, n: Date.now(), send: true });
+    setAiOpen(true);
+  };
   const close = async () => {
     // Store what was just typed before leaving; only unsaved looks still need a decision.
     const stored = auto.on && auto.pending ? await p.flushAutosave() : true;
@@ -395,12 +428,31 @@ export default function Project({ p, device, setDevice, setConfirm }) {
         p={p}
         open={addPub}
         onClose={() => setAddPub(false)}
+        onBulk={isCloud ? () => {
+          setAddPub(false);
+          setBulkPub({ n: Date.now() });
+        } : null}
         onAdded={({ page, mirrored, heading }) => {
           setAddPub(false);
           enter("blocks", page);
           p.notify(
             `已加到「${heading || p.labelOf(page)}」最前面並重新編號${mirrored ? "，英文頁也加了" : ""}。確認沒問題後，按上方的${isCloud ? "「發布」" : "「保存」"}。`,
           );
+        }}
+      />
+      <ImportPublications
+        p={p}
+        open={!!bulkPub}
+        start={bulkPub}
+        onClose={() => {
+          setBulkPub(null);
+          setOrcidNonce((n) => n + 1);
+        }}
+        onAdded={({ page, mirrored, heading, count }) => {
+          setBulkPub(null);
+          setOrcidNonce((n) => n + 1);
+          enter("blocks", page);
+          p.notify(`已把 ${count} 篇加到「${heading || p.labelOf(page)}」最前面並重新編號${mirrored ? "，英文頁也加了" : ""}。確認沒問題後，按上方的「發布」。`);
         }}
       />
       <Modal
@@ -445,6 +497,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
       {guide && <EditorGuide onClose={() => setGuide(false)} isCloud={isCloud} hasAlbum={!!p.album?.ok} hasNews={hasNews} hasAi={aiOn} />}
       <div className={"studio-body" + (tab === "pair" ? " wide-inspector" : "")}>
         <aside className="studio-left" aria-label="網站結構">
+          {isCloud && writable && <OrcidReminder key={orcidNonce} p={p} onOpen={(found) => setBulkPub({ n: Date.now(), ...found })} />}
           {writable && quick.length > 0 && (
             <p className="tree-quick">
               <span>新增</span>
@@ -505,6 +558,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
                         )}
                         <SectionList
                           sections={sections}
+                          marks={syncMarks}
                           selected={selected}
                           onSelect={(i) => {
                             p.setSelected(i);
@@ -723,6 +777,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
                   {sections[selected]?.title}
                   <span className="muted">{sections[selected]?.kind}</span>
                 </h3>
+                {writable && <SyncNote items={syncHere} onAsk={askAi} onDismiss={p.dismissSync} onOpenPage={(path) => enter("blocks", path)} aiOn={aiOn} inEnglish={!!p.current?.startsWith("en/")} />}
                 {!p.theme?.vars["--motion"] && parsed && sections[selected] && (
                   <EntrancePicker section={sectionElements(parsed.doc)[selected]} disabled={!writable} onChange={(v) => p.setEntrance(selected, v)} />
                 )}

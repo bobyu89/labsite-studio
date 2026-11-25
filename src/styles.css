@@ -6960,3 +6960,205 @@ h1,
     cursor: default;
   }
 }
+
+/* v4.22 一次匯入多篇論文 (ImportPublications.jsx) */
+.quick-add-bulk {
+  margin: 0 0 4px;
+}
+.bulk-import {
+  display: grid;
+  gap: 14px;
+  margin-top: 12px;
+}
+.bulk-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  border-bottom: 1px solid var(--line);
+}
+.bulk-sources button {
+  min-height: 40px;
+  padding: 0 2px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  background: none;
+  font: inherit;
+  color: var(--muted);
+  cursor: pointer;
+}
+.bulk-sources button.active {
+  border-bottom-color: var(--accent);
+  color: var(--ink);
+  font-weight: 700;
+}
+.bulk-input {
+  display: grid;
+  gap: 10px;
+}
+.bulk-input textarea {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+}
+.bulk-file {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+.bulk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+.bulk-head {
+  display: grid;
+  gap: 2px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+}
+.bulk-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: min(46vh, 460px);
+  overflow-y: auto;
+  border-top: 1px solid var(--line);
+}
+.bulk-list li {
+  border-bottom: 1px solid var(--line);
+}
+.bulk-list label {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 10px 4px;
+  cursor: pointer;
+  line-height: 1.65;
+}
+.bulk-list input {
+  margin-top: 5px;
+  flex: none;
+}
+.bulk-list li.listed .bulk-ref,
+.bulk-list li.failed .bulk-ref {
+  color: var(--muted);
+}
+.bulk-ref {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.bulk-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+.bulk-tag {
+  padding: 1px 8px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.bulk-tag.warn {
+  border-color: #e7b48f;
+  color: #9a3412;
+}
+.bulk-target {
+  display: grid;
+  gap: 8px;
+}
+.orcid-reminder {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 10px 8px 10px 12px;
+  border-left: 3px solid var(--accent);
+  background: #fff;
+  box-shadow: 0 0 0 1px var(--line);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.orcid-reminder p {
+  margin: 0;
+}
+.orcid-reminder > div {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+}
+.orcid-reminder {
+  flex-wrap: wrap;
+}
+.orcid-reminder-x {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+/* v4.22 中英不同步 (SyncNote.jsx, SectionList marks) */
+.sync-tag {
+  flex: none;
+  margin-left: auto;
+  padding: 0 7px;
+  border: 1px solid #e7b48f;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 18px;
+  color: #9a3412;
+  white-space: nowrap;
+}
+.sync-notes {
+  display: grid;
+  gap: 8px;
+  margin: 4px 0 14px;
+}
+.sync-note {
+  padding: 10px 12px;
+  border-left: 3px solid var(--accent);
+  background: #fff;
+  box-shadow: 0 0 0 1px var(--line);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.sync-note p {
+  margin: 0 0 6px;
+}
+.sync-note p svg {
+  vertical-align: -3px;
+  color: var(--accent);
+}
+.sync-note-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+}
+.sync-ai {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--accent);
+  border-radius: 2px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.typo-ask {
+  margin: 10px 0 0;
+}
+.typo-ask .text-link {
+  font-size: inherit;
+}

@@ -52,13 +52,34 @@ const checkPlace = (page) => (page ? pageLabel(page) + (page.startsWith("en/") ?
 
 // The pre-publish check (publishCheck.js): what still looks unfinished. It
 // never blocks publishing; "去修改" jumps to the page (or the site data tab).
-export function PublishChecks({ checks, onOpen }) {
+// typoPages / onTypos: changed pages the AI assistant can read for typos.
+function TypoAsk({ pages, onTypos }) {
+  if (!onTypos || !pages?.length) return null;
+  return (
+    <p className="small-note typo-ask">
+      想再確定沒有錯字？請 AI 助手看：
+      {pages.map((page, i) => (
+        <React.Fragment key={page}>
+          {i > 0 && "、"}
+          <button type="button" className="text-link" onClick={() => onTypos(page)}>
+            {checkPlace(page)}
+          </button>
+        </React.Fragment>
+      ))}
+    </p>
+  );
+}
+
+export function PublishChecks({ checks, onOpen, typoPages, onTypos }) {
   if (checks === null) return <p className="small-note">（發布前檢查沒有完成，仍可以發布。）</p>;
   if (!checks.length)
     return (
-      <p className="check-ok">
-        <CheckCircle size={18} weight="fill" /> 發布前檢查：沒有發現範例文字、示意圖或壞掉的連結。
-      </p>
+      <>
+        <p className="check-ok">
+          <CheckCircle size={18} weight="fill" /> 發布前檢查：沒有發現範例文字、示意圖、壞掉的連結或中英不同步。
+        </p>
+        <TypoAsk pages={typoPages} onTypos={onTypos} />
+      </>
     );
   const warns = checks.filter((c) => c.level === "warn");
   return (
@@ -95,6 +116,7 @@ export function PublishChecks({ checks, onOpen }) {
         </details>
       ))}
       <p className="small-note">這些不會擋住發布；如果是刻意保留的，可以直接發布。</p>
+      <TypoAsk pages={typoPages} onTypos={onTypos} />
     </div>
   );
 }
