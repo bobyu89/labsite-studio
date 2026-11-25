@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { Button, Badge } from "@radix-ui/themes";
 import { ArrowCounterClockwise, DownloadSimple } from "@phosphor-icons/react";
+import DiffView from "./DiffView";
 
 const fmt = (t) => new Intl.DateTimeFormat("zh-TW", { dateStyle: "medium", timeStyle: "short" }).format(t);
 const KIND = { added: "新增", modified: "修改", deleted: "刪除" };
@@ -10,6 +11,7 @@ const KIND = { added: "新增", modified: "修改", deleted: "刪除" };
 export default function CloudHistory({ p, setConfirm }) {
   const site = p.cloudSite;
   const [state, setState] = useState({ loading: true, commits: [], error: null });
+  const [open, setOpen] = useState(null); // the version whose changes are shown
   useEffect(() => {
     if (!site) return;
     let alive = true;
@@ -57,6 +59,12 @@ export default function CloudHistory({ p, setConfirm }) {
             <div className="history-meta">
               {fmt(c.at)} · {c.author} · <code>{c.short}</code>
             </div>
+            {c.changed.length > 0 && (
+              <button type="button" className="text-link history-diff-toggle" onClick={() => setOpen(open === c.id ? null : c.id)} aria-expanded={open === c.id}>
+                {open === c.id ? "收起" : "看改了什麼"}
+              </button>
+            )}
+            {open === c.id && <DiffView p={p} from={c.parent} to={c.id} files={c.changed} />}
             {c.changed.length > 0 && (
               <details>
                 <summary>{c.changed.length} 個檔案</summary>

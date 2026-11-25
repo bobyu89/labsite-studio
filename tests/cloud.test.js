@@ -1495,3 +1495,68 @@ test("link check: only clear answers count as broken (404/410, a DOI that does n
   );
   assert.match(results[1].reason, /DOI 不存在/);
 });
+
+/* =============================== v4.23 roles, review requests, presence */
+test("roles: a contributor saves but cannot publish; asks for review; a teacher sends it back or publishes", async () => {
+  const env = fakeEnv();
+  const site = await seed(env);
+  const app = createApp({ fetchImpl: scriptedFetch([]) });
+  const as = (email) => ({ ...env, DEV_USER_EMAIL: email });
+  const api = (email, method, path, body) => app.request(`http://localhost/api/sites/${site.id}${path}`, body === undefined && method === "GET" ? {} : jsonReq(method, body ?? {}), as(email));
+  await addMember(env, site.id, "teacher@lab.tw", "admin@lab.tw");
+  await addMember(env, site.id, "student@lab.tw", "admin@lab.tw");
+  // Only an admin sets roles.
+  assert.equal((await app.request(`http://localhost/api/sites/${site.id}/members/student%40lab.tw`, jsonReq("PUT", { role: "contributor" }), as("teacher@lab.tw"))).status, 403);
+  let res = await app.request(`http://localhost/api/sites/${site.id}/members/student%40lab.tw`, jsonReq("PUT", { role: "contributor" }), as("admin@lab.tw"));
+  assert.deepEqual((await res.json()).members.map((m) => [m.email, m.role]), [["student@lab.tw", "contributor"], ["teacher@lab.tw", "editor"]]);
+  assert.equal((await app.request(`http://localhost/api/sites/${site.id}/members/student%40lab.tw`, jsonReq("PUT", { role: "boss" }), as("admin@lab.tw"))).status, 400);
+
+  // The student saves a change but cannot publish it.
+  await commitChanges(env, site.id, { files: [file("index.html", "<h1>學生改的首頁</h1>")], author: "student@lab.tw", message: "改首頁", now: T0 + 10 });
+  res = await api("student@lab.tw", "POST", "/publish");
+  assert.equal(res.status, 403);
+  assert.match((await res.json()).error, /請老師發布/);
+  // Asks for review; the teacher sees it in /api/me.
+  res = await api("student@lab.tw", "POST", "/review", { note: "請看首頁" });
+  assert.equal((await res.json()).review.status, "waiting");
+  let me = await (await app.request("http://localhost/api/me", {}, as("teacher@lab.tw"))).json();
+  assert.deepEqual([me.sites[0].role, me.sites[0].review.status, me.sites[0].review.by, me.sites[0].review.note], ["editor", "waiting", "student@lab.tw", "請看首頁"]);
+  me = await (await app.request("http://localhost/api/me", {}, as("student@lab.tw"))).json();
+  assert.equal(me.sites[0].role, "contributor");
+  // Only a teacher sends it back.
+  assert.equal((await api("student@lab.tw", "POST", "/review/return", { note: "x" })).status, 403);
+  res = await api("teacher@lab.tw", "POST", "/review/return", { note: "標題再想想" });
+  assert.deepEqual([(await res.json()).review.status], ["returned"]);
+  me = await (await app.request("http://localhost/api/me", {}, as("student@lab.tw"))).json();
+  assert.deepEqual([me.sites[0].review.status, me.sites[0].review.reply, me.sites[0].review.replyBy], ["returned", "標題再想想", "teacher@lab.tw"]);
+  // Publishing clears the request.
+  await api("student@lab.tw", "POST", "/review", { note: "改好了" });
+  assert.equal((await api("teacher@lab.tw", "POST", "/publish")).status, 200);
+  me = await (await app.request("http://localhost/api/me", {}, as("teacher@lab.tw"))).json();
+  assert.equal(me.sites[0].review, null);
+  // Nothing left to review.
+  assert.equal((await api("student@lab.tw", "POST", "/review", { note: "?" })).status, 400);
+  // Admins are teachers on every site.
+  me = await (await app.request("http://localhost/api/me", {}, as("admin@lab.tw"))).json();
+  assert.equal(me.sites[0].role, "editor");
+});
+
+test("presence: each editor's page, others seen for 90 seconds, leaving removes the row", async () => {
+  const env = fakeEnv();
+  const site = await seed(env);
+  const app = createApp({ fetchImpl: scriptedFetch([]) });
+  await addMember(env, site.id, "a@lab.tw", "admin@lab.tw");
+  await addMember(env, site.id, "b@lab.tw", "admin@lab.tw");
+  const beat = (email, body) => app.request(`http://localhost/api/sites/${site.id}/presence`, jsonReq("POST", body), { ...env, DEV_USER_EMAIL: email });
+  assert.deepEqual((await (await beat("a@lab.tw", { page: "index.html" })).json()).others, []);
+  let others = (await (await beat("b@lab.tw", { page: "research.html" })).json()).others;
+  assert.deepEqual(others.map((o) => [o.email, o.page]), [["a@lab.tw", "index.html"]]);
+  // An old row does not count.
+  await env.DB.prepare("UPDATE presence SET at = ? WHERE email = ?").bind(Date.now() - 120000, "a@lab.tw").run();
+  assert.deepEqual((await (await beat("b@lab.tw", { page: "research.html" })).json()).others, []);
+  await beat("a@lab.tw", { page: "index.html" });
+  await beat("a@lab.tw", { leave: true });
+  assert.deepEqual((await (await beat("b@lab.tw", { page: "index.html" })).json()).others, []);
+  // Not a member: refused.
+  assert.equal((await beat("stranger@else.tw", { page: "index.html" })).status, 403);
+});

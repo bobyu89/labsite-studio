@@ -627,6 +627,38 @@ export function useProject(notify) {
   }
   const ensurePair = () => (pair ? ensureLoaded(pair) : Promise.resolve(null));
 
+  /* --------------------------------------- 誰也在編輯 (presence) */
+  // A heartbeat every 30 seconds while the tab is visible, with the page
+  // being edited; the answer lists the others seen in the last 90 seconds.
+  const [others, setOthers] = useState([]);
+  useEffect(() => {
+    if (!cloudSiteId || typeof document === "undefined") return;
+    let alive = true;
+    const beat = () => {
+      if (document.visibilityState === "hidden") return;
+      cloudCalls
+        .presence(cloudSiteId, current || null)
+        .then((r) => alive && setOthers(r.others || []))
+        .catch(() => {});
+    };
+    beat();
+    const timer = setInterval(beat, 30000);
+    document.addEventListener("visibilitychange", beat);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", beat);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cloudSiteId, current]);
+  useEffect(() => {
+    if (!cloudSiteId) return;
+    return () => {
+      cloudCalls.presence(cloudSiteId, null, true).catch(() => {});
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cloudSiteId]);
+
   /* ------------------------------------------- 中英不同步 (pairSync.js) */
   const isEn = (path) => path.startsWith("en/");
   // Compared with the published version of both pages, read once per page.
@@ -1708,6 +1740,7 @@ export function useProject(notify) {
     sync,
     dismissSync,
     syncReport,
+    others,
     mirror,
     setMirror,
     ensurePair,

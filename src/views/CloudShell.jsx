@@ -129,6 +129,16 @@ function Members({ p, site }) {
           <li key={m.email}>
             <div className="member-row">
               <span>{m.email}</span>
+              <select
+                className="member-role"
+                aria-label={m.email + " 的身分"}
+                value={m.role === "contributor" ? "contributor" : "editor"}
+                disabled={busy}
+                onChange={(e) => run(() => p.cloudCalls.setMemberRole(site.id, m.email, e.target.value))}
+              >
+                <option value="editor">老師（可以發布）</option>
+                <option value="contributor">學生、助理（要老師核准）</option>
+              </select>
               <button
                 className="icon-link"
                 aria-label={"移除 " + m.email}
@@ -149,7 +159,7 @@ function Members({ p, site }) {
           if (email.trim()) run(() => p.cloudCalls.addMember(site.id, email.trim()));
         }}
       >
-        <input type="email" placeholder="老師的 Email" value={email} onChange={(e) => setEmail(e.target.value)} aria-label="新增成員 Email" />
+        <input type="email" placeholder="老師或學生的 Email" value={email} onChange={(e) => setEmail(e.target.value)} aria-label="新增成員 Email" />
         <Button size="1" type="submit" disabled={busy || !email.trim()}>
           <Plus size={14} /> 加入
         </Button>
@@ -168,7 +178,15 @@ function SiteCard({ p, site, admin }) {
         <div className="site-row-text">
           <h3>{site.name}</h3>
           <p className={site.unpublished ? "site-row-state pending" : "site-row-state"}>
-            {site.unpublished ? "有修改尚未發布，訪客看到的還是舊的" : "網站是最新的"}
+            {site.review?.status === "waiting" && site.role === "editor"
+              ? `${site.review.by.split("@")[0]} 請你看看並發布`
+              : site.review?.status === "waiting"
+                ? "已送給老師，等待核准發布"
+                : site.review?.status === "returned" && site.role !== "editor"
+                  ? "老師退回了，請看留言"
+                  : site.unpublished
+                    ? "有修改尚未發布，訪客看到的還是舊的"
+                    : "網站是最新的"}
             {site.url && (
               <>
                 　・　

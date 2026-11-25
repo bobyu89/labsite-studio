@@ -2,7 +2,7 @@
 // at once, write a caption for each, reorder, remove, save.
 import React, { useEffect, useRef, useState } from "react";
 import { Button } from "@radix-ui/themes";
-import { ImagesSquare, ArrowUp, ArrowDown, Trash, FloppyDisk, UploadSimple, ArrowSquareOut } from "@phosphor-icons/react";
+import { ImagesSquare, ArrowUp, ArrowDown, Trash, FloppyDisk, UploadSimple, ArrowSquareOut, Sparkle } from "@phosphor-icons/react";
 import { PICKER_ACCEPT } from "../site/images.js";
 import { useDragReorder } from "../hooks/useDragReorder";
 import AiSuggest from "./AiSuggest";
@@ -49,6 +49,35 @@ export default function AlbumPanel({ p, writable, galleryPage, openPage, setConf
   const move = (i, d) => reorder(i, i + d);
   const listRef = useRef(null);
   const { start, rowClass } = useDragReorder(listRef, reorder, { hold: true });
+  // AI 幫沒有說明的照片寫說明: one request per photo, one after another; the
+  // captions land in the fields to be read over before 保存相簿.
+  const [batch, setBatch] = useState(null); // { done, total, error?, filled? }
+  // Still without words: empty, or only the date a new photo gets (kept in
+  // front, since captions starting with a date sort the album).
+  const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+  const blank = photos.map((x, i) => [x, i]).filter(([x]) => !String(x.caption || "").trim() || DATE_ONLY.test(String(x.caption).trim()));
+  const describeAll = async () => {
+    const todo = blank.slice(0, 20);
+    let filled = 0;
+    let current = photos;
+    setBatch({ done: 0, total: todo.length });
+    for (const [photo, i] of todo) {
+      try {
+        const r = await p.ai.describePhoto(photo.src, { note: "" });
+        if (r?.caption) {
+          const date = String(photo.caption || "").trim();
+          current = current.map((x, j) => (j === i ? { ...x, caption: (DATE_ONLY.test(date) ? date + " " : "") + r.caption } : x));
+          p.setAlbumPhotos(current);
+          filled++;
+        }
+      } catch (e) {
+        setBatch({ done: filled, total: todo.length, error: e.message, filled });
+        return;
+      }
+      setBatch({ done: filled, total: todo.length });
+    }
+    setBatch({ done: filled, total: todo.length, filled });
+  };
   return (
     <div className="album-panel">
       <p className="small-note">
@@ -94,12 +123,38 @@ export default function AlbumPanel({ p, writable, galleryPage, openPage, setConf
         <Button onClick={p.saveSiteData} disabled={!p.siteDirty || !writable || p.busy}>
           <FloppyDisk size={16} /> {p.busy ? "處理中" : "保存相簿"}
         </Button>
+        {p.ai?.available && writable && blank.length > 0 && (
+          <Button
+            variant="soft"
+            color="orange"
+            disabled={p.busy || (batch && batch.filled === undefined && !batch.error)}
+            onClick={() =>
+              setConfirm({
+                title: `請 AI 幫 ${Math.min(blank.length, 20)} 張照片寫說明？`,
+                description: `只寫還沒有說明（或只有日期）的照片${blank.length > 20 ? "（一次最多 20 張）" : ""}，每張用掉今天的 1 次 AI 次數。寫好會填在說明欄，請看過、改好再按「保存相簿」。AI 不會猜人名和日期，需要時請自己補上。`,
+                confirmLabel: "開始",
+                action: describeAll,
+              })
+            }
+          >
+            <Sparkle size={16} /> AI 幫沒有說明的照片寫說明（{blank.length} 張）
+          </Button>
+        )}
         {galleryPage && (
           <Button variant="soft" onClick={() => openPage(galleryPage)}>
             <ArrowSquareOut size={16} /> 預覽活動花絮頁
           </Button>
         )}
       </div>
+      {batch && (
+        <p className={"small-note" + (batch.error ? " error-text" : "")} role="status">
+          {batch.error
+            ? `寫到第 ${batch.done + 1} 張時停下來了：${batch.error}`
+            : batch.filled === undefined
+              ? `AI 正在看照片…（${batch.done}／${batch.total}）`
+              : `已幫 ${batch.filled} 張照片寫好說明，請看過再按「保存相簿」。`}
+        </p>
+      )}
       {photos.length === 0 ? (
         <p className="small-note">相簿還是空的；網站目前顯示的是範例圖。加入第一張照片後，範例圖就會換成你的照片。</p>
       ) : (

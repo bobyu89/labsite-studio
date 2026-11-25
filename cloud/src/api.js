@@ -34,7 +34,6 @@ import { aiThemes, aiAssist, aiDescribePhoto, aiUsage, aiConfig, aiEnabledFor, a
 import {
   RepoError,
   isAdmin,
-  canEdit,
   sitesFor,
   getSite,
   resolveRef,
@@ -55,6 +54,9 @@ import {
   logEvent,
   getSettings,
   setSetting,
+  roleOf,
+  setMemberRole,
+  ROLES,
 } from "./repo.js";
 
 export const publicUrl = (env, slug) =>
@@ -71,6 +73,9 @@ export const siteView = (env, s) => ({
   github: s.github_repo,
   backup: { status: s.backup_status, error: s.backup_error, at: s.backup_at },
 });
+
+// An editor that has not written its presence row for this long has left.
+const PRESENCE_TTL = 90 * 1000;
 
 const commitView = (c, site) =>
   c && {
@@ -170,8 +175,10 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
   const siteAccess = async (c, next) => {
     const site = await getSite(c.env, c.req.param("id"));
     if (!site) return c.json({ error: "找不到這個網站。" }, 404);
-    if (!(await canEdit(c.env, site, c.get("user").email))) return c.json({ error: "你沒有這個網站的編輯權限。" }, 403);
+    const role = await roleOf(c.env, site, c.get("user").email);
+    if (!role) return c.json({ error: "你沒有這個網站的編輯權限。" }, 403);
     c.set("site", site);
+    c.set("role", role);
     await next();
   };
   app.use("/api/sites/:id", siteAccess);
@@ -189,7 +196,10 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
       hasPassword: user.via === "session" ? await hasPassword(c.env, user.email) : false,
       ai: !!ai.key,
       aiOff: sites.filter((s) => ai.off.has(s.id)).map((s) => s.id),
-      sites: sites.map((s) => siteView(c.env, s)),
+      sites: await (async () => {
+        const reviews = sites.length ? await getSettings(c.env, sites.map((s) => "review:" + s.id)) : {};
+        return sites.map((s) => ({ ...siteView(c.env, s), role: ROLES.includes(s.role) ? s.role : "editor", review: JSON.parse(reviews["review:" + s.id] || "null") }));
+      })(),
     });
   });
 
@@ -416,8 +426,10 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
 
   app.post("/api/sites/:id/publish", async (c) => {
     const site = c.get("site");
+    if (c.get("role") !== "editor") throw new RepoError(403, "這個網站要由老師核准後發布。請按「請老師發布」。");
     const body = await c.req.json().catch(() => ({}));
     await publish(c.env, site.id, body.commit, { actor: c.get("user").email });
+    await setSetting(c.env, "review:" + site.id, null);
     const inline = later(c, backupToGitHub(c.env, site.id, fetchImpl));
     if (inline) await inline;
     return c.json({ site: siteView(c.env, await getSite(c.env, site.id)) });
@@ -461,6 +473,52 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
     const result = await aiAssist(c.env, body, fetchImpl, config.key);
     await logEvent(c.env, site.id, "ai_assist", null, c.get("user").email, String(body.message || "").slice(0, 300));
     return c.json({ ...result, remaining });
+  });
+
+  // 請老師發布: someone who may not publish asks the site's teachers to look
+  // and publish; a teacher may send it back with a note. One request per
+  // site, cleared when the site is published.
+  app.post("/api/sites/:id/review", async (c) => {
+    const site = c.get("site");
+    const body = await c.req.json().catch(() => ({}));
+    if (!site.draft_commit || site.draft_commit === site.published_commit) throw new RepoError(400, "沒有還沒發布的修改。");
+    const review = { status: "waiting", by: c.get("user").email, note: String(body.note || "").slice(0, 500), at: Date.now(), draft: site.draft_commit };
+    await setSetting(c.env, "review:" + site.id, JSON.stringify(review), c.get("user").email);
+    await logEvent(c.env, site.id, "review_request", site.draft_commit, c.get("user").email, review.note);
+    return c.json({ review });
+  });
+  app.post("/api/sites/:id/review/return", async (c) => {
+    const site = c.get("site");
+    if (c.get("role") !== "editor") throw new RepoError(403, "只有老師可以退回。");
+    const key = "review:" + site.id;
+    const current = JSON.parse((await getSettings(c.env, [key]))[key] || "null");
+    if (!current) throw new RepoError(404, "沒有等待核准的修改。");
+    const body = await c.req.json().catch(() => ({}));
+    const review = { ...current, status: "returned", reply: String(body.note || "").slice(0, 500), replyBy: c.get("user").email, replyAt: Date.now() };
+    await setSetting(c.env, key, JSON.stringify(review), c.get("user").email);
+    await logEvent(c.env, site.id, "review_return", site.draft_commit, c.get("user").email, review.reply);
+    return c.json({ review });
+  });
+
+  // Who else is editing: the caller's heartbeat in, everyone else seen in the
+  // last 90 seconds out. page null means the caller left.
+  app.post("/api/sites/:id/presence", async (c) => {
+    const site = c.get("site");
+    const me = c.get("user").email;
+    const body = await c.req.json().catch(() => ({}));
+    const now = Date.now();
+    const page = body.page == null ? null : String(body.page).slice(0, 200);
+    if (body.leave) await c.env.DB.prepare("DELETE FROM presence WHERE site_id = ? AND email = ?").bind(site.id, me).run();
+    else
+      await c.env.DB.prepare(
+        "INSERT INTO presence (site_id, email, page, at) VALUES (?, ?, ?, ?) ON CONFLICT(site_id, email) DO UPDATE SET page = excluded.page, at = excluded.at",
+      )
+        .bind(site.id, me, page, now)
+        .run();
+    const { results } = await c.env.DB.prepare("SELECT email, page, at FROM presence WHERE site_id = ? AND email != ? AND at > ? ORDER BY email")
+      .bind(site.id, me, now - PRESENCE_TTL)
+      .all();
+    return c.json({ others: results });
   });
 
   // 發布前檢查: outside links on the changed pages (links.js).
@@ -511,6 +569,12 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
   app.post("/api/sites/:id/members", requireAdmin, async (c) => {
     const body = await c.req.json().catch(() => ({}));
     await addMember(c.env, c.get("site").id, body.email, c.get("user").email);
+    return c.json({ members: await membersOf(c.env, c.get("site").id) });
+  });
+
+  app.put("/api/sites/:id/members/:email", requireAdmin, async (c) => {
+    const body = await c.req.json().catch(() => ({}));
+    await setMemberRole(c.env, c.get("site").id, decodeURIComponent(c.req.param("email")), body.role, c.get("user").email);
     return c.json({ members: await membersOf(c.env, c.get("site").id) });
   });
 
