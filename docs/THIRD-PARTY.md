@@ -10,6 +10,7 @@ LabSite 編輯器內建、可以放進研究室網站的素材，以及它們的
 | DiceBear Lorelei（可愛頭像） | `@dicebear/lorelei` | 圖像 CC0 1.0（Lisa Wischofsky）；程式 MIT | |
 | Fluent Emoji（彩色貼圖，精選 76 個 Flat 版） | `library/stickers/fluent/` → `dist/library/stickers.json` | MIT，© Microsoft Corporation（`library/stickers/fluent/LICENSE`） | 來源 https://github.com/microsoft/fluentui-emoji ，commit 記在 `library/stickers/index.json`。放進網站的 SVG 檔內附授權註解。 |
 | Bioicons（科學與醫療插圖，CC0 收藏中的 142 個） | `library/stickers/bioicons/` | CC0 1.0（只取 `static/icons/cc-0/`；CC BY、CC BY-SA 的部分沒有收錄） | 來源 https://github.com/duerrsimon/bioicons ，作者逐一記在 `index.json`。由 `tools/fetch-stickers.mjs` 從固定 commit 複製。 |
+| qrcode-generator 1.4.4（QR Code 編碼） | `node_modules`，打包進編輯器 | MIT | 只在瀏覽器裡產生 QR Code，不連外部服務。https://github.com/kazuhikoarase/qrcode-generator |
 | 背景與裝飾 | `src/site/assetLibrary.js`（程式產生） | LabSite 自製 | |
 | 動畫元件 | `src/site/blockCatalog.js`、`src/site/blockRuntime.js` | LabSite 自製 | 參考常見 UI 模式的名稱與分類（如 UI Design Dictionary），程式與樣式為自行撰寫。 |
 

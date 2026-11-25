@@ -27,10 +27,12 @@ migrations_dir = "migrations"
 # binding = "BLOBS"
 # bucket_name = "labsite-blobs"
 
-# Hourly: back up every site whose latest saved version is not on GitHub yet
-# (cloud/src/github.js backupAll). Costs nothing for sites that did not change.
+# Hourly (minute 17): back up every site whose latest saved version is not on
+# GitHub yet (cloud/src/github.js backupAll), plus the other hourly jobs.
+# Every 10 minutes: 排程發布 (cloud/src/schedule.js); a cheap query when
+# nothing is scheduled.
 [triggers]
-crons = ["17 * * * *"]
+crons = ["17 * * * *", "*/10 * * * *"]
 
 [vars]
 # Comma-separated emails that can import sites and manage members.

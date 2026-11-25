@@ -15,7 +15,7 @@ const INLINE = new Set(["strong", "b", "em", "i", "a", "span", "mark", "u", "sup
 const NUMBER = /^\d+[.．、)]?$/;
 
 // The paragraph that carries a citation: mostly its own text, only inline children.
-function citationElement(item) {
+export function citationElement(item) {
   let best = null;
   let bestLen = 0;
   for (const el of [item, ...item.querySelectorAll("*")]) {

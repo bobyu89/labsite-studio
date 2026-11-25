@@ -59,6 +59,7 @@ export function cloudApi(fetchImpl = (...a) => fetch(...a)) {
     lookupOrcid: (orcid) => call("GET", "/lookup/orcid?id=" + encodeURIComponent(orcid)),
     getOrcid: (id) => call("GET", site(id) + "/orcid"),
     checkLinks: (id, urls) => call("POST", site(id) + "/check-links", { urls }),
+    stats: (id, days = 30) => call("GET", site(id) + "/stats?days=" + days),
     presence: (id, page, leave = false) => call("POST", site(id) + "/presence", leave ? { leave: true } : { page }),
     setOrcid: (id, orcid) => call("PUT", site(id) + "/orcid", { orcid }),
     // A file as it is in one version (a commit id, "published" or "draft"); null when absent.
@@ -70,6 +71,8 @@ export function cloudApi(fetchImpl = (...a) => fetch(...a)) {
       return this.readAt(id, path, "published");
     },
     publish: (id, commit) => call("POST", site(id) + "/publish", commit ? { commit } : {}),
+    schedulePublish: (id, at) => call("PUT", site(id) + "/schedule", { at }),
+    cancelSchedule: (id) => call("DELETE", site(id) + "/schedule"),
     restore: (id, commit) => call("POST", site(id) + "/restore", { commit }),
     addMember: (id, email) => call("POST", site(id) + "/members", { email }),
     removeMember: (id, email) => call("DELETE", site(id) + "/members/" + encodeURIComponent(email)),
@@ -80,6 +83,7 @@ export function cloudApi(fetchImpl = (...a) => fetch(...a)) {
     aiTheme: (id, description) => call("POST", site(id) + "/ai-theme", { description }),
     assistant: (id, body) => call("POST", site(id) + "/assistant", body),
     describePhoto: (id, body) => call("POST", site(id) + "/describe-photo", body),
+    quickNews: (id, body) => call("POST", site(id) + "/quick-news", body),
     aiSettings: () => call("GET", "/admin/ai"),
     saveAiSettings: (patch) => call("PUT", "/admin/ai", patch),
     removeAiKey: () => call("DELETE", "/admin/ai"),

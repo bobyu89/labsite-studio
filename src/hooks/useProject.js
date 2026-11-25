@@ -1385,7 +1385,8 @@ export function useProject(notify) {
       return { ...s, text, fields: readSiteFields(text).fields };
     });
   }
-  async function addAlbumPhotos(files) {
+  // opts.caption: one caption for all of them (活動快報), instead of the file name or date.
+  async function addAlbumPhotos(files, opts = {}) {
     if (!project?.source.writable || !album?.ok) return 0;
     const added = [];
     const failed = [];
@@ -1397,7 +1398,7 @@ export function useProject(notify) {
           const path = albumPath(img.path);
           invalidatePreviewCache(cache.current, path);
           setStaged((st) => ({ ...st, [path]: { file: img.blob, page: SITE_DATA } }));
-          added.push({ src: path, caption: defaultCaption(file) });
+          added.push({ src: path, caption: opts.caption || defaultCaption(file) });
         } catch (e) {
           failed.push(e.message);
         }
@@ -1413,7 +1414,7 @@ export function useProject(notify) {
       });
     }
     if (failed.length) setError(failed[0] + (failed.length > 1 ? `（另有 ${failed.length - 1} 張也無法加入）` : ""));
-    else if (added.length) notify(`已加入 ${added.length} 張照片。填好說明後按「保存相簿」，再按「發布」。`);
+    else if (added.length && !opts.quiet) notify(`已加入 ${added.length} 張照片。填好說明後按「保存相簿」，再按「發布」。`);
     return added.length;
   }
   const relFrom = (page, target) => "../".repeat((page.match(/\//g) || []).length) + target;
@@ -1525,6 +1526,12 @@ export function useProject(notify) {
     const raw = staged[src]?.file ?? (await project.source.readBlob(src));
     const photo = await toAiImage(raw);
     return cloudCalls.describePhoto(project.source.site.id, { ...photo, note: note || src.split("/").pop().replace(/\.[a-z0-9]+$/i, "").replace(/-[0-9a-f]{6}$/, "") });
+  }
+  // 活動快報: a sentence and maybe a photo → a news draft in both languages.
+  async function quickNews({ text, date, photo }) {
+    if (!aiAvailable) throw new Error("這個網站沒有開啟 AI 助手。");
+    const image = photo ? await toAiImage(photo).catch(() => null) : null;
+    return cloudCalls.quickNews(project.source.site.id, { text, date, ...(image || {}) });
   }
   const askAssistant = (body) => {
     if (!aiAvailable) throw new Error("這個網站沒有開啟 AI 助手。");
@@ -1794,7 +1801,7 @@ export function useProject(notify) {
       : null,
     setTextSize,
     skins: skin ? { list: skin.list, current: skin.current, pending: skin.pending } : null,
-    ai: { available: aiAvailable, generate: generateAiThemes, ask: askAssistant, describePhoto },
+    ai: { available: aiAvailable, generate: generateAiThemes, ask: askAssistant, describePhoto, quickNews },
     autosave: { ...autosave, on: autosaveOn, pending: autosaveOn && contentDirty },
     flushAutosave: () => flushRef.current(),
     previewSkin,

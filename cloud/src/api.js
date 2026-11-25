@@ -28,9 +28,10 @@ import { applyPatches } from "./patches.js";
 import { lookupReference, lookupOrcid } from "./lookup.js";
 import { parseOrcid } from "../../src/site/bibImport.js";
 import { checkLinks } from "./links.js";
+import { setSchedule, cancelSchedule, runSchedules } from "./schedule.js";
 import { templateFiles, personalize, applySkin } from "./templates.js";
 import { adminOverview } from "./overview.js";
-import { aiThemes, aiAssist, aiDescribePhoto, aiUsage, aiConfig, aiEnabledFor, aiAdminView, saveAiSettings, removeAiKey, testAiKey } from "./ai.js";
+import { aiThemes, aiAssist, aiDescribePhoto, aiQuickNews, aiUsage, aiConfig, aiEnabledFor, aiAdminView, saveAiSettings, removeAiKey, testAiKey } from "./ai.js";
 import {
   RepoError,
   isAdmin,
@@ -197,8 +198,14 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
       ai: !!ai.key,
       aiOff: sites.filter((s) => ai.off.has(s.id)).map((s) => s.id),
       sites: await (async () => {
-        const reviews = sites.length ? await getSettings(c.env, sites.map((s) => "review:" + s.id)) : {};
-        return sites.map((s) => ({ ...siteView(c.env, s), role: ROLES.includes(s.role) ? s.role : "editor", review: JSON.parse(reviews["review:" + s.id] || "null") }));
+        const keys = sites.flatMap((s) => ["review:" + s.id, "schedule:" + s.id]);
+        const extra = keys.length ? await getSettings(c.env, keys) : {};
+        return sites.map((s) => ({
+          ...siteView(c.env, s),
+          role: ROLES.includes(s.role) ? s.role : "editor",
+          review: JSON.parse(extra["review:" + s.id] || "null"),
+          schedule: JSON.parse(extra["schedule:" + s.id] || "null"),
+        }));
       })(),
     });
   });
@@ -430,6 +437,7 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
     const body = await c.req.json().catch(() => ({}));
     await publish(c.env, site.id, body.commit, { actor: c.get("user").email });
     await setSetting(c.env, "review:" + site.id, null);
+    await setSetting(c.env, "schedule:" + site.id, null);
     const inline = later(c, backupToGitHub(c.env, site.id, fetchImpl));
     if (inline) await inline;
     return c.json({ site: siteView(c.env, await getSite(c.env, site.id)) });
@@ -500,6 +508,34 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
     return c.json({ review });
   });
 
+  // 排程發布 (schedule.js): teachers only, like 發布.
+  app.put("/api/sites/:id/schedule", async (c) => {
+    if (c.get("role") !== "editor") throw new RepoError(403, "這個網站要由老師核准後發布。");
+    const body = await c.req.json().catch(() => ({}));
+    return c.json({ schedule: await setSchedule(c.env, c.get("site"), body.at, c.get("user").email) });
+  });
+  app.delete("/api/sites/:id/schedule", async (c) => {
+    if (c.get("role") !== "editor") throw new RepoError(403, "只有老師可以取消預約。");
+    await cancelSchedule(c.env, c.get("site"), c.get("user").email);
+    return c.json({ schedule: null });
+  });
+
+  // 網站造訪統計: daily views and the most visited pages (sites.js countView).
+  app.get("/api/sites/:id/stats", async (c) => {
+    const site = c.get("site");
+    const days = Math.min(Math.max(Number(c.req.query("days")) || 30, 7), 365);
+    const day = (ms) => new Date(ms + 8 * 3600 * 1000).toISOString().slice(0, 10);
+    const now = Date.now();
+    const from = day(now - (days - 1) * 86400000);
+    const prevFrom = day(now - (2 * days - 1) * 86400000);
+    const daily = (await c.env.DB.prepare("SELECT day, SUM(views) AS views FROM page_views WHERE site_id = ? AND day >= ? GROUP BY day ORDER BY day").bind(site.id, from).all()).results;
+    const pages = (
+      await c.env.DB.prepare("SELECT path, SUM(views) AS views FROM page_views WHERE site_id = ? AND day >= ? GROUP BY path ORDER BY views DESC LIMIT 10").bind(site.id, from).all()
+    ).results;
+    const prev = await c.env.DB.prepare("SELECT COALESCE(SUM(views), 0) AS views FROM page_views WHERE site_id = ? AND day >= ? AND day < ?").bind(site.id, prevFrom, from).first();
+    return c.json({ days, from, daily, pages, total: daily.reduce((n, d) => n + d.views, 0), previous: prev?.views || 0 });
+  });
+
   // Who else is editing: the caller's heartbeat in, everyone else seen in the
   // last 90 seconds out. page null means the caller left.
   app.post("/api/sites/:id/presence", async (c) => {
@@ -540,6 +576,15 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
     if (raw && !orcid) throw new RepoError(400, "看不懂這個 ORCID。格式像 0000-0002-1825-0097，可以直接貼 ORCID 網址。");
     await setSetting(c.env, "orcid:" + c.get("site").id, orcid, c.get("user").email);
     return c.json({ orcid });
+  });
+
+  // 活動快報: a sentence (and a photo) → a news draft in both languages.
+  app.post("/api/sites/:id/quick-news", async (c) => {
+    const { site, config, remaining } = await aiGate(c);
+    const body = await c.req.json().catch(() => ({}));
+    const result = await aiQuickNews(c.env, body, fetchImpl, config.key);
+    await logEvent(c.env, site.id, "ai_news", null, c.get("user").email, String(body.text || "").slice(0, 200));
+    return c.json({ ...result, remaining });
   });
 
   // 照片說明與替代文字 (vision): suggestions only.
@@ -600,12 +645,16 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
 const app = createApp();
 export default {
   fetch: (request, env, ctx) => app.fetch(request, env, ctx),
-  // Hourly: move sites off Google Sheets, apply one-off site fixes (patches.js), then back up to GitHub.
+  // Every 10 minutes: 排程發布 (schedule.js). Hourly (minute 17) also: move
+  // sites off Google Sheets, apply one-off site fixes (patches.js), then back up to GitHub.
   scheduled: (event, env, ctx) =>
     ctx.waitUntil(
-      moveSitesOffSheets(env)
-        .catch(() => [])
-        .then(() => applyPatches(env).catch(() => []))
-        .then(() => backupAll(env)),
+      event.cron === "*/10 * * * *"
+        ? runSchedules(env).catch(() => [])
+        : runSchedules(env)
+            .catch(() => [])
+            .then(() => moveSitesOffSheets(env).catch(() => []))
+            .then(() => applyPatches(env).catch(() => []))
+            .then(() => backupAll(env)),
     ),
 };

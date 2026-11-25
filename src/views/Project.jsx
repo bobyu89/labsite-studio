@@ -8,6 +8,7 @@ import {
   WarningCircle,
   X,
   RocketLaunch,
+  QrCode,
   ArrowSquareOut,
   Question,
   Eye,
@@ -29,6 +30,11 @@ import { Thumb } from "../components/AlbumPanel";
 import NewsPanel from "../components/NewsPanel";
 import AddPublication, { publicationPages } from "../components/AddPublication";
 import ImportPublications from "../components/ImportPublications";
+import ExportPublications from "../components/ExportPublications";
+import QrDialog from "../components/QrDialog";
+import QuickPost from "../components/QuickPost";
+import ScheduleDialog, { scheduleText } from "../components/ScheduleDialog";
+import SemesterWizard from "../components/SemesterWizard";
 import OrcidReminder from "../components/OrcidReminder";
 import SyncNote from "../components/SyncNote";
 import Presence from "../components/Presence";
@@ -101,6 +107,11 @@ export default function Project({ p, device, setDevice, setConfirm }) {
   const [addPub, setAddPub] = useState(false);
   const [bulkPub, setBulkPub] = useState(null); // { n, works?, orcid? }
   const [orcidNonce, setOrcidNonce] = useState(0);
+  const [exportPub, setExportPub] = useState(false);
+  const [qrOpen, setQrOpen] = useState(false);
+  const [quickPost, setQuickPost] = useState(false);
+  const [scheduling, setScheduling] = useState(false);
+  const [semester, setSemester] = useState(false);
   // The side columns stick right under the bar, whatever height it wraps to.
   const studioRef = useRef(null);
   const barRef = useRef(null);
@@ -250,6 +261,19 @@ export default function Project({ p, device, setDevice, setConfirm }) {
           }}
         />
         <PublishSummary p={p} pending={pending} unsaved={p.anyDirty ? unsavedNames() : []} me={p.cloud.me?.email} />
+        <p className="small-note schedule-link">
+          想在活動當天或指定時間才上線？
+          <button
+            type="button"
+            className="text-link"
+            onClick={() => {
+              setConfirm(null);
+              setScheduling(true);
+            }}
+          >
+            預約時間發布
+          </button>
+        </p>
       </>
     );
     const previous = p.cloudSite?.published || null;
@@ -342,6 +366,8 @@ export default function Project({ p, device, setDevice, setConfirm }) {
       },
     },
     (p.album?.ok || p.canListAssets) && { id: "photos", title: "活動照片", run: openPhotos },
+    membersPage && writable && { id: "semester", title: "學期更新", run: () => setSemester(true) },
+    hasNews && isCloud && writable && p.ai?.available && p.news?.ok && !p.news.sheetId && { id: "quickpost", title: "活動快報", run: () => setQuickPost(true) },
   ].filter(Boolean);
   const dot = (label) => <span className="unsaved-dot" aria-label={label} />;
   const more = [
@@ -416,6 +442,28 @@ export default function Project({ p, device, setDevice, setConfirm }) {
           {stateText}
         </span>
         <Presence others={p.others} current={p.current} labelOf={p.labelOf} onOpen={(page) => page && page !== p.current && switchPage(page)} />
+        {isCloud && p.cloudSite?.schedule && (
+          <span className={"schedule-chip" + (p.cloudSite.schedule.error ? " failed" : "")} role="status">
+            {p.cloudSite.schedule.error ? `預約發布沒有成功：${p.cloudSite.schedule.error}` : `已預約 ${scheduleText(p.cloudSite.schedule.at)} 發布`}
+            {!contributor && (
+              <button
+                type="button"
+                className="text-link"
+                onClick={async () => {
+                  try {
+                    await p.cloudCalls.cancelSchedule(p.cloudSite.id);
+                    await p.refreshCloud();
+                    p.notify("已取消預約發布。");
+                  } catch (e) {
+                    p.setError(e.message);
+                  }
+                }}
+              >
+                取消預約
+              </button>
+            )}
+          </span>
+        )}
         {writable && (unsavedCount > 0 || !isCloud) && (
           <Button
             variant={isCloud ? "surface" : "solid"}
@@ -433,6 +481,11 @@ export default function Project({ p, device, setDevice, setConfirm }) {
             <ArrowSquareOut size={18} />
             看網站
           </Button>
+        )}
+        {isCloud && p.cloudSite?.url && (
+          <IconButton label="QR Code（海報、名片用）" onClick={() => setQrOpen(true)}>
+            <QrCode size={19} />
+          </IconButton>
         )}
         {isCloud && (
           <Button
@@ -472,6 +525,10 @@ export default function Project({ p, device, setDevice, setConfirm }) {
           setAddPub(false);
           setBulkPub({ n: Date.now() });
         } : null}
+        onExport={() => {
+          setAddPub(false);
+          setExportPub(true);
+        }}
         onAdded={({ page, mirrored, heading }) => {
           setAddPub(false);
           enter("blocks", page);
@@ -480,6 +537,37 @@ export default function Project({ p, device, setDevice, setConfirm }) {
           );
         }}
       />
+      <ExportPublications p={p} open={exportPub} onClose={() => setExportPub(false)} />
+      {isCloud && <ScheduleDialog p={p} open={scheduling} onClose={() => setScheduling(false)} />}
+      <SemesterWizard
+        p={p}
+        open={semester}
+        page={membersPage}
+        onClose={() => setSemester(false)}
+        askAi={(text) => setPendingAsk({ page: membersPage, text })}
+        onDone={({ graduates, roles, added, mirrored }) => {
+          setSemester(false);
+          enter("blocks", membersPage);
+          p.notify(
+            `學期更新完成：${[graduates && graduates + " 人畢業", roles && roles + " 人更新身分", added && added + " 人加入"].filter(Boolean).join("、") || "沒有變更"}${mirrored ? "，英文頁也一起處理了" : ""}。看過沒問題後，按上方的「發布」。`,
+          );
+        }}
+      />
+      {isCloud && (
+        <QuickPost
+          p={p}
+          open={quickPost}
+          onClose={() => setQuickPost(false)}
+          onDone={({ photos }) => {
+            setQuickPost(false);
+            setTab("news");
+            p.notify(`已把消息加到最新消息最前面${photos ? `，${photos} 張照片也放進活動相簿` : ""}。看過沒問題後，按上方的「發布」。`);
+          }}
+        />
+      )}
+      {isCloud && p.cloudSite?.url && (
+        <QrDialog open={qrOpen} onClose={() => setQrOpen(false)} siteUrl={p.cloudSite.url} page={p.current} label={p.labelOf(p.current)} slug={p.cloudSite.slug} />
+      )}
       <ImportPublications
         p={p}
         open={!!bulkPub}

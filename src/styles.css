@@ -7318,3 +7318,258 @@ mark.diff-out {
   margin-left: auto;
   font-size: 13px;
 }
+
+/* v4.24 匯出論文清單 (ExportPublications.jsx) */
+.pub-export {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+.pub-export-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.pub-export-row .field {
+  flex: 1 1 120px;
+}
+.pub-export-lists {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.pub-export-lists legend {
+  margin-bottom: 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.pub-export-preview {
+  margin: 0;
+  padding: 10px 12px 10px 32px;
+  background: var(--paper);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* v4.24 QR Code (QrDialog.jsx) */
+.qr-dialog {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+  justify-items: center;
+}
+.qr-choice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  justify-self: start;
+}
+.qr-image {
+  width: min(280px, 70vw);
+  aspect-ratio: 1;
+}
+.qr-image svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.qr-url {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+/* v4.24 活動快報 (QuickPost.jsx) */
+.quick-post,
+.quick-post-draft {
+  display: grid;
+  gap: 12px;
+}
+.quick-post {
+  margin-top: 12px;
+}
+.quick-post-draft {
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.quick-post-photos {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+.quick-post-thumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.quick-post-thumbs img {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px var(--line);
+}
+.quick-post-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/* v4.24 網站造訪統計 (SiteStats.jsx) */
+.site-stats {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 14px 16px;
+  background: var(--paper);
+  box-shadow: 0 0 0 1px var(--line);
+}
+.site-stats-total {
+  margin: 0;
+}
+.site-stats-total strong {
+  font-family: var(--serif);
+  font-size: 22px;
+  margin: 0 2px;
+}
+.site-stats-total .up {
+  color: #166534;
+  font-size: 13px;
+}
+.site-stats-total .down {
+  color: #9a3412;
+  font-size: 13px;
+}
+.site-stats-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 64px;
+}
+.site-stats-bars span {
+  flex: 1;
+  min-width: 2px;
+  background: var(--accent);
+  border-radius: 1px 1px 0 0;
+  opacity: 0.85;
+}
+.site-stats-bars span.zero {
+  background: var(--line);
+}
+.site-stats-pages {
+  margin: 0;
+  padding: 0 0 0 20px;
+  display: grid;
+  gap: 2px;
+  font-size: 14px;
+}
+.site-stats-pages li span {
+  margin-right: 8px;
+}
+.site-stats-pages li b {
+  font-variant-numeric: tabular-nums;
+}
+
+/* v4.24 排程發布 (ScheduleDialog.jsx) */
+.schedule-dialog {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+.schedule-notes {
+  margin: 0;
+  padding-left: 18px;
+}
+.schedule-link {
+  margin: 10px 0 0;
+}
+.schedule-chip {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: #eef6ff;
+  color: #1e3a8a;
+  font-size: 13px;
+}
+.schedule-chip.failed {
+  background: #fee2e2;
+  color: #7f1d1d;
+}
+.schedule-chip .text-link {
+  font-size: inherit;
+}
+
+/* v4.24 學期更新 (SemesterWizard.jsx) */
+.semester {
+  display: grid;
+  gap: 14px;
+  margin-top: 12px;
+}
+.semester-list h4 {
+  margin: 0 0 6px;
+  font-family: var(--serif);
+  font-size: 16px;
+}
+.semester-head,
+.semester-row {
+  display: grid;
+  grid-template-columns: 44px minmax(90px, 160px) minmax(0, 1fr);
+  gap: 8px 12px;
+  align-items: center;
+}
+.semester-head {
+  font-size: 12px;
+  color: var(--muted);
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+}
+.semester-row {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+.semester-row input[type="checkbox"] {
+  justify-self: center;
+}
+.semester-row.leaving .semester-name {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+.semester-row input:not([type]),
+.semester-alumni input {
+  min-height: 34px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  font: inherit;
+  min-width: 0;
+}
+.semester-row input.changed {
+  border-color: var(--accent);
+  background: #fff7ed;
+}
+.semester-alumni {
+  display: grid;
+  grid-template-columns: 70px minmax(0, 1fr) minmax(0, 1fr);
+  gap: 6px;
+}
+@media (max-width: 720px) {
+  .semester-head {
+    display: none;
+  }
+  .semester-row {
+    grid-template-columns: 32px minmax(0, 1fr);
+  }
+  .semester-row > :last-child {
+    grid-column: 1 / -1;
+  }
+  .semester-alumni {
+    grid-template-columns: 1fr;
+  }
+}
