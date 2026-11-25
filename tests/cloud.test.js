@@ -25,6 +25,7 @@ import { fetchRepoFiles, backupToGitHub, backupAll } from "../cloud/src/github.j
 import { createApp } from "../cloud/src/api.js";
 import { serve, route } from "../cloud/src/sites.js";
 import { moveSitesOffSheets, SHEET_ACTOR } from "../cloud/src/sheets.js";
+import { applyPatches, replaceOnce, PATCH_ACTOR, PATCHES } from "../cloud/src/patches.js";
 
 const T0 = 1_780_000_000_000;
 const file = (path, text) => ({ path, bytes: enc.encode(text) });
@@ -1129,6 +1130,38 @@ const FALLBACK_NEWS = [
   assert.deepEqual(await moveSitesOffSheets(env, fetchImpl, T0 + 30), []);
   assert.equal(fetchImpl.calls.length, before);
   assert.equal((await history(env, await getSite(env, none.id))).length, 1);
+});
+
+/* ============================================================ site patches */
+test("one-off site patches: only on the exact file version, once, published when nothing else waits", async () => {
+  const env = fakeEnv();
+  const enc8 = (t) => new TextEncoder().encode(t);
+  const site = await createSite(env, { slug: "lab", name: "研究室", files: [{ path: "js/data.js", bytes: enc8('const KEY = "secret";\n') }], author: "admin@lab.tw", message: "匯入", now: T0 });
+  const other = await createSite(env, { slug: "other", name: "別的", files: [{ path: "js/data.js", bytes: enc8('const KEY = "secret";\n') }], author: "admin@lab.tw", message: "匯入", now: T0 });
+  await commitChanges(env, other.id, { files: [{ path: "js/data.js", bytes: enc8('const KEY = "edited";\n') }], author: "t@lab.tw", message: "老師改過", now: T0 + 1 });
+  const from = await sha256Hex('const KEY = "secret";\n');
+  const patch = (slug, id = "p1") => ({ id, slug, path: "js/data.js", from, message: "拿掉金鑰", apply: (t) => replaceOnce(t, '"secret"', '""') });
+
+  const r = await applyPatches(env, [patch("lab"), patch("other"), patch("missing"), { ...patch("lab", "p2"), from, apply: () => { throw new Error("找不到要修改的位置"); } }], T0 + 10);
+  assert.deepEqual(r.map((x) => [x.slug, x.status]), [["lab", "applied"], ["other", "skipped"], ["lab", "skipped"]]);
+  assert.equal(r[0].published, true);
+  assert.equal(await text(env, site, "js/data.js", "published"), 'const KEY = "";\n');
+  const [latest] = await history(env, await getSite(env, site.id));
+  assert.deepEqual([latest.author, latest.message], [PATCH_ACTOR, "拿掉金鑰"]);
+  assert.equal(await text(env, other, "js/data.js"), 'const KEY = "edited";\n', "a changed file is never touched");
+  // Applied once only.
+  assert.deepEqual(await applyPatches(env, [patch("lab")], T0 + 20), []);
+
+  // A site with unpublished work keeps it unpublished.
+  const busy = await createSite(env, { slug: "busy", name: "有草稿", files: [{ path: "js/data.js", bytes: enc8('const KEY = "secret";\n') }, { path: "index.html", bytes: enc8("a") }], author: "admin@lab.tw", message: "匯入", now: T0 });
+  await commitChanges(env, busy.id, { files: [{ path: "index.html", bytes: enc8("b") }], author: "t@lab.tw", message: "草稿", now: T0 + 1 });
+  const [b] = await applyPatches(env, [patch("busy")], T0 + 30);
+  assert.deepEqual([b.status, b.published], ["applied", false]);
+  assert.equal(await text(env, busy, "js/data.js", "published"), 'const KEY = "secret";\n');
+
+  assert.throws(() => replaceOnce("aa", "a", "b"), /找不到要修改的位置/);
+  assert.throws(() => replaceOnce("x", "a", "b"), /找不到要修改的位置/);
+  assert.ok(PATCHES.every((p) => p.id && p.slug && p.path && /^[0-9a-f]{64}$/.test(p.from) && p.message && typeof p.apply === "function"));
 });
 
 /* ============================================================ templates */
