@@ -27,3 +27,17 @@ export function bundleIcons(root = "library/healthicons") {
     icons: index.icons.map((i) => ({ ...i, outline: read("outline", i.id), filled: read("filled", i.id) })).filter((i) => i.outline || i.filled),
   };
 }
+
+// 貼圖與插圖: library/stickers/ (Fluent Emoji MIT, Bioicons CC0, see
+// tools/fetch-stickers.mjs) shipped as library/stickers.json.
+export function bundleStickers(root = "library/stickers") {
+  const indexFile = path.join(root, "index.json");
+  if (!fs.existsSync(indexFile)) return null;
+  const index = JSON.parse(fs.readFileSync(indexFile, "utf8"));
+  return {
+    sources: index.sources,
+    items: index.items
+      .map((i) => ({ ...i, svg: fs.existsSync(path.join(root, i.file)) ? fs.readFileSync(path.join(root, i.file), "utf8").trim() : null }))
+      .filter((i) => i.svg),
+  };
+}

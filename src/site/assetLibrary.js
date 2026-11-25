@@ -3,6 +3,8 @@
 //   醫療護理圖示  Health Icons (MIT, © Resolve to Save Lives), library/healthicons/
 //   插畫人物      DiceBear Open Peeps / Notionists / Lorelei (artwork CC0, code MIT)
 //   背景與裝飾    LabSite's own generated patterns (below)
+//   貼圖與插圖    Fluent Emoji (MIT, © Microsoft) and the CC0 part of Bioicons,
+//                 library/stickers/ (tools/fetch-stickers.mjs)
 // Picked items become SVG files in the site (assets/library/…), coloured as chosen.
 
 export const LIBRARY_DIR = "assets/library";
@@ -142,3 +144,17 @@ export const EXTERNAL_SOURCES = [
     note: "柔和可愛的手繪插畫（花、人物、背景）。可以免費用在網站上、不用標示來源；但不能把素材再散布，所以 LabSite 不內建，請到網站下載 PNG，再用「選擇照片」上傳。",
   },
 ];
+
+/* ----------------------------------------------------------- stickers */
+export const STICKERS_URL = "./library/stickers.json";
+const STICKER_CREDIT = {
+  fluent: "Fluent Emoji (https://github.com/microsoft/fluentui-emoji), MIT License, © Microsoft Corporation",
+  bioicons: "Bioicons (https://bioicons.com), CC0 1.0",
+};
+export const stickerAssetPath = (item) => `${LIBRARY_DIR}/stickers/${item.id}.svg`;
+export const stickerSvg = (item) =>
+  String(item.svg).replace(/<svg\b/, `<!-- ${STICKER_CREDIT[item.source] || item.source}${item.author ? ", by " + item.author : ""} -->\n<svg`) + "\n";
+export function searchStickers(items, query = "", group = "") {
+  const q = String(query).trim().toLowerCase();
+  return items.filter((i) => (!group || i.group === group) && (!q || i.name.toLowerCase().includes(q) || i.en.toLowerCase().includes(q) || i.group.includes(q)));
+}

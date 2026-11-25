@@ -10,6 +10,7 @@ import {
   duplicateSection,
   setText,
   setAttribute,
+  setButtonFx,
   writeHead,
   addItem,
   removeItem,
@@ -839,6 +840,16 @@ export function useProject(notify) {
       kind === "album" ? "相簿展示" : kind === "text" ? "標題與文字" : kind === "catalog" ? blockById(opts.id).name : kind === "embed" ? (opts.kind === "map" ? "地圖" : "影片") : "照片";
     notify(`已插入「${label}」，在左邊改內容，保存這一頁後生效。`);
     return true;
+  }
+  // 按鈕動態 on one button or link; the effects live in css/labsite-blocks.css.
+  async function setButtonMotion(index, path, fx) {
+    const page = current;
+    edit((doc) => {
+      const s = sectionElements(doc)[index];
+      if (!s || !setButtonFx(s, path, fx)) return false;
+      if (fx) ensureBlockAssets(doc, page, { script: false });
+    }, "fx:" + index + ":" + path.join("."));
+    if (fx) stageRuntime(await missingRuntime(), page);
   }
   // 進場動畫 for any section (sites without the template's own motion system).
   async function setEntrance(index, value) {
@@ -1680,6 +1691,7 @@ export function useProject(notify) {
     saveAlbums,
     insertBlock,
     setEntrance,
+    setButtonMotion,
     stageLibraryAsset,
     planAddresses,
     replaceAddresses,

@@ -4,7 +4,7 @@ import { viteSingleFile } from "vite-plugin-singlefile";
 import fs from "node:fs";
 import path from "node:path";
 import { bundleTemplates } from "./tools/bundle-templates.js";
-import { bundleIcons, bundlePeople } from "./tools/bundle-library.js";
+import { bundleIcons, bundlePeople, bundleStickers } from "./tools/bundle-library.js";
 import { RUNTIME_FILES } from "./src/site/albums.js";
 
 // Dev-only bridge: serves a local website folder (the lab site repo) at
@@ -119,6 +119,10 @@ function labsiteTemplates() {
         res.setHeader("Content-Type", "text/javascript; charset=utf-8");
         res.end(await bundlePeople());
       });
+      server.middlewares.use("/library/stickers.json", (req, res) => {
+        res.setHeader("Content-Type", "application/json; charset=utf-8");
+        res.end(JSON.stringify(bundleStickers()));
+      });
       server.middlewares.use("/library/healthicons.json", (req, res) => {
         res.setHeader("Content-Type", "application/json; charset=utf-8");
         res.end(JSON.stringify(bundleIcons()));
@@ -141,6 +145,8 @@ function labsiteTemplates() {
       this.emitFile({ type: "asset", fileName: "library/runtime.json", source: JSON.stringify(RUNTIME_FILES) });
       const icons = bundleIcons();
       if (icons) this.emitFile({ type: "asset", fileName: "library/healthicons.json", source: JSON.stringify(icons) });
+      const stickers = bundleStickers();
+      if (stickers) this.emitFile({ type: "asset", fileName: "library/stickers.json", source: JSON.stringify(stickers) });
       for (const [id, bundle] of Object.entries(bundles))
         this.emitFile({ type: "asset", fileName: `templates/${id}.json`, source: JSON.stringify(bundle) });
     },

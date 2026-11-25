@@ -26,6 +26,7 @@ const ALL = "__all";
 // 素材庫 views: "lib:<kind>"
 const LIBRARY = [
   ["icons", "醫療護理圖示"],
+  ["stickers", "貼圖與科學插圖"],
   ["people", "插畫人物"],
   ["decor", "背景與裝飾"],
   ["external", "外部素材網站"],

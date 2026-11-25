@@ -21,7 +21,25 @@ import {
   svgDataUrl,
   tint,
   EXTERNAL_SOURCES,
+  STICKERS_URL,
+  stickerAssetPath,
+  stickerSvg,
+  searchStickers,
 } from "../site/assetLibrary.js";
+
+let stickersCache = null;
+function useStickers() {
+  const [data, setData] = useState(stickersCache);
+  const [error, setError] = useState(null);
+  useEffect(() => {
+    if (stickersCache) return;
+    fetch(STICKERS_URL)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.status))))
+      .then((d) => setData((stickersCache = d)))
+      .catch((e) => setError("讀不到貼圖庫（" + e.message + "）"));
+  }, []);
+  return { data, error };
+}
 
 let iconsCache = null;
 function useIcons() {
@@ -99,7 +117,45 @@ export default function AssetLibrary({ p, kind, pick, onPick }) {
   if (kind === "icons") return <IconsView {...{ p, pick, color, setColor, use, addTo, albums }} />;
   if (kind === "people") return <PeopleView {...{ pick, color, setColor, use, addTo, albums }} />;
   if (kind === "decor") return <DecorView {...{ pick, color, setColor, use, addTo, albums }} />;
+  if (kind === "stickers") return <StickersView {...{ pick, use, addTo, albums }} />;
   return <ExternalView />;
+}
+
+// 貼圖與插圖: full-colour stickers (Fluent Emoji) and scientific / medical
+// drawings (Bioicons CC0). Used as they are, without recolouring.
+function StickersView({ pick, use, addTo, albums }) {
+  const { data, error } = useStickers();
+  const [query, setQuery] = useState("");
+  const [group, setGroup] = useState("");
+  const groups = useMemo(() => (data ? [...new Set(data.items.map((i) => i.group))] : []), [data]);
+  const list = useMemo(() => (data ? searchStickers(data.items, query, group) : []), [data, query, group]);
+  if (error) return <p className="error-text">{error}</p>;
+  if (!data) return <p className="muted">讀取中…</p>;
+  return (
+    <div className="lib-view">
+      <p className="small-note">
+        {data.items.length} 張彩色貼圖與科學、醫療插圖，可以放進任何頁面。來源：Fluent Emoji（Microsoft，MIT 授權）與 Bioicons 的 CC0 收藏，都可以免費商用。
+      </p>
+      <div className="lib-controls">
+        <input className="lib-search" type="search" value={query} placeholder="搜尋：聽診器、獎盃、microscope…" onChange={(e) => setQuery(e.target.value)} aria-label="搜尋貼圖" />
+      </div>
+      <div className="lib-chips">
+        {["", ...groups].map((g) => (
+          <button key={g || "all"} type="button" className={group === g ? "active" : ""} onClick={() => setGroup(g)}>
+            {g || "全部"}
+          </button>
+        ))}
+      </div>
+      {list.length === 0 && <p className="muted">找不到符合的貼圖。</p>}
+      <ul className="lib-grid icons">
+        {list.map((item) => {
+          const svg = stickerSvg(item);
+          const path = stickerAssetPath(item);
+          return <Tile key={item.id} name={item.name} src={svgDataUrl(svg)} pick={pick} albums={albums} onUse={() => use(path, svg, item.name)} onAddTo={(a) => addTo(a, path, svg, item.name)} />;
+        })}
+      </ul>
+    </div>
+  );
 }
 
 function IconsView({ pick, color, setColor, use, addTo, albums }) {

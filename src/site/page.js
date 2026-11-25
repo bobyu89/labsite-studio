@@ -660,6 +660,7 @@ export function collectFields(root, section = root) {
         elementPath: pathOf(el, section),
         label: (context ? context + " › " : "") + label + "網址",
         href: el.getAttribute("href") || "",
+        fx: ((el.getAttribute("class") || "").match(/(?:^|\s)ls-fx-([a-z]+)/) || [])[1] || "",
       });
     }
     for (const node of el.childNodes) {
@@ -1029,5 +1030,16 @@ export function setSectionMotion(doc, index, value) {
   }
   if (!MOTIONS.includes(value) || el.getAttribute("data-motion") === value) return false;
   el.setAttribute("data-motion", value);
+  return true;
+}
+
+// 按鈕動態: one ls-fx-* class on a button or link ("" removes it).
+export function setButtonFx(section, path, fx) {
+  const el = nodeAt(section, path);
+  if (!el || el.nodeType !== 1) return false;
+  const kept = (el.getAttribute("class") || "").split(/\s+/).filter((c) => c && !/^ls-fx-/.test(c));
+  if (fx) kept.push("ls-fx-" + fx);
+  if (kept.length) el.setAttribute("class", kept.join(" "));
+  else el.removeAttribute("class");
   return true;
 }

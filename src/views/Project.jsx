@@ -700,6 +700,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
                   setFocus={p.setFocus}
                   setText={p.setText}
                   setAttr={p.setAttr}
+                  setFx={writable ? p.setButtonMotion : null}
                   replaceImage={p.replaceImage}
                   openLibrary={p.canListAssets ? (index, path) => pickPhoto("選一張照片放進這個欄位", (asset) => p.useAsset(index, path, asset)) : null}
                   writable={writable}

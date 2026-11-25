@@ -4,7 +4,55 @@
 // Plain ES5 + CSS so it runs on any site; everything respects
 // prefers-reduced-motion and shows the content without JavaScript.
 
-export const ANIM_CSS_TEXT = `
+// 按鈕動態: classes a teacher can put on any button or link (ls-fx-*).
+// Written for LabSite; each effect only adds motion on hover / focus / press,
+// keeps the site's own colours (currentColor), and is skipped entirely for
+// visitors who asked for reduced motion.
+export const BUTTON_FX = [
+  ["", "不要動態"],
+  ["lift", "浮起"],
+  ["shine", "光澤掃過"],
+  ["arrow", "箭頭前進"],
+  ["underline", "底線展開"],
+  ["pulse", "輕輕脈動（提醒用）"],
+  ["press", "按下回彈"],
+];
+const BUTTON_FX_CSS = `
+/* ---- 按鈕動態（ls-fx-*）---- */
+@media (prefers-reduced-motion: no-preference) {
+  .ls-fx-lift { transition: transform .18s ease, box-shadow .18s ease; }
+  .ls-fx-lift:hover, .ls-fx-lift:focus-visible { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,.14); }
+  .ls-fx-lift:active { transform: translateY(0); box-shadow: 0 2px 6px rgba(0,0,0,.12); }
+
+  .ls-fx-shine { position: relative; overflow: hidden; isolation: isolate; }
+  .ls-fx-shine::after {
+    content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+    background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,.45) 50%, transparent 70%);
+    transform: translateX(-120%); transition: transform .6s ease;
+  }
+  .ls-fx-shine:hover::after, .ls-fx-shine:focus-visible::after { transform: translateX(120%); }
+
+  .ls-fx-arrow::after { content: "\\2192"; display: inline-block; margin-left: .4em; transition: transform .2s ease; }
+  .ls-fx-arrow:hover::after, .ls-fx-arrow:focus-visible::after { transform: translateX(4px); }
+
+  .ls-fx-underline { text-decoration: none; background-image: linear-gradient(currentColor, currentColor); background-repeat: no-repeat;
+    background-position: 0 100%; background-size: 0 2px; transition: background-size .25s ease; }
+  .ls-fx-underline:hover, .ls-fx-underline:focus-visible { background-size: 100% 2px; }
+
+  .ls-fx-pulse { animation: ls-fx-pulse 2.4s ease-in-out infinite; }
+  .ls-fx-pulse:hover, .ls-fx-pulse:focus-visible { animation: none; }
+  @keyframes ls-fx-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.04); } }
+
+  .ls-fx-press { transition: transform .12s ease; }
+  .ls-fx-press:active { transform: scale(.96); }
+}
+/* 不想要動態的訪客也看得到箭頭。 */
+@media (prefers-reduced-motion: reduce) {
+  .ls-fx-arrow::after { content: "\\2192"; margin-left: .4em; }
+}
+`;
+
+export const ANIM_CSS_TEXT = BUTTON_FX_CSS + `
 /* ---- 動畫庫：區塊進場（data-ls-anim）---- */
 @media (prefers-reduced-motion: no-preference) {
   .ls-anim-on [data-ls-anim]:not(.ls-in) {

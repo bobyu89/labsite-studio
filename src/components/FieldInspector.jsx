@@ -17,6 +17,7 @@ import { Field, IconButton } from "./ui";
 import { embedFromInput, embedLabel } from "../site/embeds.js";
 import { PICKER_ACCEPT } from "../site/images.js";
 import { parsePage, sectionElements, describeNode, describeItem } from "../site/page.js";
+import { BUTTON_FX } from "../site/blockRuntime.js";
 import { useDragReorder } from "../hooks/useDragReorder";
 
 const key = (path) => path.join(".");
@@ -118,7 +119,7 @@ function EmbedField({ f, k, cls, index, setFocus, setAttr, writable }) {
   );
 }
 
-function Fields({ fields, index, focus, setFocus, setText, setAttr, replaceImage, openLibrary, writable, busy }) {
+function Fields({ fields, index, focus, setFocus, setText, setAttr, setFx, replaceImage, openLibrary, writable, busy }) {
   if (!fields.length) return null;
   return (
     <div className="field-list">
@@ -144,6 +145,18 @@ function Fields({ fields, index, focus, setFocus, setText, setAttr, replaceImage
                 value={f.href}
                 onChange={(v) => setAttr(index, f.path, "href", v)}
               />
+              {setFx && (
+                <label className="field field-fx">
+                  <span>按鈕動態（滑過或按下時）</span>
+                  <select value={f.fx || ""} disabled={!writable} onChange={(e) => setFx(index, f.path, e.target.value)}>
+                    {BUTTON_FX.map(([id, name]) => (
+                      <option key={id || "none"} value={id}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
             </div>
           );
         if (f.kind === "embed")
@@ -271,7 +284,7 @@ function Node({ node, section, ctx, open, toggle, focusPath }) {
   );
 }
 
-export default function FieldInspector({ html, index, focus, grabFocus = true, setFocus, setText, setAttr, replaceImage, openLibrary, writable, busy, addItem, removeItem, moveItem, setConfirm }) {
+export default function FieldInspector({ html, index, focus, grabFocus = true, setFocus, setText, setAttr, setFx, replaceImage, openLibrary, writable, busy, addItem, removeItem, moveItem, setConfirm }) {
   const section = useMemo(() => (html ? sectionElements(parsePage(html).doc)[index] : null), [html, index]);
   const node = useMemo(() => (section ? describeNode(section) : { fields: [], lists: [] }), [section]);
   const [open, setOpen] = useState(() => new Set());
@@ -306,7 +319,7 @@ export default function FieldInspector({ html, index, focus, grabFocus = true, s
     }
   }, [focus]);
   if (!section) return null;
-  const ctx = { index, focus, setFocus, setText, setAttr, replaceImage, openLibrary, writable, busy, addItem, removeItem, moveItem, setConfirm };
+  const ctx = { index, focus, setFocus, setText, setAttr, setFx, replaceImage, openLibrary, writable, busy, addItem, removeItem, moveItem, setConfirm };
   return (
     <div ref={ref}>
       <Node node={node} section={section} ctx={ctx} open={open} toggle={toggle} focusPath={focusPath} />
