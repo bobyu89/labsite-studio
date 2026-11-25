@@ -19,6 +19,7 @@ Cloudflare 帳號、GitHub 帳號、Anthropic 帳號都是管理者（bobyu89）
 
 `cloud/src/api.js` 的 `scheduled`，每小時第 17 分：
 
+0. **預約發布**（`cloud/src/schedule.js`）：每 10 分鐘也會跑一次，把到時間的預約發布出去。
 1. **搬離 Google 試算表**（`cloud/src/sheets.js`）：還在讀試算表的網站，把內容搬進 `js/data.js`。
 2. **一次性網站修正**（`cloud/src/patches.js`）：只在檔案剛好是指定版本時套用一次。
 3. **GitHub 備份**（`cloud/src/github.js`）：把還沒備份的最新版本推到各網站的儲存庫。
@@ -35,6 +36,8 @@ Cloudflare 帳號、GitHub 帳號、Anthropic 帳號都是管理者（bobyu89）
 | 新增一個研究室網站 | 「管理者 › 新增網站（用模板）」或「從 GitHub 匯入網站」。 |
 | 改錯、發布錯 | 編輯器左上「舊版本」→ 選一版「還原成這一版」→ 發布。剛發布完也可以在完成視窗按「回到上一版」。 |
 | AI 助手沒出現 | 「平台設定」看金鑰是否還在、該網站有沒有開啟、今天的次數是否用完。 |
+| 預約發布沒有上線 | 「我的網站」與編輯器上方會顯示「預約發布沒有成功」和原因；預約存在 D1 `settings` 的 `schedule:<網站 id>`。Cloudflare 的 cron 要有 `*/10 * * * *`（`cloud/wrangler.api.toml`）。 |
+| 造訪數字怪怪的 | 只算網頁（.html）被打開的次數，同一人重新整理也算一次；機器人用 User-Agent 排除，不是百分之百。資料在 D1 `page_views`。 |
 | ORCID 新論文提醒沒出現 | 該網站要先用「一次匯入多篇 › ORCID」並勾「記住這個 ORCID」；每台瀏覽器每天最多查一次。ORCID 存在 D1 `settings` 的 `orcid:<網站 id>`。 |
 | AI 費用 | Anthropic Console 看用量；「平台設定」可調每站每日上限。 |
 | 備份失敗 | 「平台設定 › GitHub 備份」會列出每個網站的狀態與錯誤；常見原因是權杖過期或沒有該儲存庫的寫入權限。 |

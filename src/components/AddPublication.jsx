@@ -47,7 +47,7 @@ export function usePublicationTargets(p, open) {
   return { targets, pick, setPick };
 }
 
-export default function AddPublication({ p, open, onClose, onAdded, onBulk }) {
+export default function AddPublication({ p, open, onClose, onAdded, onBulk, onExport }) {
   const { targets, pick, setPick } = usePublicationTargets(p, open);
   const [values, setValues] = useState({ text: "", bold: "", journal: "", url: "" });
   const [journalTouched, setJournalTouched] = useState(false);
@@ -136,6 +136,14 @@ export default function AddPublication({ p, open, onClose, onAdded, onBulk }) {
               論文很多？
               <button type="button" className="text-link" onClick={onBulk}>
                 一次匯入多篇（DOI 清單、Zotero／EndNote 匯出檔、ORCID）
+              </button>
+            </p>
+          )}
+          {onExport && (
+            <p className="small-note quick-add-bulk">
+              要寫計畫報告或評鑑？
+              <button type="button" className="text-link" onClick={onExport}>
+                匯出論文清單（Word 或文字）
               </button>
             </p>
           )}

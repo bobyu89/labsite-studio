@@ -18,11 +18,13 @@ import {
   LinkSimple,
   Copy,
   SquaresFour,
+  ChartBar,
 } from "@phosphor-icons/react";
 import { Field } from "../components/ui";
 import Project from "./Project";
 import UiSize from "../components/UiSize";
 import DeviceLogin from "../components/DeviceLogin";
+import SiteStats from "../components/SiteStats";
 import AdminOverview from "../components/AdminOverview";
 import { PasswordLoginForm, PasswordDialog, PasswordButton } from "../components/PasswordLogin";
 import AiSettings from "../components/AiSettings";
@@ -171,6 +173,7 @@ function Members({ p, site }) {
 
 function SiteCard({ p, site, admin }) {
   const [manage, setManage] = useState(false);
+  const [stats, setStats] = useState(false);
   const backup = site.backup || {};
   return (
     <section className="site-row">
@@ -184,7 +187,9 @@ function SiteCard({ p, site, admin }) {
                 ? "已送給老師，等待核准發布"
                 : site.review?.status === "returned" && site.role !== "editor"
                   ? "老師退回了，請看留言"
-                  : site.unpublished
+                  : site.schedule && !site.schedule.error
+                    ? "已預約 " + new Intl.DateTimeFormat("zh-TW", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(site.schedule.at) + " 發布"
+                    : site.unpublished
                     ? "有修改尚未發布，訪客看到的還是舊的"
                     : "網站是最新的"}
             {site.url && (
@@ -217,6 +222,9 @@ function SiteCard({ p, site, admin }) {
               <UsersThree size={18} /> 成員
             </Button>
           )}
+          <Button size="3" variant="surface" color="gray" onClick={() => setStats(!stats)} aria-expanded={stats}>
+            <ChartBar size={18} /> 造訪
+          </Button>
           <Button size="3" variant="surface" color="gray" asChild>
             <a href={p.cloudCalls.exportUrl(site.id, "published")} download title="下載整個網站的檔案">
               <DownloadSimple size={18} /> 下載
@@ -234,6 +242,7 @@ function SiteCard({ p, site, admin }) {
           </Button>
         </div>
       </div>
+      {stats && <SiteStats p={p} site={site} />}
       {admin && manage && <Members p={p} site={site} />}
     </section>
   );

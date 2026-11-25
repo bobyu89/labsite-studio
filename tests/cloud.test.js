@@ -1560,3 +1560,86 @@ test("presence: each editor's page, others seen for 90 seconds, leaving removes 
   // Not a member: refused.
   assert.equal((await beat("stranger@else.tw", { page: "index.html" })).status, 403);
 });
+
+/* ============ v4.24 活動快報, 造訪統計, 排程發布 */
+test("活動快報: one sentence (and a photo) → a news draft in both languages, counted as AI use", async () => {
+  let sent = null;
+  const reply = { category: "活動", zh: "本研究室舉辦實證護理工作坊。", en: "Our lab held an EBP workshop.", caption: "工作坊合影", caption_en: "Workshop" };
+  const fetchImpl = scriptedFetch([
+    [
+      "api.anthropic.com/v1/messages",
+      (u, init) => {
+        sent = JSON.parse(init.body);
+        return { json: { id: "m", type: "message", role: "assistant", model: "claude-opus-5-5", content: [{ type: "text", text: JSON.stringify(reply) }], stop_reason: "end_turn", stop_sequence: null, usage: { input_tokens: 1, output_tokens: 1 } } };
+      },
+    ],
+  ]);
+  const env = fakeEnv();
+  const site = await seed(env);
+  const app = createApp({ fetchImpl });
+  const post = (body) => app.request(`http://localhost/api/sites/${site.id}/quick-news`, jsonReq("POST", body), env);
+  assert.equal((await post({ text: "今天辦工作坊" })).status, 503, "no key yet");
+  await app.request("http://localhost/api/admin/ai", jsonReq("PUT", { key: TEST_KEY }), env);
+  assert.equal((await post({ text: "嗯" })).status, 400);
+  const res = await post({ text: "今天舉辦實證護理工作坊，30 人參加", date: "2026-11-25", image: "A".repeat(400), mediaType: "image/jpeg" });
+  const body = await res.json();
+  assert.deepEqual([body.category, body.zh, body.en, body.caption], ["活動", reply.zh, reply.en, reply.caption]);
+  assert.equal(typeof body.remaining, "number");
+  const content = sent.messages[0].content;
+  assert.deepEqual(content.map((c) => c.type), ["image", "text"]);
+  assert.match(content[1].text, /2026-11-25[\s\S]*30 人參加/);
+  const ev = await env.DB.prepare("SELECT COUNT(*) AS n FROM events WHERE kind = 'ai_news'").first();
+  assert.equal(ev.n, 1);
+});
+
+test("造訪統計: the public host counts HTML views per day and page, not robots or files", async () => {
+  const env = fakeEnv();
+  const site = await seed(env);
+  await publish(env, site.id, null, { actor: "admin@lab.tw" });
+  const visit = (path, ua = "Mozilla/5.0 Chrome") => serve(new Request("https://sites.example/sung/" + path, { headers: { "User-Agent": ua } }), env);
+  await visit("");
+  await visit("index.html");
+  await visit("en/index.html");
+  await visit("", "Googlebot/2.1");
+  await visit("css/main.css");
+  const app = createApp({ fetchImpl: scriptedFetch([]) });
+  const stats = await (await app.request(`http://localhost/api/sites/${site.id}/stats?days=30`, {}, env)).json();
+  assert.equal(stats.total, 3);
+  assert.deepEqual(stats.pages.map((x) => [x.path, x.views]), [["index.html", 2], ["en/index.html", 1]]);
+  assert.equal(stats.daily.length, 1);
+  assert.equal(stats.previous, 0);
+});
+
+test("排程發布: teachers only, in the future; the cron publishes the latest saved version once and clears it", async () => {
+  const { runSchedules, SCHEDULE_ACTOR } = await import("../cloud/src/schedule.js");
+  const env = fakeEnv();
+  const site = await seed(env);
+  const app = createApp({ fetchImpl: scriptedFetch([]) });
+  await addMember(env, site.id, "student@lab.tw", "admin@lab.tw");
+  await env.DB.prepare("UPDATE members SET role = 'contributor' WHERE email = 'student@lab.tw'").run();
+  const put = (at, email = "admin@lab.tw") => app.request(`http://localhost/api/sites/${site.id}/schedule`, jsonReq("PUT", { at }), { ...env, DEV_USER_EMAIL: email });
+  assert.equal((await put(Date.now() + 3600e3, "student@lab.tw")).status, 403);
+  assert.equal((await put(Date.now() - 1000)).status, 400, "in the past");
+  assert.equal((await put(Date.now() + 100 * 86400e3)).status, 400, "too far ahead");
+  const at = Date.now() + 3600e3;
+  assert.equal((await (await put(at)).json()).schedule.at, at);
+  let me = await (await app.request("http://localhost/api/me", {}, env)).json();
+  assert.equal(me.sites[0].schedule.at, at);
+  // Later saves go live too.
+  await commitChanges(env, site.id, { files: [file("index.html", "<h1>預約後又改</h1>")], author: "admin@lab.tw", message: "再改", now: T0 + 50 });
+  assert.deepEqual(await runSchedules(env, at - 1000), [], "not yet");
+  assert.deepEqual(await runSchedules(env, at + 1000), [{ slug: "sung", status: "published" }]);
+  assert.equal(await text(env, await getSite(env, site.id), "index.html", "published"), "<h1>預約後又改</h1>");
+  const [latest] = await history(env, await getSite(env, site.id));
+  assert.ok(latest);
+  me = await (await app.request("http://localhost/api/me", {}, env)).json();
+  assert.equal(me.sites[0].schedule, null);
+  assert.deepEqual(await runSchedules(env, at + 2000), [], "once only");
+  // Publishing by hand cancels a schedule.
+  await put(Date.now() + 7200e3);
+  await commitChanges(env, site.id, { files: [file("index.html", "<h1>手動</h1>")], author: "admin@lab.tw", message: "手動", now: T0 + 60 });
+  await app.request(`http://localhost/api/sites/${site.id}/publish`, jsonReq("POST", {}), env);
+  me = await (await app.request("http://localhost/api/me", {}, env)).json();
+  assert.equal(me.sites[0].schedule, null);
+  assert.ok(SCHEDULE_ACTOR);
+});

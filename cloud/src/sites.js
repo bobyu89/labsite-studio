@@ -1,5 +1,6 @@
 // Public host: serves each site's *published* version, read-only. It shares
-// D1 and R2 with the editor but has no write code at all.
+// D1 and R2 with the editor; its only write is the anonymous page-view
+// counter (countView: one number per site, day and page, no cookies).
 //   <slug>.<SITE_DOMAIN>/path   when SITE_DOMAIN is set and matches the host
 //   <host>/<slug>/path          otherwise (e.g. on workers.dev)
 import { getSite, loadTree, getCommit, blobStream } from "./repo.js";
@@ -28,10 +29,26 @@ async function publishedTree(env, slug) {
   const site = await getSite(env, slug);
   if (!site || site.slug !== slug || !site.published_commit) return null;
   const commit = await getCommit(env, site.published_commit);
-  return loadTree(env, commit.tree_id);
+  const tree = await loadTree(env, commit.tree_id);
+  tree.siteId = site.id;
+  return tree;
 }
 
-export async function serve(request, env) {
+// Robots, link previews and uptime checks are not visitors.
+const NOT_A_VISITOR = /bot|crawl|spider|slurp|preview|monitor|facebookexternalhit|curl|wget|python|httpclient|headless|lighthouse/i;
+export const viewDay = (now = Date.now()) => new Date(now + 8 * 3600 * 1000).toISOString().slice(0, 10);
+
+export function countView(env, siteId, path, request, now = Date.now()) {
+  if (NOT_A_VISITOR.test(request.headers.get("User-Agent") || "") || request.headers.get("Purpose") === "prefetch") return null;
+  return env.DB.prepare(
+    "INSERT INTO page_views (site_id, day, path, views) VALUES (?, ?, ?, 1) ON CONFLICT(site_id, day, path) DO UPDATE SET views = views + 1",
+  )
+    .bind(siteId, viewDay(now), path)
+    .run()
+    .catch(() => null);
+}
+
+export async function serve(request, env, ctx) {
   if (request.method !== "GET" && request.method !== "HEAD")
     return new Response("Method Not Allowed", { status: 405, headers: { Allow: "GET, HEAD" } });
   const url = new URL(request.url);
@@ -69,6 +86,10 @@ export async function serve(request, env) {
     "Cache-Control": isHtml(path) ? "public, max-age=0, must-revalidate" : "public, max-age=300",
     "X-Content-Type-Options": "nosniff",
   };
+  if (status === 200 && request.method === "GET" && isHtml(path)) {
+    const counting = countView(env, tree.siteId, path, request);
+    if (counting) ctx?.waitUntil ? ctx.waitUntil(counting) : await counting;
+  }
   if (status === 200 && request.headers.get("If-None-Match") === etag) return new Response(null, { status: 304, headers });
   const body = request.method === "HEAD" ? null : await blobStream(env, entry.hash);
   if (request.method !== "HEAD" && !body) return new Response("內容遺失", { status: 500 });

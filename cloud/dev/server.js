@@ -118,6 +118,17 @@ const mockFetch = async (url, init) => {
   await new Promise((r) => setTimeout(r, 800));
   const body = JSON.parse(init?.body || "{}");
   const assist = !!body.output_config?.format?.schema?.properties?.changes;
+  if (body.output_config?.format?.schema?.properties?.caption_en) {
+    const said = String(body.messages?.[0]?.content?.find((x) => x.type === "text")?.text || "").split("老師寫的：")[1] || "";
+    return new Response(
+      JSON.stringify({
+        id: "msg_mock", type: "message", role: "assistant", model: "claude-opus-5-5",
+        content: [{ type: "text", text: JSON.stringify({ category: "活動", zh: "（模擬）本研究室" + said.slice(0, 60), en: "(Mock) Our lab: " + said.slice(0, 60), caption: "（模擬）活動合影", caption_en: "(Mock) Group photo" }) }],
+        stop_reason: "end_turn", stop_sequence: null, usage: { input_tokens: 0, output_tokens: 0 },
+      }),
+      { headers: { "Content-Type": "application/json" } },
+    );
+  }
   if (body.output_config?.format?.schema?.properties?.alt_en)
     return new Response(
       JSON.stringify({

@@ -13,7 +13,7 @@ const BLOCK_IDS = BLOCK_CATALOG.filter((b) => !b.image).map((b) => b.id);
 
 export const AI_MODEL = "claude-opus-5-5";
 export const AI_DAILY_LIMIT = 20;
-const AI_KINDS = "('ai_theme', 'ai_assist', 'ai_photo')";
+const AI_KINDS = "('ai_theme', 'ai_assist', 'ai_photo', 'ai_news')";
 
 /* ------------------------------------------------------------ settings */
 // The key comes from the worker's ANTHROPIC_API_KEY secret when one is set,
@@ -429,4 +429,67 @@ export async function aiDescribePhoto(env, { image, mediaType, note = "" }, fetc
     throw new RepoError(502, "AI 的回應格式不正確，請再試一次。");
   }
   return { caption: clip(out.caption, 60), alt: clip(out.alt, 200), alt_en: clip(out.alt_en, 300) };
+}
+
+/* ----------------------------------------------------- 活動快報 (quick news) */
+// One sentence from the teacher (and, if given, one of the photos) → a news
+// item in Chinese and English plus a caption for the photos. A draft only:
+// the teacher reads and edits it before anything is added.
+const QUICK_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["category", "zh", "en", "caption", "caption_en"],
+  properties: {
+    category: { type: "string", enum: ["公告", "榮譽", "發表", "活動"], description: "活動 for events and workshops, 發表 for talks/papers/posters, 榮譽 for awards, 公告 otherwise." },
+    zh: text("The news item in Traditional Chinese (Taiwan), one or two sentences, 30–90 characters, factual and warm, in the lab's voice (本研究室…). Use only facts in the teacher's sentence; do not invent numbers, names, places or outcomes."),
+    en: text("The same news item in natural academic English, one or two sentences."),
+    caption: text("A short caption for the photos in Traditional Chinese, at most 24 characters, no date."),
+    caption_en: text("The same caption in English."),
+  },
+};
+const QUICK_SYSTEM = `You write short news items for the websites of university nursing research labs in Taiwan. The teacher gives one sentence about what happened, and sometimes a photo. Write a news item in Traditional Chinese and in English, and a short photo caption. Use only the facts the teacher gave (and what is plainly visible in the photo); never invent names, numbers, places, titles or results. Keep the tone factual and modest.`;
+
+// → { category, zh, en, caption, caption_en }
+export async function aiQuickNews(env, { text: sentence = "", date = "", image, mediaType }, fetchImpl, key) {
+  if (!key) throw new RepoError(503, "AI 功能尚未設定（管理者需要在「平台設定」放入 API 金鑰）。");
+  const say = clip(sentence, 600);
+  if (say.length < 4) throw new RepoError(400, "請先寫一句發生了什麼事。");
+  const content = [];
+  if (image) {
+    if (!PHOTO_TYPES.has(mediaType)) throw new RepoError(400, "這種圖片格式沒辦法交給 AI 看。");
+    const data = String(image);
+    if (!/^[A-Za-z0-9+/=]+$/.test(data) || data.length < 100) throw new RepoError(400, "照片內容不完整。");
+    if (data.length > 2_000_000) throw new RepoError(413, "照片太大，請先縮小。");
+    content.push({ type: "image", source: { type: "base64", media_type: mediaType, data } });
+  }
+  content.push({ type: "text", text: `日期：${clip(date, 20) || "（未提供）"}\n老師寫的：${say}` });
+  let response;
+  try {
+    response = await client(key, fetchImpl).beta.messages.create({
+      model: AI_MODEL,
+      max_tokens: 2000,
+      betas: ["server-side-fallback-2026-07-01"],
+      fallbacks: "default",
+      output_config: { effort: "low", format: { type: "json_schema", schema: QUICK_SCHEMA } },
+      system: QUICK_SYSTEM,
+      messages: [{ role: "user", content }],
+    });
+  } catch (e) {
+    throw aiError(e);
+  }
+  if (response.stop_reason === "refusal") throw new RepoError(422, "AI 無法寫這則消息。");
+  const block = response.content.find((b) => b.type === "text");
+  let out;
+  try {
+    out = JSON.parse(block?.text || "");
+  } catch {
+    throw new RepoError(502, "AI 的回應格式不正確，請再試一次。");
+  }
+  return {
+    category: ["公告", "榮譽", "發表", "活動"].includes(out.category) ? out.category : "活動",
+    zh: clip(out.zh, 300),
+    en: clip(out.en, 600),
+    caption: clip(out.caption, 60),
+    caption_en: clip(out.caption_en, 120),
+  };
 }

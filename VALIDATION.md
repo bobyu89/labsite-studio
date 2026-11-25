@@ -1,3 +1,30 @@
+# v4.24 活動快報、學期更新、論文匯出、造訪統計、預約發布、QR Code
+
+日期：2026-11-25。管理者要求：#9 先上線，然後做 1～6。
+
+內容
+- 活動快報：`aiQuickNews`（JSON schema：分類、中英文消息、照片說明；可附一張照片）、`POST /api/sites/:id/quick-news`（`aiGate`、計入 `ai_news`）；`QuickPost.jsx`（「新增」列）；`addAlbumPhotos(files, { caption, quiet })`。
+- 學期更新：`src/site/semester.js`（`memberLists`、`bumpYear`、`degreeOf`、`applySemester`、`parseNewMembers`）、`SemesterWizard.jsx`；英文頁清單數量一致時同步移動與新增；長的新成員內容交給 AI 助手（`add_item` 卡片）。
+- 匯出論文清單：`src/site/pubExport.js`（年份判讀、只留粗體／斜體、連結寫成網址、重新編號、Word HTML 與文字）、`ExportPublications.jsx`（「新增論文」視窗連結）。`quickAdd.js` 匯出 `citationElement`。
+- 造訪統計：migration `0006_page_views.sql`；`sites.js` 的 `countView`（只算 HTML 的 GET、排除機器人、`ctx.waitUntil`）；`GET /api/sites/:id/stats`；`SiteStats.jsx`（我的網站 › 造訪）。
+- 預約發布：`cloud/src/schedule.js`（`setSchedule`、`cancelSchedule`、`runSchedules`）、`PUT/DELETE /api/sites/:id/schedule`（老師）、cron `*/10 * * * *`；手動發布清除預約；`/api/me` 帶 `schedule`；`ScheduleDialog.jsx`、上方「已預約…」與取消、我的網站狀態。
+- QR Code：`src/site/qr.js`（qrcode-generator，MIT）、`QrDialog.jsx`（這一頁／首頁，SVG／PNG）。
+
+驗證
+- `npm test` 242 pass（新增 `tests/tools424.test.js` 4 項；`tests/cloud.test.js` 活動快報、造訪統計、預約發布 3 項）。
+- 本機 `--ai-mock`＋Playwright：
+  - 活動快報：選 2 張照片＋一句話 → 中英文草稿 → 加入：最新消息第一則、相簿 2 張（說明「日期＋句子」）。
+  - QR Code：下載的 PNG 用 jsQR 解碼回到網站網址。
+  - 匯出：年份 2000–2026、Word 檔有標題、清單標題與懸掛縮排；宋老師網站真實資料讀出 24＋3 篇、年份都判讀得到。
+  - 造訪統計：一般瀏覽器 4 次計入、Googlebot 與 CSS 不計；「造訪」面板顯示 4 次與熱門頁面。
+  - 預約發布：發布視窗 → 預約（預設明天 9:00）→ 上方與我的網站顯示 → 取消。
+  - 學期更新：王小明畢業移到畢業成員（2026、博士）、陳怡君身分改寫、林新生加入（其他欄位清空），英文頁同步處理並出現「還有中文沒翻」。
+
+尚未驗證／已知
+- 預約發布的 cron 在正式站部署後才會開始跑；本機用單元測試驗證 `runSchedules`。
+- 造訪統計從上線後開始累計；同一人重新整理也算一次。
+- 學期更新的年級加一只認得常見寫法（碩一、博士班二年級、大三、1st-year、Year 2），其他寫法維持原樣、可以手動改。
+
 # v4.23 看改了什麼、學生改老師核准、誰也在編輯、相簿 AI 說明
 
 日期：2026-11-25。管理者要求：「繼續補齊功能」（清單 4～7）。
