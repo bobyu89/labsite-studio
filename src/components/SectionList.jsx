@@ -3,7 +3,7 @@ import { DotsSixVertical, ArrowUp, ArrowDown, Copy, Trash, Plus, BookmarkSimple 
 import { IconButton } from "./ui";
 import { useDragReorder } from "../hooks/useDragReorder";
 
-export default function SectionList({ sections, selected, onSelect, onMove, onDuplicate, onRemove, onAdd, onSave }) {
+export default function SectionList({ sections, selected, onSelect, onMove, onDuplicate, onRemove, onAdd, onSave, marks = {} }) {
   const listRef = useRef();
   const { start, rowClass } = useDragReorder(listRef, onMove);
   return (
@@ -27,7 +27,7 @@ export default function SectionList({ sections, selected, onSelect, onMove, onDu
           <button type="button" className="section-pick" onClick={() => onSelect(i)}>
             <span className="block-index">{String(i + 1).padStart(2, "0")}</span>
             <span className="section-title">{s.title}</span>
-            <span className="section-kind">{s.kind}</span>
+            {marks[i] ? <span className="sync-tag">{marks[i]}</span> : <span className="section-kind">{s.kind}</span>}
           </button>
           {selected === i && (
             <span className="section-actions">

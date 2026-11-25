@@ -25,7 +25,9 @@ import { zip } from "./zip.js";
 import { fetchRepoFiles, backupToGitHub, backupAll, parseRepo, githubToken, testGithubToken, backupAdminView, saveGithubToken } from "./github.js";
 import { moveSitesOffSheets } from "./sheets.js";
 import { applyPatches } from "./patches.js";
-import { lookupReference } from "./lookup.js";
+import { lookupReference, lookupOrcid } from "./lookup.js";
+import { parseOrcid } from "../../src/site/bibImport.js";
+import { checkLinks } from "./links.js";
 import { templateFiles, personalize, applySkin } from "./templates.js";
 import { adminOverview } from "./overview.js";
 import { aiThemes, aiAssist, aiDescribePhoto, aiUsage, aiConfig, aiEnabledFor, aiAdminView, saveAiSettings, removeAiKey, testAiKey } from "./ai.js";
@@ -51,6 +53,8 @@ import {
   diffTrees,
   cleanPath,
   logEvent,
+  getSettings,
+  setSetting,
 } from "./repo.js";
 
 export const publicUrl = (env, slug) =>
@@ -191,6 +195,7 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
 
   // DOI / PMID → reference metadata for 新增論文 (any signed-in editor).
   app.get("/api/lookup/reference", async (c) => c.json(await lookupReference(c.req.query("q"), fetchImpl)));
+  app.get("/api/lookup/orcid", async (c) => c.json(await lookupOrcid(c.req.query("id"), fetchImpl)));
 
   app.post("/api/logout", async (c) => {
     await endSession(c.env, readCookie(c.req.raw, COOKIE));
@@ -456,6 +461,27 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
     const result = await aiAssist(c.env, body, fetchImpl, config.key);
     await logEvent(c.env, site.id, "ai_assist", null, c.get("user").email, String(body.message || "").slice(0, 300));
     return c.json({ ...result, remaining });
+  });
+
+  // 發布前檢查: outside links on the changed pages (links.js).
+  app.post("/api/sites/:id/check-links", async (c) => {
+    const body = await c.req.json().catch(() => ({}));
+    return c.json({ results: await checkLinks(body.urls, fetchImpl) });
+  });
+
+  // The lab's ORCID iD, shared by everyone who edits the site: the editor
+  // compares the ORCID record with the publication pages.
+  app.get("/api/sites/:id/orcid", async (c) => {
+    const key = "orcid:" + c.get("site").id;
+    return c.json({ orcid: (await getSettings(c.env, [key]))[key] || null });
+  });
+  app.put("/api/sites/:id/orcid", async (c) => {
+    const body = await c.req.json().catch(() => ({}));
+    const raw = String(body.orcid ?? "").trim();
+    const orcid = raw ? parseOrcid(raw) : null;
+    if (raw && !orcid) throw new RepoError(400, "看不懂這個 ORCID。格式像 0000-0002-1825-0097，可以直接貼 ORCID 網址。");
+    await setSetting(c.env, "orcid:" + c.get("site").id, orcid, c.get("user").email);
+    return c.json({ orcid });
   });
 
   // 照片說明與替代文字 (vision): suggestions only.

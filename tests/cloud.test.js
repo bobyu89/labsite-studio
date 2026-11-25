@@ -1433,3 +1433,65 @@ test("AI themes: structured request, contrast-checked results, refusal, rate lim
   assert.equal((await me.json()).ai, false);
   assert.equal((await (await app.request("http://localhost/api/me", {}, env)).json()).ai, true);
 });
+
+/* =========================================== v4.22 ORCID and link checks */
+test("ORCID: lookup by iD, saved per site by its editors, checked before saving", async () => {
+  const fetchImpl = scriptedFetch([
+    [
+      /pub\.orcid\.org\/v3\.0\/0000-0002-1825-0097\/works$/,
+      { json: { group: [{ "external-ids": { "external-id": [{ "external-id-type": "doi", "external-id-value": "10.1111/a" }] }, "work-summary": [{ title: { title: { value: "Paper A" } }, "publication-date": { year: { value: "2024" } } }] }] } },
+    ],
+    [/pub\.orcid\.org/, { status: 404, json: {} }],
+  ]);
+  const env = fakeEnv();
+  const site = await seed(env);
+  const app = createApp({ fetchImpl });
+  let res = await app.request("http://localhost/api/lookup/orcid?id=" + encodeURIComponent("https://orcid.org/0000-0002-1825-0097"), {}, env);
+  assert.deepEqual(await res.json(), { orcid: "0000-0002-1825-0097", works: [{ title: "Paper A", year: 2024, journal: "", doi: "10.1111/a", pmid: "", type: "" }] });
+  res = await app.request("http://localhost/api/lookup/orcid?id=0000-0002-1825-0098", {}, env);
+  assert.equal(res.status, 400, "bad check digit");
+  res = await app.request("http://localhost/api/lookup/orcid?id=0000-0002-1694-233X", {}, env);
+  assert.equal(res.status, 404);
+
+  const url = `http://localhost/api/sites/${site.id}/orcid`;
+  assert.deepEqual(await (await app.request(url, {}, env)).json(), { orcid: null });
+  res = await app.request(url, jsonReq("PUT", { orcid: "orcid.org/0000-0002-1825-0097" }), env);
+  assert.deepEqual(await res.json(), { orcid: "0000-0002-1825-0097" });
+  assert.deepEqual(await (await app.request(url, {}, env)).json(), { orcid: "0000-0002-1825-0097" });
+  assert.equal((await app.request(url, jsonReq("PUT", { orcid: "1234" }), env)).status, 400);
+  // Someone who does not edit this site cannot read or change it.
+  const stranger = { ...env, DEV_USER_EMAIL: "stranger@else.tw" };
+  assert.equal((await app.request(url, {}, stranger)).status, 403);
+  // Cleared with an empty value.
+  assert.deepEqual(await (await app.request(url, jsonReq("PUT", { orcid: "" }), env)).json(), { orcid: null });
+});
+
+test("link check: only clear answers count as broken (404/410, a DOI that does not exist, no such host)", async () => {
+  const fetchImpl = scriptedFetch([
+    [/doi\.org\/api\/handles\/10\.1111\/good$/, { json: { responseCode: 1 } }],
+    [/doi\.org\/api\/handles\/10\.1111\/gone$/, { status: 404, json: { responseCode: 100 } }],
+    [/^https:\/\/gone\.example\/page$/, { status: 404, body: "" }],
+    [/^https:\/\/robots\.example\//, { status: 403, body: "" }],
+    [/^https:\/\/nohead\.example\//, (u, init) => ({ status: init.method === "HEAD" ? 405 : 200, body: "" })],
+    [/^https:\/\/nohost\.example\//, () => Promise.reject(new TypeError("getaddrinfo ENOTFOUND"))],
+  ]);
+  const env = fakeEnv();
+  const site = await seed(env);
+  const app = createApp({ fetchImpl });
+  const urls = ["https://doi.org/10.1111/good", "https://doi.org/10.1111/gone", "https://gone.example/page", "https://robots.example/x", "https://nohead.example/x", "https://nohost.example/x", "javascript:alert(1)", "https://doi.org/10.1111/good"];
+  const res = await app.request(`http://localhost/api/sites/${site.id}/check-links`, jsonReq("POST", { urls }), env);
+  const { results } = await res.json();
+  assert.deepEqual(
+    results.map((r) => [r.url.replace("https://", ""), r.ok]),
+    [
+      ["doi.org/10.1111/good", true],
+      ["doi.org/10.1111/gone", false],
+      ["gone.example/page", false],
+      ["robots.example/x", true],
+      ["nohead.example/x", true],
+      ["nohost.example/x", false],
+    ],
+    "deduplicated, non-web links dropped, 403 left alone, HEAD falls back to GET",
+  );
+  assert.match(results[1].reason, /DOI 不存在/);
+});

@@ -56,6 +56,14 @@ export function cloudApi(fetchImpl = (...a) => fetch(...a)) {
     pending: (id) => call("GET", site(id) + "/pending"),
     overview: () => call("GET", "/admin/overview"),
     lookupReference: (q) => call("GET", "/lookup/reference?q=" + encodeURIComponent(q)),
+    lookupOrcid: (orcid) => call("GET", "/lookup/orcid?id=" + encodeURIComponent(orcid)),
+    getOrcid: (id) => call("GET", site(id) + "/orcid"),
+    checkLinks: (id, urls) => call("POST", site(id) + "/check-links", { urls }),
+    setOrcid: (id, orcid) => call("PUT", site(id) + "/orcid", { orcid }),
+    readPublished: async (id, path) => {
+      const res = await fetchImpl("/api" + site(id) + "/files/" + path.split("/").map(encodeURIComponent).join("/") + "?ref=published", { credentials: "same-origin" });
+      return res.ok ? res.text() : null;
+    },
     publish: (id, commit) => call("POST", site(id) + "/publish", commit ? { commit } : {}),
     restore: (id, commit) => call("POST", site(id) + "/restore", { commit }),
     addMember: (id, email) => call("POST", site(id) + "/members", { email }),

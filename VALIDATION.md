@@ -1,3 +1,28 @@
+# v4.22 論文一次匯入、ORCID 提醒、中英不同步、發布前檢查加強
+
+日期：2026-11-25。管理者要求：先做「論文一次匯入＋自動補新論文」「發布前自動檢查」「中英文頁不同步時提醒」。
+
+內容
+- `src/site/bibImport.js`：BibTeX（LaTeX 重音、兩種姓名順序）、RIS（EndNote／Zotero／Mendeley，含中文文獻）、DOI／PMID 清單（去重）、ORCID iD 檢查碼、ORCID works 摘要、網站已有論文比對（DOI 不分大小寫，或標題去標點後比對）。
+- `ImportPublications.jsx`：三種來源 → 逐篇查 DOI／PMID（同時 3 筆）→ 照清單格式預覽，已有的不勾、查不到作者的標出 → 依年份新到舊加入，中英文頁可一起加。`AddPublication.jsx` 的清單尋找抽成 `usePublicationTargets`。
+- ORCID：`/api/lookup/orcid`（pub.orcid.org v3.0）、`/api/sites/:id/orcid`（GET／PUT，存 D1 settings `orcid:<siteId>`）。`OrcidReminder.jsx` 在編輯器左上角提醒，ORCID 結果在瀏覽器快取一天；按 × 的論文不再提醒。
+- `src/site/pairSync.js`：與已發布版本比較每一段的文字；兩頁結構不同時整頁比較；英文頁新出現的中文視為還沒翻譯。`useProject` 的 `sync`／`dismissSync`／`syncReport`；段落清單標籤、右欄 `SyncNote.jsx`（請 AI 助手翻譯會直接送出請求）。
+- 發布前檢查：新增「中英文沒有一起更新」「外部連結打不開」（`cloud/src/links.js`，每次最多 20 個網址；DOI 用 handle API；只有 404／410、DOI 不存在、連不上才算壞），以及「請 AI 助手看錯字」的頁面連結。
+
+驗證
+- `npm test` 229 pass（新增 `tests/bulk.test.js` 8 項；`tests/cloud.test.js` ORCID 與連結檢查 2 項）。
+- 本機 `--ai-mock`＋Playwright（真實 doi.org／ORCID 網路）：
+  - DOI 清單 4 行 → 2 篇帶出、1 篇查不到（標示且不能勾）、1 行非編號略過；加入 2 篇，中英文頁都加，提示訊息正確。
+  - ORCID 0000-0002-1825-0097 → 6 篇；記住後重新打開編輯器，左上角提醒 6 篇；加入 2 篇後變 4 篇；按 × 後消失。
+  - 改中文一段 → 段落清單「英文未更新」、右欄提醒；請 AI 助手翻譯 → 助手視窗打開並送出請求；不用改 → 標籤與提醒消失。
+  - 發布視窗：列出「中英文沒有一起更新」與「外部連結打不開（這個 DOI 不存在）」，請 AI 助手看錯字 → 切到該頁並送出。
+- 連結檢查實測：存在的 DOI 正常、不存在的 DOI 與不存在的網域被列出；回 403 的出版社網站不列出。
+
+尚未驗證／已知
+- 中英不同步只和「上次發布」比較：發布後提醒消失；從未發布的頁面不檢查。「不用改」記在這台瀏覽器。
+- ORCID 沒有 DOI 的作品只有標題、年份、期刊，作者要自己補（會標示）。
+- 正式站的 Worker 免費方案每次請求最多 50 個對外連線：連結檢查每批 20 個網址，一次發布最多查 100 個。
+
 # v4.21 AI 助手改成浮動視窗（右下角 AI 標誌）
 
 日期：2026-11-25。管理者要求：AI 助手要在另外的地方，試試懸浮的，不要混在修改欄位裡。

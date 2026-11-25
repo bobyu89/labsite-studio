@@ -72,14 +72,18 @@ export const CHECKS = [
   { kind: "placeholder", level: "warn", title: "還在用範本的示意圖", hint: "點預覽裡的圖片，按「換一張照片」放上真的照片。" },
   { kind: "empty", level: "warn", title: "連結還沒設定網址", hint: "點這個連結，在左邊的「網址」欄填上要連去的地方；用不到就刪掉。" },
   { kind: "broken", level: "warn", title: "連到不存在的頁面", hint: "網址打錯，或那一頁已經刪掉了。" },
+  { kind: "sync", level: "warn", title: "中英文沒有一起更新", hint: "一種語言改了，另一種還沒跟著改。到那一頁按「請 AI 助手翻譯」，或確定不用改就按「不用改」。" },
+  { kind: "deadlink", level: "warn", title: "外部連結打不開", hint: "對方網站說找不到這一頁，或這個 DOI 不存在。請確認網址，或換成新的連結。" },
   { kind: "alt", level: "info", title: "照片沒有替代文字", hint: "用一句話描述照片內容，看不到圖的讀者和搜尋引擎會讀這段文字。" },
 ];
 
 // pages: [{ path, html }]; files: Set of the site's paths (null skips broken
 // links); siteFields: readSiteFields(...).fields. → the checks that found
 // something, each with { items: [{ page, count, examples }], total }.
-export function checkSite({ pages, files = null, siteFields = null }) {
-  const byKind = Object.fromEntries(CHECKS.map((c) => [c.kind, []]));
+// extra: { kind: [{ page, count, examples }] } found elsewhere (中英不同步,
+// outside links checked by the server).
+export function checkSite({ pages, files = null, siteFields = null, extra = {} }) {
+  const byKind = Object.fromEntries(CHECKS.map((c) => [c.kind, [...(extra[c.kind] || [])]]));
   for (const { path, html } of pages) {
     if (!html) continue;
     for (const [kind, list] of Object.entries(checkPage(path, html, files)))
@@ -91,4 +95,16 @@ export function checkSite({ pages, files = null, siteFields = null }) {
   return CHECKS.map((c) => ({ ...c, items: byKind[c.kind], total: byKind[c.kind].reduce((n, x) => n + x.count, 0) })).filter(
     (c) => c.total > 0,
   );
+}
+
+// Outside links on a page (http/https, not this site's own address) →
+// [{ url, text }], for the server's link check.
+export function externalLinks(html) {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const out = [];
+  for (const a of doc.querySelectorAll("body a[href]")) {
+    const url = (a.getAttribute("href") || "").trim();
+    if (/^https?:\/\//i.test(url)) out.push({ url, text: short(a.textContent) || url });
+  }
+  return out;
 }

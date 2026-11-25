@@ -13,16 +13,12 @@ import { formatReference, fieldValuesFor } from "../site/cite.js";
 export const PUBLICATION_PAGE = /(^|\/)(publications?|conferences?|papers?|pubs)\.html?$/i;
 export const publicationPages = (pages) => pages.filter((x) => !x.startsWith("en/") && PUBLICATION_PAGE.test(x));
 
-export default function AddPublication({ p, open, onClose, onAdded }) {
-  const [targets, setTargets] = useState(null); // [{ page, list, pair, pairList }]
+// Every publication list on the site, found when a dialog opens:
+// [{ page, list, pair, pairList }], starting on the page being edited.
+export function usePublicationTargets(p, open) {
+  const [targets, setTargets] = useState(null);
   const [pick, setPick] = useState(0);
-  const [values, setValues] = useState({ text: "", bold: "", journal: "", url: "" });
-  const [journalTouched, setJournalTouched] = useState(false);
-  const [fieldValues, setFieldValues] = useState([]);
-  const [fieldValuesEn, setFieldValuesEn] = useState([]);
-  const [both, setBoth] = useState(true);
   const pages = useMemo(() => publicationPages(p.pages), [p.pages]);
-
   useEffect(() => {
     if (!open) return;
     let alive = true;
@@ -48,6 +44,17 @@ export default function AddPublication({ p, open, onClose, onAdded }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+  return { targets, pick, setPick };
+}
+
+export default function AddPublication({ p, open, onClose, onAdded, onBulk }) {
+  const { targets, pick, setPick } = usePublicationTargets(p, open);
+  const [values, setValues] = useState({ text: "", bold: "", journal: "", url: "" });
+  const [journalTouched, setJournalTouched] = useState(false);
+  const [fieldValues, setFieldValues] = useState([]);
+  const [fieldValuesEn, setFieldValuesEn] = useState([]);
+  const [both, setBoth] = useState(true);
+
 
   // DOI / PMID → the whole reference, in the list's own style.
   const [lookup, setLookup] = useState({ q: "", busy: false, error: null, note: null });
@@ -124,6 +131,14 @@ export default function AddPublication({ p, open, onClose, onAdded }) {
             if (ready) add();
           }}
         >
+          {onBulk && (
+            <p className="small-note quick-add-bulk">
+              論文很多？
+              <button type="button" className="text-link" onClick={onBulk}>
+                一次匯入多篇（DOI 清單、Zotero／EndNote 匯出檔、ORCID）
+              </button>
+            </p>
+          )}
           {targets.length > 1 && (
             <label className="field">
               <span>加到哪一個清單</span>

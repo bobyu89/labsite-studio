@@ -30,7 +30,8 @@ import { readSiteFields, patchSiteField } from "../site/siteData.js";
 import { readAlbum, writeAlbum, defaultCaption, albumPath } from "../site/album.js";
 import { readNews, writeNews, detachSheet } from "../site/news.js";
 import { moveOffSheets } from "../site/sheets.js";
-import { checkSite } from "../site/publishCheck.js";
+import { checkSite, externalLinks } from "../site/publishCheck.js";
+import { outOfSync } from "../site/pairSync.js";
 import { TEXT_FILE, planRelocation } from "../site/relocate.js";
 import { TEXT_SIZE_FILES, readTextSize, writeTextSize, carryTextSize } from "../site/textSize.js";
 import {
@@ -400,6 +401,8 @@ export function useProject(notify) {
       // An autosave still on its way must land first, or the version before it would go live.
       await saveQueue.current;
       const { site } = await cloudCalls.publish(cloudSiteId, commitId);
+      publishedCache.current = {};
+      setSyncTick((n) => n + 1);
       await refreshCloud();
       const backup = site.backup?.status === "error" ? "GitHub 備份失敗：" + site.backup.error : "";
       if (opts.message !== false) notify((opts.message || "已發布，網站幾秒內就會更新。") + backup);
@@ -624,8 +627,73 @@ export function useProject(notify) {
   }
   const ensurePair = () => (pair ? ensureLoaded(pair) : Promise.resolve(null));
 
-  /* ---------------------------------------------------- section library */
+  /* ------------------------------------------- 中英不同步 (pairSync.js) */
   const isEn = (path) => path.startsWith("en/");
+  // Compared with the published version of both pages, read once per page.
+  const publishedCache = useRef({});
+  const [syncTick, setSyncTick] = useState(0);
+  async function publishedHtml(path) {
+    if (!cloudSiteId) return null;
+    if (!(path in publishedCache.current)) publishedCache.current[path] = cloudCalls.readPublished(cloudSiteId, path).catch(() => null);
+    return publishedCache.current[path];
+  }
+  const dismissKey = cloudSiteId ? "labsite.sync.dismissed." + cloudSiteId : null;
+  const readDismissed = () => {
+    try {
+      return new Set(JSON.parse(localStorage.getItem(dismissKey) || "[]"));
+    } catch {
+      return new Set();
+    }
+  };
+  const itemKey = (zh, x) => [zh, x.section, x.behind, x.hash].join("|");
+  // zh page → its out-of-sync sections (each with zh, en paths), minus 不用改.
+  async function syncFor(zhPath) {
+    const enPath = pairOf(zhPath, project.pages);
+    if (!cloudSiteId || !enPath || isEn(zhPath)) return [];
+    const [zhNow, enNow, zhBase, enBase] = await Promise.all([ensureLoaded(zhPath), ensureLoaded(enPath), publishedHtml(zhPath), publishedHtml(enPath)]);
+    const dismissed = readDismissed();
+    return outOfSync({ zhNow, zhBase, enNow, enBase })
+      .filter((x) => !dismissed.has(itemKey(zhPath, x)))
+      .map((x) => ({ ...x, zh: zhPath, en: enPath }));
+  }
+  // The pair being edited, checked again shortly after each change.
+  const [sync, setSync] = useState([]);
+  const zhOfCurrent = current && project ? (isEn(current) ? pairOf(current, project.pages) : current) : null;
+  const syncSource = zhOfCurrent ? [drafts[zhOfCurrent]?.present, drafts[pairOf(zhOfCurrent, project.pages) || ""]?.present] : [];
+  useEffect(() => {
+    if (!zhOfCurrent || !cloudSiteId) return setSync([]);
+    let alive = true;
+    const t = setTimeout(() => {
+      syncFor(zhOfCurrent)
+        .then((items) => alive && setSync(items))
+        .catch(() => alive && setSync([]));
+    }, 600);
+    return () => {
+      alive = false;
+      clearTimeout(t);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zhOfCurrent, syncSource[0], syncSource[1], syncTick, cloudSiteId]);
+  function dismissSync(item) {
+    if (!dismissKey) return;
+    const all = readDismissed();
+    all.add(itemKey(item.zh, item));
+    try {
+      localStorage.setItem(dismissKey, JSON.stringify([...all].slice(-300)));
+    } catch {
+      /* private window */
+    }
+    setSyncTick((n) => n + 1);
+  }
+  // Every pair touched since the last publish (paths from 待發布), for 發布前檢查.
+  async function syncReport(paths) {
+    const zhPages = [...new Set(paths.filter((x) => /\.html?$/i.test(x)).map((x) => (isEn(x) ? pairOf(x, project.pages) : x)).filter(Boolean))];
+    const out = [];
+    for (const zh of zhPages) if (project.pages.includes(zh)) out.push(...(await syncFor(zh)));
+    return out;
+  }
+
+  /* ---------------------------------------------------- section library */
   // The snippet file for a page's language; English pages fall back to the
   // Chinese snippet (new content arrives in the original language, as with items).
   const snippetFile = (entry, path) => (isEn(path) && entry.en ? entry.en : entry.file);
@@ -1179,7 +1247,9 @@ export function useProject(notify) {
 
   // Before publishing: every page (unsaved drafts included) checked for
   // template leftovers and broken links (publishCheck.js).
-  async function prepublishCheck() {
+  // changed: paths changed since the last publish (待發布) plus unsaved
+  // pages; those also get the 中英不同步 and outside-link checks.
+  async function prepublishCheck(changed = []) {
     const source = project?.source;
     if (!source) return [];
     const pages = await Promise.all(
@@ -1190,7 +1260,46 @@ export function useProject(notify) {
       const list = await source.listFiles("").catch(() => null);
       if (list?.length) files = new Set(list.map((f) => f.path));
     }
-    return checkSite({ pages, files, siteFields: siteData?.fields || null });
+    const extra = {};
+    if (cloudSiteId && changed.length) {
+      const touched = new Set(changed);
+      const [syncItems, dead] = await Promise.all([
+        syncReport([...touched]).catch(() => []),
+        (async () => {
+          const where = new Map(); // url → [{ page, text }]
+          for (const { path, html } of pages)
+            if (touched.has(path) && html)
+              for (const l of externalLinks(html)) {
+                if (!where.has(l.url)) where.set(l.url, []);
+                where.get(l.url).push({ page: path, text: l.text });
+              }
+          const urls = [...where.keys()].slice(0, 100);
+          const bad = [];
+          for (let i = 0; i < urls.length; i += 20) {
+            const r = await cloudCalls.checkLinks(cloudSiteId, urls.slice(i, i + 20)).catch(() => ({ results: [] }));
+            for (const x of r.results) if (!x.ok) for (const w of where.get(x.url) || []) bad.push({ ...w, url: x.url, reason: x.reason });
+          }
+          return bad;
+        })(),
+      ]);
+      const group = (list, page, example) => {
+        const by = new Map();
+        for (const x of list) {
+          const k = page(x);
+          if (!by.has(k)) by.set(k, []);
+          by.get(k).push(example(x));
+        }
+        return [...by].map(([pg, ex]) => ({ page: pg, count: ex.length, examples: [...new Set(ex)].slice(0, 3) }));
+      };
+      if (syncItems.length)
+        extra.sync = group(
+          syncItems,
+          (x) => (x.behind === "en" ? x.en : x.zh),
+          (x) => (x.title ? "「" + x.title + "」" : "整頁") + (x.reason === "untranslated" ? "還有中文沒翻" : x.behind === "en" ? "英文還沒跟上" : "中文還沒跟上"),
+        );
+      if (dead.length) extra.deadlink = group(dead, (x) => x.page, (x) => x.text + "（" + x.reason + "）");
+    }
+    return checkSite({ pages, files, siteFields: siteData?.fields || null, extra });
   }
 
   /* --------------------------------------------------------------- news */
@@ -1596,6 +1705,9 @@ export function useProject(notify) {
     pair,
     pairHtml: pair ? (drafts[pair]?.present ?? null) : null,
     pairStatus,
+    sync,
+    dismissSync,
+    syncReport,
     mirror,
     setMirror,
     ensurePair,

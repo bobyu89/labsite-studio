@@ -2,6 +2,7 @@
 // NCBI E-utilities). Only the identifier leaves LabSite; no user data is sent.
 import { RepoError } from "./repo.js";
 import { parseIdentifier, fromCsl, fromPubmed } from "../../src/site/cite.js";
+import { parseOrcid, orcidWorks } from "../../src/site/bibImport.js";
 
 const UA = "LabSite/1.0 (research-lab website editor)";
 
@@ -48,4 +49,14 @@ export async function lookupReference(input, fetchImpl = fetch) {
     if (better?.title && better.authors.length) return { ...better, pmid: meta.pmid };
   }
   return meta;
+}
+
+// ORCID iD → the public works on the record (title, year, journal, DOI).
+// Full author lists come later, one DOI at a time, through lookupReference.
+export async function lookupOrcid(input, fetchImpl = fetch) {
+  const id = parseOrcid(input);
+  if (!id) throw new RepoError(400, "看不懂這個 ORCID。格式像 0000-0002-1825-0097，可以直接貼 ORCID 網址。");
+  const data = await json(fetchImpl, `https://pub.orcid.org/v3.0/${id}/works`, "ORCID");
+  if (!data) throw new RepoError(404, "找不到這個 ORCID，或這個帳號的論文沒有公開。");
+  return { orcid: id, works: orcidWorks(data) };
 }
