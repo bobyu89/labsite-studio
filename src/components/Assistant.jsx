@@ -2,8 +2,8 @@
 // with proposals, shown here as cards. A proposal changes nothing until the
 // teacher presses 套用, and the assistant never publishes.
 //
-// One component in two sizes: `full` false is just the input box at the top
-// of the right column; submitting (or 看對話) opens the conversation.
+// Shown inside AssistantDock, the floating window apart from the editing
+// columns.
 import React, { useEffect, useRef, useState } from "react";
 import { Button } from "@radix-ui/themes";
 import { Check, WarningCircle } from "@phosphor-icons/react";
@@ -151,7 +151,7 @@ function Card({ card, onChange, onApply, onDismiss, busy }) {
   );
 }
 
-export default function Assistant({ p, selected, sectionCount = 0, full, onOpen, onShow, seed }) {
+export default function Assistant({ p, selected, sectionCount = 0, open, onOpen, seed }) {
   const [turns, setTurns] = useState([]);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -160,8 +160,8 @@ export default function Assistant({ p, selected, sectionCount = 0, full, onOpen,
   const end = useRef(null);
   const nextId = useRef(1);
   useEffect(() => {
-    if (full) end.current?.scrollIntoView({ block: "nearest" });
-  }, [turns.length, busy, full]);
+    if (open) end.current?.scrollIntoView({ block: "nearest" });
+  }, [turns.length, busy, open]);
   // A request picked from 版面靈感: put it in the box to be filled in.
   useEffect(() => {
     if (!seed?.text) return;
@@ -283,13 +283,13 @@ export default function Assistant({ p, selected, sectionCount = 0, full, onOpen,
       }}
     >
       <label>
-        <span>助手</span>
+        <span className="sr-only">想怎麼改</span>
         <textarea
           ref={input}
-          rows={full || text.length > 40 ? 3 : 1}
+          rows={text.length > 40 ? 3 : 2}
           value={text}
           maxLength={4000}
-          placeholder={full ? "還想怎麼改？" : "想改什麼，直接寫"}
+          placeholder={turns.length ? "還想怎麼改？" : "想改什麼，直接寫"}
           onChange={(e) => {
             setText(e.target.value);
             setBlankWarn(false);
@@ -313,19 +313,6 @@ export default function Assistant({ p, selected, sectionCount = 0, full, onOpen,
       還有 {blanksIn(text)} 個［　］沒有填。照樣送出就再按一次；助手不會自己猜那些內容。
     </p>
   );
-
-  if (!full)
-    return (
-      <div className="ai-compact">
-        {form}
-        {blankNote}
-        {turns.length > 0 && (
-          <button type="button" className="ai-open" onClick={onShow}>
-            回到和助手的對話
-          </button>
-        )}
-      </div>
-    );
 
   return (
     <div className="ai-panel">

@@ -30,6 +30,7 @@ import NewsPanel from "../components/NewsPanel";
 import AddPublication, { publicationPages } from "../components/AddPublication";
 import Assistant from "../components/Assistant";
 import PromptBank from "../components/PromptBank";
+import AssistantDock from "../components/AssistantDock";
 import AlbumPanel from "../components/AlbumPanel";
 import RelocatePanel from "../components/RelocatePanel";
 import TextSizePanel from "../components/TextSizePanel";
@@ -103,14 +104,21 @@ export default function Project({ p, device, setDevice, setConfirm }) {
       const top = parseFloat(getComputedStyle(bar).top) || 0;
       // offsetHeight is in the page's own (unzoomed) pixels, like `top`.
       studioRef.current?.style.setProperty("--studio-top", Math.round(top + bar.offsetHeight) + "px");
+      // The floating assistant opens beside the right column, not over it.
+      const right = studioRef.current?.querySelector(".studio-right");
+      const beside = right && right.offsetLeft > (studioRef.current.offsetWidth || 0) / 2;
+      studioRef.current?.style.setProperty("--inspector-w", (beside ? right.offsetWidth : 0) + "px");
     };
     const ro = new ResizeObserver(set);
     ro.observe(bar);
+    const right = studioRef.current?.querySelector(".studio-right");
+    if (right) ro.observe(right);
     set();
     return () => ro.disconnect();
   });
   const [promptsOpen, setPromptsOpen] = useState(false);
   const [aiSeed, setAiSeed] = useState(null);
+  const [aiOpen, setAiOpen] = useState(false);
   // After publishing: { previous } — the version visitors saw before, so it can be put back.
   const [published, setPublished] = useState(null);
   // A photo dropped anywhere else would make the browser open the file and
@@ -281,7 +289,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
     { id: "pair", title: "中英對照", mark: p.pairStatus[p.current] === "diff" && dot("結構不同") },
     { id: "head", title: "分享設定" },
   ].filter(Boolean);
-  const PANEL_TITLES = { ai: "AI 助手", news: "最新消息", pages: "頁面與選單", site: "研究室資料", theme: "外觀與字體大小", pair: "中英對照", head: "分享設定", album: "活動相簿", history: "舊版本" };
+  const PANEL_TITLES = { news: "最新消息", pages: "頁面與選單", site: "研究室資料", theme: "外觀與字體大小", pair: "中英對照", head: "分享設定", album: "活動相簿", history: "舊版本" };
   const inEnglish = p.current?.startsWith("en/");
   const pageList = inEnglish ? en : zh;
   const state = unsavedCount > 0 ? "dirty" : isCloud && p.cloudSite?.unpublished ? "pending" : "live";
@@ -623,20 +631,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
               <strong>{PANEL_TITLES[tab]}</strong>
             </div>
           )}
-          {aiOn && (
-            <div hidden={tab !== "blocks" && tab !== "ai"} className={"studio-ai " + (tab === "ai" ? "full" : "compact")}>
-              <Assistant
-                p={p}
-                selected={selected}
-                sectionCount={sections.length}
-                full={tab === "ai"}
-                seed={aiSeed}
-                onOpen={() => setTab("ai")}
-                onShow={() => setTab("ai")}
-              />
-            </div>
-          )}
-          {tab === "ai" && aiOn ? null : tab === "pages" ? (
+          {tab === "pages" ? (
             <div className="inspector-body">
               <PagesPanel p={p} writable={writable} openPage={switchPage} setConfirm={setConfirm} />
             </div>
@@ -786,6 +781,16 @@ export default function Project({ p, device, setDevice, setConfirm }) {
           where={sections.length ? "插在「" + (sections[selected]?.title || "") + "」後面" : "插在頁面開頭"}
           onInsert={(opts) => p.insertBlock(insertAfter, "embed", opts)}
         />
+        {aiOn && (
+          <AssistantDock
+            open={aiOpen}
+            onOpen={() => setAiOpen(true)}
+            onClose={() => setAiOpen(false)}
+            where={[p.labelOf(p.current), sections[selected]?.title].filter(Boolean).join(" › ")}
+          >
+            <Assistant p={p} selected={selected} sectionCount={sections.length} open={aiOpen} seed={aiSeed} onOpen={() => setAiOpen(true)} />
+          </AssistantDock>
+        )}
         <PromptBank
           open={promptsOpen}
           onClose={() => setPromptsOpen(false)}
