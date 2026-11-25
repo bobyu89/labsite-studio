@@ -18,6 +18,7 @@ import { embedFromInput, embedLabel } from "../site/embeds.js";
 import { PICKER_ACCEPT } from "../site/images.js";
 import { parsePage, sectionElements, describeNode, describeItem } from "../site/page.js";
 import { BUTTON_FX } from "../site/blockRuntime.js";
+import AiSuggest from "./AiSuggest";
 import { useDragReorder } from "../hooks/useDragReorder";
 
 const key = (path) => path.join(".");
@@ -26,7 +27,7 @@ const isPrefix = (prefix, path) => prefix.length <= path.length && prefix.every(
 /* Plain fields of one element (text, link, image). */
 // An image field takes a picked file, a file dropped on it, or an image from
 // the site's photo library.
-function ImageField({ f, k, cls, index, setFocus, setAttr, replaceImage, openLibrary, writable, busy }) {
+function ImageField({ f, k, cls, index, setFocus, setAttr, replaceImage, openLibrary, writable, busy, describe, lang }) {
   const [over, setOver] = useState(false);
   const accepts = writable && !busy;
   return (
@@ -59,6 +60,15 @@ function ImageField({ f, k, cls, index, setFocus, setAttr, replaceImage, openLib
             {f.src || "（尚未設定）"}
           </code>
           <Field label="替代文字（給讀者與搜尋引擎）" value={f.alt} onChange={(v) => setAttr(index, f.path, "alt", v)} />
+          {describe && f.src && writable && (
+            <AiSuggest
+              label="AI 看圖寫替代文字"
+              disabled={busy}
+              ask={() => describe(f.src)}
+              pickText={(r) => (lang === "en" ? r.alt_en : r.alt)}
+              onApply={(v) => setAttr(index, f.path, "alt", v)}
+            />
+          )}
         </>
       )}
       <div className="field-image-actions">
@@ -119,7 +129,7 @@ function EmbedField({ f, k, cls, index, setFocus, setAttr, writable }) {
   );
 }
 
-function Fields({ fields, index, focus, setFocus, setText, setAttr, setFx, replaceImage, openLibrary, writable, busy }) {
+function Fields({ fields, index, focus, setFocus, setText, setAttr, setFx, replaceImage, openLibrary, writable, busy, describe, lang }) {
   if (!fields.length) return null;
   return (
     <div className="field-list">
@@ -174,6 +184,8 @@ function Fields({ fields, index, focus, setFocus, setText, setAttr, setFx, repla
             openLibrary={openLibrary}
             writable={writable}
             busy={busy}
+            describe={describe}
+            lang={lang}
           />
         );
       })}
@@ -284,7 +296,7 @@ function Node({ node, section, ctx, open, toggle, focusPath }) {
   );
 }
 
-export default function FieldInspector({ html, index, focus, grabFocus = true, setFocus, setText, setAttr, setFx, replaceImage, openLibrary, writable, busy, addItem, removeItem, moveItem, setConfirm }) {
+export default function FieldInspector({ html, index, focus, grabFocus = true, setFocus, setText, setAttr, setFx, describe, lang, replaceImage, openLibrary, writable, busy, addItem, removeItem, moveItem, setConfirm }) {
   const section = useMemo(() => (html ? sectionElements(parsePage(html).doc)[index] : null), [html, index]);
   const node = useMemo(() => (section ? describeNode(section) : { fields: [], lists: [] }), [section]);
   const [open, setOpen] = useState(() => new Set());
@@ -319,7 +331,7 @@ export default function FieldInspector({ html, index, focus, grabFocus = true, s
     }
   }, [focus]);
   if (!section) return null;
-  const ctx = { index, focus, setFocus, setText, setAttr, setFx, replaceImage, openLibrary, writable, busy, addItem, removeItem, moveItem, setConfirm };
+  const ctx = { index, focus, setFocus, setText, setAttr, setFx, describe, lang, replaceImage, openLibrary, writable, busy, addItem, removeItem, moveItem, setConfirm };
   return (
     <div ref={ref}>
       <Node node={node} section={section} ctx={ctx} open={open} toggle={toggle} focusPath={focusPath} />

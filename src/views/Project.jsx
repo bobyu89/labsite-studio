@@ -718,6 +718,8 @@ export default function Project({ p, device, setDevice, setConfirm }) {
                   setText={p.setText}
                   setAttr={p.setAttr}
                   setFx={writable ? p.setButtonMotion : null}
+                  describe={aiOn ? (src) => p.ai.describePhoto(src, { page: p.current }) : null}
+                  lang={inEnglish ? "en" : "zh"}
                   replaceImage={p.replaceImage}
                   openLibrary={p.canListAssets ? (index, path) => pickPhoto("選一張照片放進這個欄位", (asset) => p.useAsset(index, path, asset)) : null}
                   writable={writable}

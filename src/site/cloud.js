@@ -63,6 +63,7 @@ export function cloudApi(fetchImpl = (...a) => fetch(...a)) {
     backup: (id) => call("POST", site(id) + "/backup", {}),
     aiTheme: (id, description) => call("POST", site(id) + "/ai-theme", { description }),
     assistant: (id, body) => call("POST", site(id) + "/assistant", body),
+    describePhoto: (id, body) => call("POST", site(id) + "/describe-photo", body),
     aiSettings: () => call("GET", "/admin/ai"),
     saveAiSettings: (patch) => call("PUT", "/admin/ai", patch),
     removeAiKey: () => call("DELETE", "/admin/ai"),

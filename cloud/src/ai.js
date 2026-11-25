@@ -13,7 +13,7 @@ const BLOCK_IDS = BLOCK_CATALOG.filter((b) => !b.image).map((b) => b.id);
 
 export const AI_MODEL = "claude-opus-5-5";
 export const AI_DAILY_LIMIT = 20;
-const AI_KINDS = "('ai_theme', 'ai_assist')";
+const AI_KINDS = "('ai_theme', 'ai_assist', 'ai_photo')";
 
 /* ------------------------------------------------------------ settings */
 // The key comes from the worker's ANTHROPIC_API_KEY secret when one is set,
@@ -371,4 +371,62 @@ export async function aiAssist(env, { message, history = [], context }, fetchImp
   const reply = clip(data?.reply, 2000);
   if (!reply && !changes.length) throw new RepoError(502, "助手沒有回應，請再試一次。");
   return { reply, changes };
+}
+
+/* -------------------------------------------------------------- photos */
+// 照片說明與替代文字: Claude looks at one photo (downscaled in the browser)
+// and suggests a short caption and an alt text. Suggestions only; the editor
+// shows them with 套用.
+const PHOTO_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["caption", "alt", "alt_en"],
+  properties: {
+    caption: text("A short caption in Traditional Chinese (Taiwan) for the lab's activity gallery, at most 24 characters, describing what happens (e.g. 研究室成員於研討會口頭報告). No date, names or place unless clearly written in the photo or given by the teacher."),
+    alt: text("Alt text in Traditional Chinese for screen-reader users: one sentence, at most 80 characters, describing what is visible and relevant (people, activity, setting). Do not start with 圖片 or 照片."),
+    alt_en: text("The same alt text in English, one sentence."),
+  },
+};
+const PHOTO_SYSTEM = `You write captions and alt text for photos on the websites of university nursing research labs in Taiwan. Describe only what is visible: the kind of event (meeting, conference talk, poster session, class, clinical training, group photo, dinner), the setting and what people are doing. Never guess people's names, ages, health conditions, the date or the place; use a name, date or place only when the teacher's note gives it or it is clearly written in the photo (a banner, a slide). Keep the tone neutral and factual.`;
+
+const PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+
+// → { caption, alt, alt_en }
+export async function aiDescribePhoto(env, { image, mediaType, note = "" }, fetchImpl, key) {
+  if (!key) throw new RepoError(503, "AI 功能尚未設定（管理者需要在「平台設定」放入 API 金鑰）。");
+  if (!PHOTO_TYPES.has(mediaType)) throw new RepoError(400, "這種圖片格式沒辦法交給 AI 看。");
+  const data = String(image || "");
+  if (!/^[A-Za-z0-9+/=]+$/.test(data) || data.length < 100) throw new RepoError(400, "照片內容不完整。");
+  if (data.length > 2_000_000) throw new RepoError(413, "照片太大，請先縮小。");
+  let response;
+  try {
+    response = await client(key, fetchImpl).beta.messages.create({
+      model: AI_MODEL,
+      max_tokens: 2000,
+      betas: ["server-side-fallback-2026-07-01"],
+      fallbacks: "default",
+      output_config: { effort: "low", format: { type: "json_schema", schema: PHOTO_SCHEMA } },
+      system: PHOTO_SYSTEM,
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "image", source: { type: "base64", media_type: mediaType, data } },
+            { type: "text", text: note ? `老師的備註（照片檔名或說明）：${clip(note, 200)}` : "請為這張照片寫說明與替代文字。" },
+          ],
+        },
+      ],
+    });
+  } catch (e) {
+    throw aiError(e);
+  }
+  if (response.stop_reason === "refusal") throw new RepoError(422, "AI 無法描述這張照片。");
+  const block = response.content.find((b) => b.type === "text");
+  let out;
+  try {
+    out = JSON.parse(block?.text || "");
+  } catch {
+    throw new RepoError(502, "AI 的回應格式不正確，請再試一次。");
+  }
+  return { caption: clip(out.caption, 60), alt: clip(out.alt, 200), alt_en: clip(out.alt_en, 300) };
 }

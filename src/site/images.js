@@ -146,3 +146,24 @@ export function referencedImages(pages, resolve) {
   }
   return used;
 }
+
+// A photo for the AI to look at: at most 1024 px on its long edge, JPEG,
+// base64. → { image, mediaType } (SVG is not sent: there is nothing to see).
+export async function toAiImage(blob, maxEdge = 1024) {
+  if (!blob || blob.type === "image/svg+xml" || typeof blob === "string") throw new Error("這張圖不是照片，AI 沒辦法描述。");
+  const bitmap = await createImageBitmap(blob);
+  const size = fitWithin(bitmap.width, bitmap.height, maxEdge);
+  const canvas = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(size.width, size.height) : Object.assign(document.createElement("canvas"), size);
+  const g = canvas.getContext("2d");
+  g.fillStyle = "#fff";
+  g.fillRect(0, 0, size.width, size.height);
+  g.drawImage(bitmap, 0, 0, size.width, size.height);
+  bitmap.close?.();
+  const jpeg = canvas.convertToBlob
+    ? await canvas.convertToBlob({ type: "image/jpeg", quality: 0.8 })
+    : await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.8));
+  const bytes = new Uint8Array(await jpeg.arrayBuffer());
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return { image: btoa(bin), mediaType: "image/jpeg" };
+}

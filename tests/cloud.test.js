@@ -1006,6 +1006,36 @@ test("assistant: sends the page as context, returns cleaned proposals, never cha
   assert.match(rows[0].detail, /王小明/);
 });
 
+/* ======================================================== photo descriptions */
+test("photo description: image sent as base64 to the model, suggestions returned, counted per site", async () => {
+  let reply = { caption: "研究室成員合影", alt: "多位成員在會議室合影。", alt_en: "Lab members in a group photo." };
+  const fetchImpl = scriptedFetch([
+    ["api.anthropic.com/v1/messages", () => ({ json: { id: "m", type: "message", role: "assistant", model: "claude-opus-5-5", content: [{ type: "text", text: JSON.stringify(reply) }], stop_reason: "end_turn", stop_sequence: null, usage: { input_tokens: 1, output_tokens: 1 } } })],
+  ]);
+  const env = fakeEnv();
+  const site = await seed(env);
+  const app = createApp({ fetchImpl });
+  await app.request("http://localhost/api/admin/ai", jsonReq("PUT", { key: TEST_KEY }), env);
+  const ask = (body) => app.request(`http://localhost/api/sites/${site.id}/describe-photo`, jsonReq("POST", body), env);
+  const image = "A".repeat(400);
+  const ok = await ask({ image, mediaType: "image/jpeg", note: "2026-11-01 聚餐" });
+  assert.equal(ok.status, 200);
+  const out = await ok.json();
+  assert.deepEqual([out.caption, out.alt_en, out.remaining], ["研究室成員合影", "Lab members in a group photo.", 19]);
+  const sent = JSON.parse(fetchImpl.calls.find((c) => c.url.includes("/v1/messages")).body);
+  assert.deepEqual(sent.messages[0].content[0], { type: "image", source: { type: "base64", media_type: "image/jpeg", data: image } });
+  assert.match(sent.messages[0].content[1].text, /2026-11-01 聚餐/);
+  assert.match(sent.system, /Never guess people's names/);
+  assert.equal((await ask({ image, mediaType: "image/svg+xml" })).status, 400);
+  assert.equal((await ask({ image: "not base64!", mediaType: "image/jpeg" })).status, 400);
+  assert.equal((await ask({ image: "A".repeat(2_000_004), mediaType: "image/jpeg" })).status, 413);
+  const n = await env.DB.prepare("SELECT COUNT(*) AS n FROM events WHERE kind = 'ai_photo'").first();
+  assert.equal(Number(n.n), 1);
+  // Shares the daily cap with the other AI features.
+  const view = await (await app.request("http://localhost/api/admin/ai", {}, env)).json();
+  assert.equal(view.sites[0].today, 1);
+});
+
 /* ============================================================= autosave */
 test("autosave: a run of autosaves is one history entry; saved, published and backed-up versions are kept", async () => {
   const env = fakeEnv();

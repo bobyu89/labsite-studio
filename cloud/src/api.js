@@ -28,7 +28,7 @@ import { applyPatches } from "./patches.js";
 import { lookupReference } from "./lookup.js";
 import { templateFiles, personalize, applySkin } from "./templates.js";
 import { adminOverview } from "./overview.js";
-import { aiThemes, aiAssist, aiUsage, aiConfig, aiEnabledFor, aiAdminView, saveAiSettings, removeAiKey, testAiKey } from "./ai.js";
+import { aiThemes, aiAssist, aiDescribePhoto, aiUsage, aiConfig, aiEnabledFor, aiAdminView, saveAiSettings, removeAiKey, testAiKey } from "./ai.js";
 import {
   RepoError,
   isAdmin,
@@ -455,6 +455,15 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
     const body = await c.req.json().catch(() => ({}));
     const result = await aiAssist(c.env, body, fetchImpl, config.key);
     await logEvent(c.env, site.id, "ai_assist", null, c.get("user").email, String(body.message || "").slice(0, 300));
+    return c.json({ ...result, remaining });
+  });
+
+  // 照片說明與替代文字 (vision): suggestions only.
+  app.post("/api/sites/:id/describe-photo", async (c) => {
+    const { site, config, remaining } = await aiGate(c);
+    const body = await c.req.json().catch(() => ({}));
+    const result = await aiDescribePhoto(c.env, body, fetchImpl, config.key);
+    await logEvent(c.env, site.id, "ai_photo", null, c.get("user").email, String(body.note || "").slice(0, 200));
     return c.json({ ...result, remaining });
   });
 
