@@ -6,7 +6,7 @@
 // of the right column; submitting (or 看對話) opens the conversation.
 import React, { useEffect, useRef, useState } from "react";
 import { Button } from "@radix-ui/themes";
-import { ArrowRight, Check, WarningCircle } from "@phosphor-icons/react";
+import { Check, WarningCircle } from "@phosphor-icons/react";
 import { editHtml } from "../site/page.js";
 import { previewCitation } from "../site/quickAdd.js";
 import { readNews } from "../site/news.js";
@@ -283,13 +283,13 @@ export default function Assistant({ p, selected, sectionCount = 0, full, onOpen,
       }}
     >
       <label>
-        <span>{full ? "還想怎麼改？" : "AI 助手：想怎麼改，直接寫"}</span>
+        <span>助手</span>
         <textarea
           ref={input}
-          rows={full || text.length > 60 ? 4 : 2}
+          rows={full || text.length > 40 ? 3 : 1}
           value={text}
           maxLength={4000}
-          placeholder="例如：把電話改成 02-8792-3100"
+          placeholder={full ? "還想怎麼改？" : "想改什麼，直接寫"}
           onChange={(e) => {
             setText(e.target.value);
             setBlankWarn(false);
@@ -303,8 +303,8 @@ export default function Assistant({ p, selected, sectionCount = 0, full, onOpen,
           }}
         />
       </label>
-      <button type="submit" aria-label="送出" disabled={busy || text.trim().length < 2}>
-        <ArrowRight size={16} weight="bold" />
+      <button type="submit" disabled={busy || text.trim().length < 2}>
+        送出
       </button>
     </form>
   );
