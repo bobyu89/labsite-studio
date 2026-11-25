@@ -6788,27 +6788,80 @@ h1,
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  height: 44px;
-  padding: 0 20px 0 16px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+/* The AI mark: a round badge in the accent colour with a sparkle. */
+.ai-mark {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 10px 26px rgba(154, 52, 18, 0.32), 0 0 0 4px rgba(255, 255, 255, 0.9);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.ai-mark.small {
+  display: inline-grid;
+  width: 22px;
+  height: 22px;
+  margin-right: 8px;
+  vertical-align: -4px;
+  box-shadow: none;
+}
+.ai-launcher-label {
+  padding: 6px 12px;
   border: 1px solid var(--rule);
   border-radius: 999px;
   background: var(--paper);
-  color: var(--ink, #1f1d1a);
-  font-family: var(--serif);
-  font-size: 15px;
+  color: var(--ink);
+  font-size: 13px;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  box-shadow: 0 8px 24px rgba(31, 29, 26, 0.14);
+  letter-spacing: 0.06em;
+  box-shadow: 0 4px 14px rgba(31, 29, 26, 0.1);
+}
+.ai-launcher:hover .ai-mark,
+.ai-launcher:focus-visible .ai-mark {
+  transform: translateY(-2px) scale(1.04);
+  box-shadow: 0 14px 30px rgba(154, 52, 18, 0.38), 0 0 0 4px rgba(255, 255, 255, 0.9);
+}
+.ai-launcher:focus-visible {
+  outline: 0;
+}
+.ai-launcher:focus-visible .ai-mark {
+  outline: 3px solid var(--ink);
+  outline-offset: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-mark {
+    transition: none;
+  }
+}
+.ai-apply-all {
+  justify-self: start;
+  align-self: flex-start;
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--accent);
+  border-radius: 2px;
+  background: #fff;
+  color: var(--accent);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
   cursor: pointer;
 }
-.ai-launcher:hover {
-  border-color: var(--accent);
-}
-.ai-launcher-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
+.ai-apply-all:hover:not(:disabled) {
   background: var(--accent);
+  color: #fff;
+}
+.ai-apply-all:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 .ai-dock {
   width: min(420px, calc(100vw / var(--ui-zoom, 1) - 32px));
@@ -6890,6 +6943,9 @@ h1,
   .ai-launcher {
     right: 16px;
     bottom: 16px;
+  }
+  .ai-launcher-label {
+    display: none;
   }
   .ai-dock {
     left: 0;

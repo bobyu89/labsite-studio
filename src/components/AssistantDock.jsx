@@ -3,7 +3,7 @@
 // be dragged anywhere on screen. Closing only hides the window, so the
 // conversation is still there when it is opened again.
 import React, { useEffect, useRef, useState } from "react";
-import { Minus } from "@phosphor-icons/react";
+import { Minus, Sparkle } from "@phosphor-icons/react";
 
 const POS_KEY = "labsite.assistant.pos";
 const readPos = () => {
@@ -87,9 +87,13 @@ export default function AssistantDock({ open, onOpen, onClose, where, children }
   return (
     <>
       {!open && (
-        <button type="button" className="ai-launcher" onClick={onOpen} title="打開助手">
-          <span className="ai-launcher-dot" aria-hidden="true" />
-          助手
+        <button type="button" className="ai-launcher" onClick={onOpen} aria-label="打開 AI 助手">
+          <span className="ai-launcher-label" aria-hidden="true">
+            AI 助手
+          </span>
+          <span className="ai-mark" aria-hidden="true">
+            <Sparkle size={26} weight="fill" />
+          </span>
         </button>
       )}
       <section
@@ -97,7 +101,7 @@ export default function AssistantDock({ open, onOpen, onClose, where, children }
         className="ai-dock"
         hidden={!open}
         role="dialog"
-        aria-label="助手"
+        aria-label="AI 助手"
         tabIndex={-1}
         style={{ transform: `translate(${pos.dx}px, ${pos.dy}px)` }}
         onKeyDown={(e) => {
@@ -106,7 +110,12 @@ export default function AssistantDock({ open, onOpen, onClose, where, children }
       >
         <header className="ai-dock-head" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} onDoubleClick={reset} title="拖曳可移動；按兩下回到原位">
           <div>
-            <strong>助手</strong>
+            <strong>
+              <span className="ai-mark small" aria-hidden="true">
+                <Sparkle size={14} weight="fill" />
+              </span>
+              AI 助手
+            </strong>
             {where && <span className="ai-dock-where">正在看：{where}</span>}
           </div>
           <button type="button" className="ai-dock-close" onClick={onClose} aria-label="收起助手" title="收起（Esc）">

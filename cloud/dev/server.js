@@ -105,6 +105,8 @@ function mockAssist(body) {
     return { reply: "（模擬回應）我準備把這篇加到清單最前面。", changes: [{ type: "add_publication", list: context.publicationLists[0].id, citation: "Wang, X. M., & Sung, C. M. (2026). A demo reference from the mock assistant. Journal of Advanced Nursing, 82(3), 1234-1245.", bold: context.publicationLists[0].usualBoldName || "Sung, C. M.", journal: "Journal of Advanced Nursing", url: "https://doi.org/10.1111/jan.99999" }] };
   if (/哪裡/.test(ask)) return { reply: "（模擬回應）論文在「成果發表」那一頁：左邊的頁面清單點「成果發表」，或直接按「＋ 論文」。", changes: [] };
   if (!fields.length) return { reply: "（模擬回應）這一頁沒有可以修改的文字。", changes: [] };
+  if (/錯字|潤飾|全部/.test(ask) && fields.length > 1)
+    return { reply: "（模擬回應）我找到兩個地方可以改，確認後按套用。", changes: fields.slice(0, 2).map((f) => ({ type: "set_text", field: f.id, text: f.text + "（示範修改）" })) };
   return { reply: "（模擬回應）我準備修改這一段，確認後按套用。", changes: [{ type: "set_text", field: fields[0].id, text: fields[0].text + "（示範修改）" }] };
 }
 const mockFetch = async (url, init) => {

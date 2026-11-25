@@ -274,6 +274,12 @@ export default function Assistant({ p, selected, sectionCount = 0, open, onOpen,
     }
   }
 
+  // 全部套用: one after another, each checked against the page as it is
+  // by then; a proposal that no longer fits says so on its own card.
+  async function applyAll(turn) {
+    for (const card of turn.cards) if (card.ok && !card.state) await apply(turn.id, card);
+  }
+
   const form = (
     <form
       className="ai-form-box"
@@ -348,6 +354,11 @@ export default function Assistant({ p, selected, sectionCount = 0, open, onOpen,
                   onDismiss={() => patchCard(turn.id, { ...card, state: "dismissed" })}
                 />
               ))}
+              {turn.cards.filter((c) => c.ok && !c.state).length > 1 && (
+                <button type="button" className="ai-apply-all" disabled={p.busy} onClick={() => applyAll(turn)}>
+                  全部套用（{turn.cards.filter((c) => c.ok && !c.state).length} 項）
+                </button>
+              )}
             </div>
           ),
         )}
