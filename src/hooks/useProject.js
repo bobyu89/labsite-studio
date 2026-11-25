@@ -828,6 +828,8 @@ export function useProject(notify) {
     edit((doc) => {
       if (!insertSection(doc, afterIndex, html, page)) return;
       ensureBlockAssets(doc, page);
+      // Content written for the block (AI 助手) goes in before the heading takes the page's style.
+      if (opts?.fill) opts.fill(sectionElements(doc)[afterIndex + 1]);
       // Dress the new heading like the page's own section headings.
       const kicker =
         kind === "catalog" ? blockById(opts.id).kicker : kind === "album" ? "GALLERY" : kind === "embed" ? (opts.kind === "map" ? "LOCATION" : "VIDEO") : "";
@@ -838,7 +840,7 @@ export function useProject(notify) {
     stageRuntime(await missingRuntime(), page);
     const label =
       kind === "album" ? "相簿展示" : kind === "text" ? "標題與文字" : kind === "catalog" ? blockById(opts.id).name : kind === "embed" ? (opts.kind === "map" ? "地圖" : "影片") : "照片";
-    notify(`已插入「${label}」，在左邊改內容，保存這一頁後生效。`);
+    if (!opts?.quiet) notify(`已插入「${label}」，在右邊改內容。`);
     return true;
   }
   // 按鈕動態 on one button or link; the effects live in css/labsite-blocks.css.

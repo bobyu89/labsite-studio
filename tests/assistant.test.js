@@ -2,8 +2,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import "./dom.js";
-const { editHtml } = await import("../src/site/page.js");
-const { buildContext, resolveChanges, applyTextChange, applyPublication, newsItem, turnSummary } = await import("../src/site/assistant.js");
+const { editHtml, parsePage, sectionElements } = await import("../src/site/page.js");
+const { buildContext, resolveChanges, applyTextChange, applyPublication, applyAddItem, fillBlock, newsItem, turnSummary } = await import("../src/site/assistant.js");
 const { readNews, writeNews } = await import("../src/site/news.js");
 
 const page = (body, lang = "zh-Hant") => `<!DOCTYPE html>\n<html lang="${lang}">\n<head><title>t</title></head>\n<body>\n${body}\n</body>\n</html>\n`;
@@ -143,4 +143,58 @@ test("turn summary tells the next request what became of each proposal", () => {
     turnSummary({ role: "assistant", text: "我準備加這一則。", cards: [{ title: "新增一則最新消息", ok: true, state: "applied" }, { title: "修改文字", ok: true }, { title: "修改電話", ok: false }] }),
     "我準備加這一則。\n［新增一則最新消息：已套用］\n［修改文字：還沒決定］\n［修改電話：無法套用］",
   );
+});
+
+const TEAM = page(`  <section class="team">
+    <h2>研究團隊</h2>
+    <ul class="members">
+      <li class="member"><h3>王小明</h3><p class="role">博士生</p></li>
+      <li class="member"><h3>林小華</h3><p class="role">碩士生</p></li>
+    </ul>
+  </section>`);
+
+test("lists: a new entry copies its neighbour and is refused when the list changed", () => {
+  const { context, index } = buildContext({ path: "members.html", html: TEAM });
+  assert.deepEqual(context.lists.map((l) => [l.id, l.count]), [["R0", 2]]);
+  assert.equal(context.lists[0].firstItem[0], "王小明");
+  const [end, start] = resolveChanges(
+    [
+      { type: "add_item", list: "R0", position: "end", values: ["陳大同", "研究助理"] },
+      { type: "add_item", list: "R0", position: "start", values: ["李主任", ""] },
+    ],
+    index,
+  );
+  assert.equal(end.ok, true);
+  const added = editHtml(TEAM, applyAddItem(end));
+  assert.match(added, /<li class="member"><h3>林小華<\/h3><p class="role">碩士生<\/p><\/li>\s*<li class="member"><h3>陳大同<\/h3><p class="role">研究助理<\/p><\/li>/);
+  const first = editHtml(TEAM, applyAddItem(start));
+  assert.match(first, /<ul class="members">\s*<li class="member"><h3>李主任<\/h3><p class="role">博士生<\/p><\/li>/, "empty values keep the copied text");
+  assert.equal(editHtml(added, applyAddItem(end)), added, "stale: the list grew");
+  assert.equal(resolveChanges([{ type: "add_item", list: "R9", values: ["x"] }], index)[0].ok, false);
+});
+
+test("new block: built from the catalog, list resized, texts filled before the heading is styled", () => {
+  const { context, index } = buildContext({ path: "index.html", html: HOME, selected: 0 });
+  const cards = context.blocks.find((b) => b.id === "cards");
+  assert.equal(cards.defaultItems, 3);
+  assert.deepEqual(cards.itemFields.map((f) => f.label), ["小標題", "段落"]);
+  const [card] = resolveChanges(
+    [{ type: "add_section", block: "cards", after: -2, texts: ["研究主題"], items: [["高齡照護", "說明一"], ["數位健康", "說明二"], ["護理教育", "說明三"], ["臨床推理", "說明四"]] }],
+    index,
+  );
+  assert.equal(card.ok, true);
+  assert.equal(card.after, 0, "an invalid position falls back to the selected section");
+  assert.equal(card.rows.length, 4);
+  const { doc } = parsePage(`<!DOCTYPE html><html><head></head><body><section class="ls-block ls-cards-section"><div class="ls-wrap"><h2 class="ls-title">研究主題</h2><ul class="ls-cards ls-stagger">
+      <li class="ls-card"><h3>研究主題 1</h3><p>x</p></li>
+      <li class="ls-card"><h3>研究主題 2</h3><p>x</p></li>
+      <li class="ls-card"><h3>研究主題 3</h3><p>x</p></li>
+    </ul></div></section></body></html>`);
+  const section = sectionElements(doc)[0];
+  fillBlock(section, { ...card, texts: [{ label: "標題", value: "我們的研究" }] });
+  assert.deepEqual([...section.querySelectorAll("h3")].map((h) => h.textContent), ["高齡照護", "數位健康", "護理教育", "臨床推理"]);
+  assert.equal(section.querySelector("h2").textContent, "我們的研究");
+  fillBlock(section, { ...card, rows: card.rows.slice(0, 2), texts: [] });
+  assert.equal(section.querySelectorAll("li").length, 2, "shrinks too");
+  assert.equal(resolveChanges([{ type: "add_section", block: "nope" }], index)[0].ok, false);
 });

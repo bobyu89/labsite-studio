@@ -10,7 +10,8 @@ import { ArrowRight, Check, WarningCircle } from "@phosphor-icons/react";
 import { editHtml } from "../site/page.js";
 import { previewCitation } from "../site/quickAdd.js";
 import { readNews } from "../site/news.js";
-import { buildContext, resolveChanges, applyTextChange, applyPublication, newsItem, turnSummary } from "../site/assistant.js";
+import { blanksIn } from "../site/promptBank.js";
+import { buildContext, resolveChanges, applyTextChange, applyPublication, applyAddItem, fillBlock, newsItem, turnSummary } from "../site/assistant.js";
 
 const same = (a, b) => String(a).replace(/\s+/g, " ").trim() === String(b).replace(/\s+/g, " ").trim();
 
@@ -76,6 +77,44 @@ function Card({ card, onChange, onApply, onDismiss, busy }) {
             )}
           </>
         )}
+        {card.type === "add_item" &&
+          card.values.map((v, i) => (
+            <Value
+              key={i}
+              label={v.label}
+              value={v.value}
+              disabled={off}
+              onChange={(value) => set({ values: card.values.map((x, j) => (j === i ? { ...x, value } : x)) })}
+            />
+          ))}
+        {card.type === "add_section" && (
+          <>
+            {card.texts.map((v, i) => (
+              <Value
+                key={"t" + i}
+                label={v.label}
+                value={v.value}
+                disabled={off}
+                onChange={(value) => set({ texts: card.texts.map((x, j) => (j === i ? { ...x, value } : x)) })}
+              />
+            ))}
+            {card.rows.map((row, r) => (
+              <fieldset key={"r" + r} className="ai-row-group">
+                <legend>第 {r + 1} 項</legend>
+                {row.map((v, i) => (
+                  <Value
+                    key={i}
+                    label={v.label}
+                    value={v.value}
+                    rows={1}
+                    disabled={off}
+                    onChange={(value) => set({ rows: card.rows.map((rw, k) => (k === r ? rw.map((x, j) => (j === i ? { ...x, value } : x)) : rw)) })}
+                  />
+                ))}
+              </fieldset>
+            ))}
+          </>
+        )}
         {pub && (
           <div className="ai-before">
             <span>網站上會顯示成</span>
@@ -112,7 +151,7 @@ function Card({ card, onChange, onApply, onDismiss, busy }) {
   );
 }
 
-export default function Assistant({ p, selected, full, onOpen, onShow }) {
+export default function Assistant({ p, selected, sectionCount = 0, full, onOpen, onShow, seed }) {
   const [turns, setTurns] = useState([]);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -123,6 +162,20 @@ export default function Assistant({ p, selected, full, onOpen, onShow }) {
   useEffect(() => {
     if (full) end.current?.scrollIntoView({ block: "nearest" });
   }, [turns.length, busy, full]);
+  // A request picked from 版面靈感: put it in the box to be filled in.
+  useEffect(() => {
+    if (!seed?.text) return;
+    setText(seed.text);
+    onOpen?.();
+    setTimeout(() => {
+      const box = input.current;
+      if (!box) return;
+      box.focus();
+      const at = seed.text.indexOf("［");
+      if (at >= 0) box.setSelectionRange(at, seed.text.indexOf("］", at) + 1);
+    }, 50);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seed?.n]);
 
   const inEnglish = p.current?.startsWith("en/");
   const prompts = [
@@ -132,9 +185,15 @@ export default function Assistant({ p, selected, full, onOpen, onShow }) {
     { label: "這個要去哪裡改？", fill: "我想改的是：" },
   ].filter(Boolean);
 
+  const [blankWarn, setBlankWarn] = useState(false);
   async function send(message) {
     const ask = message.trim();
     if (ask.length < 2 || busy) return;
+    if (blanksIn(ask) && !blankWarn) {
+      setBlankWarn(true);
+      return;
+    }
+    setBlankWarn(false);
     onOpen?.();
     setText("");
     setBusy(true);
@@ -193,6 +252,18 @@ export default function Assistant({ p, selected, full, onOpen, onShow }) {
       p.setNewsItems([newsItem(card), ...news.items]);
       return patchCard(turnId, { ...card, state: "applied" });
     }
+    if (card.type === "add_item") {
+      const t = card.target;
+      if (!(await tryEdit(t.page, applyAddItem(card)))) return stale("這個清單在助手讀過之後已經變動了，所以沒有加入。請再說一次。");
+      p.editPage(t.page, applyAddItem(card));
+      if (t.page === p.current) p.setSelected(t.section);
+      return patchCard(turnId, { ...card, state: "applied", undo: true });
+    }
+    if (card.type === "add_section") {
+      if (card.after >= sectionCount) return stale("這一頁的區塊在助手讀過之後變少了，請再說一次要放在哪裡。");
+      await p.insertBlock(card.after, "catalog", { id: card.block, fill: (section) => fillBlock(section, card), quiet: true });
+      return patchCard(turnId, { ...card, state: "applied", undo: true });
+    }
     if (card.type === "set_site") {
       try {
         p.setSiteField(card.key, card.after);
@@ -215,11 +286,14 @@ export default function Assistant({ p, selected, full, onOpen, onShow }) {
         <span>{full ? "還想怎麼改？" : "AI 助手：想怎麼改，直接寫"}</span>
         <textarea
           ref={input}
-          rows={2}
+          rows={full || text.length > 60 ? 4 : 2}
           value={text}
           maxLength={4000}
           placeholder="例如：把電話改成 02-8792-3100"
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            setText(e.target.value);
+            setBlankWarn(false);
+          }}
           onKeyDown={(e) => {
             // Enter sends; Shift+Enter is a new line. Not while choosing characters in an input method.
             if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
@@ -234,11 +308,17 @@ export default function Assistant({ p, selected, full, onOpen, onShow }) {
       </button>
     </form>
   );
+  const blankNote = blankWarn && (
+    <p className="small-note warn-note" role="status">
+      還有 {blanksIn(text)} 個［　］沒有填。照樣送出就再按一次；助手不會自己猜那些內容。
+    </p>
+  );
 
   if (!full)
     return (
       <div className="ai-compact">
         {form}
+        {blankNote}
         {turns.length > 0 && (
           <button type="button" className="ai-open" onClick={onShow}>
             回到和助手的對話
@@ -309,6 +389,7 @@ export default function Assistant({ p, selected, full, onOpen, onShow }) {
           ))}
         </div>
         {form}
+        {blankNote}
         <p className="small-note">
           {remaining !== null ? `這個網站今天還可以用 ${remaining} 次。` : ""}這一頁的文字會送到 AI 服務（Anthropic）處理。
         </p>

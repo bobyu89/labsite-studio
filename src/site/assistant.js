@@ -5,7 +5,8 @@
 // with short ids; it answers with proposals that name those ids; and each
 // proposal is checked here against the page as it is now before the teacher
 // is offered 套用. A proposal that no longer fits is shown as such, not applied.
-import { parsePage, listSections, sectionElements, collectFields, setText } from "./page.js";
+import { parsePage, listSections, sectionElements, collectFields, setText, describeNode, describeItem, addItem, addItemAtTop, removeItem, nodeAt } from "./page.js";
+import { BLOCK_CATALOG } from "./blockCatalog.js";
 import { publicationLists, addCitation, matchingList, previewCitation } from "./quickAdd.js";
 import { readNews, normalizeDate, NEWS_CATEGORIES } from "./news.js";
 import { readSiteFields, SITE_FIELDS } from "./siteData.js";
@@ -30,9 +31,67 @@ const textFields = (html) => {
 // → { context, index }
 // context goes to the server; index (id → where it lives and what it held)
 // stays here and is what proposals are resolved against.
+const textFieldsOf = (root, section = root) => collectFields(root, section).filter((f) => f.kind === "text");
+
+// Repeated lists on a page (members, research themes, numbers…), except the
+// publication lists, which have their own change. → [{ section, path, where, count, fields, example }]
+function repeatLists(doc) {
+  const titles = listSections(doc);
+  const out = [];
+  sectionElements(doc).forEach((section, si) => {
+    for (const list of describeNode(section).lists) {
+      if (list.label === "文獻" || !list.items.length) continue;
+      const first = describeItem(section, list.items[0].path).fields.filter((f) => f.kind === "text");
+      if (!first.length) continue;
+      out.push({
+        section: si,
+        path: list.path,
+        where: (titles[si]?.title || "區塊 " + (si + 1)) + " › " + list.label,
+        count: list.items.length,
+        fields: first.map((f) => f.label),
+        example: first.map((f) => f.value),
+      });
+    }
+  });
+  return out;
+}
+
+// What each block of the 動畫庫 holds, for 加一段新內容: its own texts (title,
+// paragraph, button…) and, when it has a list, the texts of one item.
+let schemas = null;
+export function blockSchemas() {
+  if (schemas) return schemas;
+  schemas = BLOCK_CATALOG.filter((b) => !b.image).map((b) => {
+    const { doc } = parsePage(`<!DOCTYPE html><html><head></head><body>${b.html({})}</body></html>`);
+    const section = sectionElements(doc)[0];
+    const node = describeNode(section);
+    const list = node.lists[0];
+    const item = list ? describeItem(section, list.items[0].path).fields.filter((f) => f.kind === "text") : [];
+    return {
+      id: b.id,
+      name: b.name,
+      use: b.note,
+      texts: node.fields.filter((f) => f.kind === "text").map((f) => ({ label: f.label, example: f.value })),
+      item: item.map((f) => ({ label: f.label, example: f.value })),
+      items: list ? list.items.length : 0,
+    };
+  });
+  return schemas;
+}
+
+// Puts texts into an item copied from its neighbour: one value per text field, in order.
+function fillTexts(root, values) {
+  const fields = textFieldsOf(root);
+  fields.forEach((f, i) => {
+    const v = String(values[i] ?? "").trim();
+    if (v) setText(root, f.path, v);
+  });
+  return true;
+}
+
 export function buildContext({ path, html, pairPath = null, pairHtml = null, siteText = null, pages = [], labelOf = (x) => x, selected = 0 }) {
-  const index = { fields: new Map(), lists: new Map(), path, pairPath: pairHtml ? pairPath : null };
-  const context = { page: null, otherLanguage: null, site: [], news: null, publicationLists: [], pages: [] };
+  const index = { fields: new Map(), lists: new Map(), repeats: new Map(), path, pairPath: pairHtml ? pairPath : null, selected };
+  const context = { page: null, otherLanguage: null, site: [], news: null, publicationLists: [], lists: [], blocks: [], pages: [] };
   let n = 0;
   let chars = 0;
   let truncated = false;
@@ -82,6 +141,23 @@ export function buildContext({ path, html, pairPath = null, pairHtml = null, sit
       recent: news.ok ? news.items.slice(0, 5).map((x) => ({ date: x.date, category: x.category, zh: x.content })) : [],
     };
   }
+  repeatLists(here.doc).forEach((list, i) => {
+    const id = "R" + i;
+    index.repeats.set(id, { page: path, ...list });
+    context.lists.push({ id, where: list.where, count: list.count, itemFields: list.fields, firstItem: list.example });
+  });
+  const titles = listSections(here.doc);
+  context.page.sections = titles.map((t, i) => ({ index: i, title: t.title }));
+  index.sectionTitles = titles.map((t) => t.title);
+  context.page.selectedSection = selected;
+  context.blocks = blockSchemas().map((b) => ({
+    id: b.id,
+    name: b.name,
+    use: b.use,
+    texts: b.texts.map((t) => ({ label: t.label, example: t.example })),
+    itemFields: b.item.map((t) => ({ label: t.label, example: t.example })),
+    defaultItems: b.items,
+  }));
   context.pages = pages.filter((x) => !x.startsWith("en/")).map((x) => ({ path: x, title: labelOf(x) }));
   return { context, index };
 }
@@ -90,6 +166,8 @@ const same = (a, b) => String(a).replace(/\s+/g, " ").trim() === String(b).repla
 
 // Turns the server's changes into cards: what will change, where, and
 // whether it can still be applied. → [{ ...change, ok, title, where, before?, after, problem? }]
+const sectionTitle = (index, i) => index.sectionTitles?.[i] || "";
+
 export function resolveChanges(changes, index, { siteText = null, labelOf = (x) => x } = {}) {
   return (changes || []).map((c) => {
     if (c.type === "set_text") {
@@ -123,6 +201,29 @@ export function resolveChanges(changes, index, { siteText = null, labelOf = (x) 
       if (!t) return { ...base, ok: false, problem: "找不到要加入的論文清單。請先打開「成果發表」那一頁，或用左邊的「＋ 論文」。" };
       return { ...base, ok: true, target: t, where: (t.list.heading || labelOf(t.page)) + "（目前 " + t.list.count + " 篇）" + (t.pair ? "，英文頁也一起加" : "") };
     }
+    if (c.type === "add_item") {
+      const t = index.repeats.get(c.list);
+      const base = { ...c, title: "在清單裡新增一筆" };
+      if (!t) return { ...base, ok: false, problem: "找不到這個清單，請先打開有這個清單的頁面。" };
+      const values = t.fields.map((label, i) => ({ label, value: String(c.values?.[i] ?? "") }));
+      if (!values.some((v) => v.value.trim())) return { ...base, ok: false, problem: "助手沒有給內容。" };
+      return { ...base, ok: true, target: t, where: t.where + "（目前 " + t.count + " 筆，新的放在" + (c.position === "start" ? "最前面" : "最後面") + "）", values };
+    }
+    if (c.type === "add_section") {
+      const b = blockSchemas().find((x) => x.id === c.block);
+      if (!b) return { ...c, ok: false, title: "新增一段內容", problem: "沒有這種區塊。" };
+      const after = Number.isInteger(c.after) && c.after >= -1 ? c.after : index.selected;
+      const items = (c.items || []).slice(0, 12).map((row) => b.item.map((f, i) => ({ label: f.label, value: String(row?.[i] ?? "") })));
+      return {
+        ...c,
+        after,
+        ok: true,
+        title: "新增一段內容：" + b.name,
+        where: "放在「" + (sectionTitle(index, after) || "頁面開頭") + "」後面",
+        texts: b.texts.map((f, i) => ({ label: f.label, value: String(c.texts?.[i] ?? "") })),
+        rows: items,
+      };
+    }
     return { ...c, ok: false, title: "無法辨識的修改", problem: "這個版本的編輯器不支援這種修改。" };
   });
 }
@@ -154,4 +255,35 @@ export function turnSummary(turn) {
   if (turn.role === "user") return turn.text;
   const cards = (turn.cards || []).map((c) => `［${c.title}：${c.state === "applied" ? "已套用" : c.state === "dismissed" ? "老師說不要" : c.ok ? "還沒決定" : "無法套用"}］`);
   return [turn.text, ...cards].filter(Boolean).join("\n");
+}
+
+// 在清單裡新增一筆: a copy of the neighbouring item, filled in. Refused when
+// the list changed since the assistant read it.
+export const applyAddItem = (card) => (doc) => {
+  const t = card.target;
+  const section = sectionElements(doc)[t.section];
+  const container = section && nodeAt(section, t.path);
+  if (!container || container.nodeType !== 1 || container.children.length !== t.count) return false;
+  const values = card.values.map((v) => v.value);
+  if (card.position === "start") return addItemAtTop(section, t.path, (copy) => fillTexts(copy, values));
+  if (!addItem(section, t.path)) return false;
+  return fillTexts(container.children[container.children.length - 1], values);
+};
+
+// 新增一段內容: called on the freshly inserted block, before it takes the
+// page's heading style. Resizes its list to the rows given, then fills texts.
+export function fillBlock(section, card) {
+  const node = describeNode(section);
+  const list = node.lists[0];
+  if (list && card.rows.length) {
+    const container = nodeAt(section, list.path);
+    while (container.children.length < card.rows.length) addItem(section, list.path);
+    while (container.children.length > card.rows.length) removeItem(section, list.path, container.children.length - 1);
+    [...container.children].forEach((item, i) => fillTexts(item, card.rows[i].map((x) => x.value)));
+  }
+  const own = describeNode(section).fields.filter((f) => f.kind === "text");
+  own.forEach((f, i) => {
+    const v = String(card.texts[i]?.value ?? "").trim();
+    if (v) setText(section, f.path, v);
+  });
 }

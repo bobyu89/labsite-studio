@@ -29,6 +29,7 @@ import { Thumb } from "../components/AlbumPanel";
 import NewsPanel from "../components/NewsPanel";
 import AddPublication, { publicationPages } from "../components/AddPublication";
 import Assistant from "../components/Assistant";
+import PromptBank from "../components/PromptBank";
 import AlbumPanel from "../components/AlbumPanel";
 import RelocatePanel from "../components/RelocatePanel";
 import TextSizePanel from "../components/TextSizePanel";
@@ -93,6 +94,8 @@ export default function Project({ p, device, setDevice, setConfirm }) {
   const [guide, setGuide] = useState(() => !guideDismissed());
   const [addPub, setAddPub] = useState(false);
   const [allPages, setAllPages] = useState(false);
+  const [promptsOpen, setPromptsOpen] = useState(false);
+  const [aiSeed, setAiSeed] = useState(null);
   // After publishing: { previous } — the version visitors saw before, so it can be put back.
   const [published, setPublished] = useState(null);
   // A photo dropped anywhere else would make the browser open the file and
@@ -498,6 +501,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
                 onSelect={(i) => {
                   p.setSelected(i);
                   p.setFocus(null);
+                  setTab("blocks");
                 }}
                 onMove={p.move}
                 onDuplicate={p.duplicate}
@@ -514,6 +518,11 @@ export default function Project({ p, device, setDevice, setConfirm }) {
               {writable && (
                 <div className="insert-blocks">
                   <span>{sections.length ? "在選取的區塊後面加入：" : "加入："}</span>
+                  {aiOn && (
+                    <Button size="1" color="orange" variant="soft" onClick={() => setPromptsOpen(true)}>
+                      ＋ 用 AI 寫一段
+                    </Button>
+                  )}
                   <Button
                     size="1"
                     variant="soft"
@@ -572,7 +581,15 @@ export default function Project({ p, device, setDevice, setConfirm }) {
           )}
           {aiOn && (
             <div hidden={tab !== "blocks" && tab !== "ai"}>
-              <Assistant p={p} selected={selected} full={tab === "ai"} onOpen={() => setTab("ai")} onShow={() => setTab("ai")} />
+              <Assistant
+                p={p}
+                selected={selected}
+                sectionCount={sections.length}
+                full={tab === "ai"}
+                seed={aiSeed}
+                onOpen={() => setTab("ai")}
+                onShow={() => setTab("ai")}
+              />
             </div>
           )}
           {tab === "ai" && aiOn ? null : tab === "pages" ? (
@@ -722,6 +739,12 @@ export default function Project({ p, device, setDevice, setConfirm }) {
           onClose={() => setEmbedOpen(false)}
           where={sections.length ? "插在「" + (sections[selected]?.title || "") + "」後面" : "插在頁面開頭"}
           onInsert={(opts) => p.insertBlock(insertAfter, "embed", opts)}
+        />
+        <PromptBank
+          open={promptsOpen}
+          onClose={() => setPromptsOpen(false)}
+          where={sections.length ? "放在「" + (sections[selected]?.title || "") + "」後面" : "放在頁面開頭"}
+          onPick={(text) => setAiSeed({ text, n: Date.now() })}
         />
         <AnimationLibrary
           open={animOpen}

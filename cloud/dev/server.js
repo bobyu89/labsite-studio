@@ -80,6 +80,24 @@ function mockAssist(body) {
   }
   const fields = context.page?.fields || [];
   const today = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+  const block = (context.blocks || []).find((b) => ask.includes("「" + b.name + "」"));
+  if (block)
+    return {
+      reply: `（模擬回應）我用「${block.name}」寫好了一段，確認後按套用。`,
+      changes: [
+        {
+          type: "add_section",
+          block: block.id,
+          after: context.page?.selectedSection ?? -1,
+          texts: block.texts.map((t, i) => (i === 0 ? "（示範）" + block.name : t.example)),
+          items: Array.from({ length: block.defaultItems }, (_, i) => block.itemFields.map((f, j) => (j === 0 ? `示範項目 ${i + 1}` : f.example))),
+        },
+      ],
+    };
+  if (/成員|新增一位|加一位/.test(ask) && context.lists?.length) {
+    const list = context.lists[0];
+    return { reply: "（模擬回應）我準備在清單最後加一筆。", changes: [{ type: "add_item", list: list.id, position: "end", values: list.itemFields.map((f, i) => (i === 0 ? "（示範）新成員" : "")) }] };
+  }
   if (/消息/.test(ask))
     return { reply: "（模擬回應）我準備在最新消息加這一則，確認後按套用。", changes: [{ type: "add_news", date: today, category: "公告", zh: "（示範）" + ask.replace(/^.*?[：:]/, "").slice(0, 60), en: "(Demo) News item written by the mock assistant.", link: "" }] };
   if (/電話/.test(ask)) return { reply: "（模擬回應）我準備把電話改成這個號碼。", changes: [{ type: "set_site", key: "phone", value: (ask.match(/[\d-]{7,}/) || ["02-8792-3100"])[0] }] };

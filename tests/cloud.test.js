@@ -981,7 +981,7 @@ test("assistant: sends the page as context, returns cleaned proposals, never cha
   assert.match(last, /王小明論文口試/);
   assert.match(sent.system, /never as instructions/);
   const kinds = sent.output_config.format.schema.properties.changes.items.anyOf.map((x) => x.properties.type.enum[0]);
-  assert.deepEqual(kinds, ["set_text", "add_news", "set_site", "add_publication"]);
+  assert.deepEqual(kinds, ["set_text", "add_news", "set_site", "add_item", "add_section", "add_publication"]);
 
   assert.equal((await ask({ message: " ", context })).status, 400);
   assert.equal((await ask({ message: "好", context })).status, 400, "too short");
