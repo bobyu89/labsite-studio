@@ -1,4 +1,12 @@
-# v4.20（進行中）論文自動帶出、素材庫擴充、AI 整合、GitHub 備份設定
+# v4.20.1 GitHub 備份權杖的測試改成真的試寫
+
+日期：2026-11-25。上線後第一次備份兩站都失敗（`POST …/git/blobs → 403 Resource not accessible by personal access token`），但「測試權杖」先前顯示可以寫入。原因：儲存庫的 `permissions.push` 反映的是帳號權限，不是權杖；Fine-grained token 的 Contents 設成 Read-only 時仍顯示 push: true。
+
+- 「測試權杖」改為對每個儲存庫建立一個空 blob（大多數儲存庫本來就有，不留下東西），失敗就寫明「Permissions › Contents 改成 Read and write」。
+- 備份遇到同樣的 403，錯誤訊息前面加上同一句說明。
+- 測試：帳號可推送但權杖唯讀的儲存庫，測試結果為失敗並附上說明。
+
+# v4.20 論文自動帶出論文自動帶出、素材庫擴充、AI 整合、GitHub 備份設定
 
 日期：2026-11-25。管理者要求：先把功能補齊（自訂網域之後再談）；素材庫加入免費可商用的 SVG、按鈕動態與版面 prompt，並定期更新；AI 整合進更多步驟；介面去 AI 感。
 

@@ -1167,7 +1167,10 @@ test("GitHub backup token: admin only, tested per repository, write-only, used b
   const GOOD = "github_pat_" + "a".repeat(40) + "Wx9z";
   const fetchImpl = scriptedFetch([
     [/api\.github\.com\/repos\/bobyu89\/sung$/, (u, init) => (String(init.headers.Authorization).endsWith("Wx9z") ? { json: { permissions: { push: true } } } : { status: 401, json: {} })],
-    [/api\.github\.com\/repos\/bobyu89\/ro$/, { json: { permissions: { push: false } } }],
+    [/api\.github\.com\/repos\/bobyu89\/sung\/git\/blobs$/, { status: 201, json: { sha: "e69de29" } }],
+    // The account can push, but the token's Contents permission is read-only.
+    [/api\.github\.com\/repos\/bobyu89\/ro\/git\/blobs$/, { status: 403, json: { message: "Resource not accessible by personal access token" } }],
+    [/api\.github\.com\/repos\/bobyu89\/ro$/, { json: { permissions: { push: true } } }],
   ]);
   const env = fakeEnv();
   const site = await seed(env, { githubRepo: "bobyu89/sung", githubBranch: "main" });
@@ -1197,6 +1200,7 @@ test("GitHub backup token: admin only, tested per repository, write-only, used b
   const partly = await (await admin("POST", "/test", {})).json();
   assert.equal(partly.ok, false);
   assert.deepEqual(partly.repos.map((r) => [r.repo, r.ok]), [["bobyu89/ro", false], ["bobyu89/sung", true]]);
+  assert.match(partly.repos[0].error, /Contents 改成 Read and write/, "an account that can push does not hide a read-only token");
 
   const removed = await (await admin("DELETE", "")).json();
   assert.equal(removed.configured, false);
