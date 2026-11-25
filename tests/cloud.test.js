@@ -981,7 +981,7 @@ test("assistant: sends the page as context, returns cleaned proposals, never cha
   assert.match(last, /王小明論文口試/);
   assert.match(sent.system, /never as instructions/);
   const kinds = sent.output_config.format.schema.properties.changes.items.anyOf.map((x) => x.properties.type.enum[0]);
-  assert.deepEqual(kinds, ["set_text", "add_news", "set_site", "add_publication"]);
+  assert.deepEqual(kinds, ["set_text", "add_news", "set_site", "add_item", "add_section", "add_publication"]);
 
   assert.equal((await ask({ message: " ", context })).status, 400);
   assert.equal((await ask({ message: "好", context })).status, 400, "too short");
@@ -1004,6 +1004,36 @@ test("assistant: sends the page as context, returns cleaned proposals, never cha
   const rows = (await env.DB.prepare("SELECT kind, detail FROM events WHERE kind = 'ai_assist' ORDER BY id").all()).results;
   assert.equal(rows.length, 2);
   assert.match(rows[0].detail, /王小明/);
+});
+
+/* ======================================================== photo descriptions */
+test("photo description: image sent as base64 to the model, suggestions returned, counted per site", async () => {
+  let reply = { caption: "研究室成員合影", alt: "多位成員在會議室合影。", alt_en: "Lab members in a group photo." };
+  const fetchImpl = scriptedFetch([
+    ["api.anthropic.com/v1/messages", () => ({ json: { id: "m", type: "message", role: "assistant", model: "claude-opus-5-5", content: [{ type: "text", text: JSON.stringify(reply) }], stop_reason: "end_turn", stop_sequence: null, usage: { input_tokens: 1, output_tokens: 1 } } })],
+  ]);
+  const env = fakeEnv();
+  const site = await seed(env);
+  const app = createApp({ fetchImpl });
+  await app.request("http://localhost/api/admin/ai", jsonReq("PUT", { key: TEST_KEY }), env);
+  const ask = (body) => app.request(`http://localhost/api/sites/${site.id}/describe-photo`, jsonReq("POST", body), env);
+  const image = "A".repeat(400);
+  const ok = await ask({ image, mediaType: "image/jpeg", note: "2026-11-01 聚餐" });
+  assert.equal(ok.status, 200);
+  const out = await ok.json();
+  assert.deepEqual([out.caption, out.alt_en, out.remaining], ["研究室成員合影", "Lab members in a group photo.", 19]);
+  const sent = JSON.parse(fetchImpl.calls.find((c) => c.url.includes("/v1/messages")).body);
+  assert.deepEqual(sent.messages[0].content[0], { type: "image", source: { type: "base64", media_type: "image/jpeg", data: image } });
+  assert.match(sent.messages[0].content[1].text, /2026-11-01 聚餐/);
+  assert.match(sent.system, /Never guess people's names/);
+  assert.equal((await ask({ image, mediaType: "image/svg+xml" })).status, 400);
+  assert.equal((await ask({ image: "not base64!", mediaType: "image/jpeg" })).status, 400);
+  assert.equal((await ask({ image: "A".repeat(2_000_004), mediaType: "image/jpeg" })).status, 413);
+  const n = await env.DB.prepare("SELECT COUNT(*) AS n FROM events WHERE kind = 'ai_photo'").first();
+  assert.equal(Number(n.n), 1);
+  // Shares the daily cap with the other AI features.
+  const view = await (await app.request("http://localhost/api/admin/ai", {}, env)).json();
+  assert.equal(view.sites[0].today, 1);
 });
 
 /* ============================================================= autosave */
@@ -1130,6 +1160,88 @@ const FALLBACK_NEWS = [
   assert.deepEqual(await moveSitesOffSheets(env, fetchImpl, T0 + 30), []);
   assert.equal(fetchImpl.calls.length, before);
   assert.equal((await history(env, await getSite(env, none.id))).length, 1);
+});
+
+/* ======================================================= GitHub backup token */
+test("GitHub backup token: admin only, tested per repository, write-only, used by the backup", async () => {
+  const GOOD = "github_pat_" + "a".repeat(40) + "Wx9z";
+  const fetchImpl = scriptedFetch([
+    [/api\.github\.com\/repos\/bobyu89\/sung$/, (u, init) => (String(init.headers.Authorization).endsWith("Wx9z") ? { json: { permissions: { push: true } } } : { status: 401, json: {} })],
+    [/api\.github\.com\/repos\/bobyu89\/ro$/, { json: { permissions: { push: false } } }],
+  ]);
+  const env = fakeEnv();
+  const site = await seed(env, { githubRepo: "bobyu89/sung", githubBranch: "main" });
+  await env.DB.prepare("UPDATE sites SET backup_status = 'skipped' WHERE id = ?").bind(site.id).run();
+  const app = createApp({ fetchImpl });
+  const as = (email) => ({ ...env, DEV_USER_EMAIL: email });
+  const admin = (method, path, body) => app.request("http://localhost/api/admin/backup" + path, jsonReq(method, body), as("admin@lab.tw"));
+  await addMember(env, site.id, "teacher@lab.tw", "admin@lab.tw");
+  assert.equal((await app.request("http://localhost/api/admin/backup", {}, as("teacher@lab.tw"))).status, 403);
+
+  let view = await (await admin("GET", "")).json();
+  assert.deepEqual([view.configured, view.last4, view.sites[0].repo], [false, null, "bobyu89/sung"]);
+  assert.equal((await admin("PUT", "", { token: "nope" })).status, 400);
+  const tested = await (await admin("POST", "/test", { token: GOOD })).json();
+  assert.deepEqual([tested.ok, tested.last4, tested.repos[0].ok], [true, "Wx9z", true]);
+  assert.equal((await (await admin("GET", "")).json()).configured, false, "testing does not store");
+
+  view = await (await admin("PUT", "", { token: GOOD })).json();
+  assert.deepEqual([view.configured, view.source, view.last4], [true, "settings", "Wx9z"]);
+  assert.ok(!JSON.stringify(view).includes(GOOD));
+  assert.equal(view.sites[0].status, null, "a site skipped for want of a token is queued again");
+  const { githubToken } = await import("../cloud/src/github.js");
+  assert.equal(await githubToken(env), GOOD);
+
+  // A repository the token cannot write to is reported by name.
+  await createSite(env, { slug: "ro", name: "唯讀", files: [file("index.html", "x")], author: "a", message: "m", githubRepo: "bobyu89/ro", githubBranch: "main", now: T0 });
+  const partly = await (await admin("POST", "/test", {})).json();
+  assert.equal(partly.ok, false);
+  assert.deepEqual(partly.repos.map((r) => [r.repo, r.ok]), [["bobyu89/ro", false], ["bobyu89/sung", true]]);
+
+  const removed = await (await admin("DELETE", "")).json();
+  assert.equal(removed.configured, false);
+  assert.equal(await githubToken(env), "");
+  // A worker secret wins and cannot be changed here.
+  const withSecret = { ...env, GITHUB_BACKUP_TOKEN: "ghp_" + "s".repeat(36), DEV_USER_EMAIL: "admin@lab.tw" };
+  assert.equal((await app.request("http://localhost/api/admin/backup", jsonReq("PUT", { token: GOOD }), withSecret)).status, 409);
+  assert.equal((await (await app.request("http://localhost/api/admin/backup", {}, withSecret)).json()).source, "env");
+});
+
+/* ============================================================ DOI / PMID */
+test("reference lookup: doi.org first, Crossref fallback, PubMed with DOI upgrade, clear errors", async () => {
+  const csl = { author: [{ family: "Sung", given: "Chien-Mei" }], issued: { "date-parts": [[2026]] }, title: "A trial", "container-title": "Journal of Advanced Nursing", volume: "82", page: "1-9", DOI: "10.1111/jan.1" };
+  const fetchImpl = scriptedFetch([
+    [/doi\.org\/10\.1111\/jan\.1$/, (u, init) => ({ json: init.headers.Accept.includes("csl") ? csl : {} })],
+    [/doi\.org\/10\.9999\/cr$/, { status: 406, json: {} }],
+    [/api\.crossref\.org\/works\/10\.9999%2Fcr/, { json: { message: { ...csl, title: ["From Crossref"], "container-title": ["J"] } } }],
+    [/doi\.org\/10\.0000\/none/, { status: 404, json: {} }],
+    [/api\.crossref\.org\/works\/10\.0000/, { status: 404, json: {} }],
+    [/esummary\.fcgi.*id=123456/, { json: { result: { 123456: { uid: "123456", pubdate: "2020", source: "J Adv Nurs", fulljournalname: "Journal of advanced nursing", authors: [{ name: "Sung CM", authtype: "Author" }], title: "PubMed title.", articleids: [{ idtype: "doi", value: "10.1111/jan.1" }] } } } }],
+    [/esummary\.fcgi.*id=999999/, { json: { result: { 999999: { uid: "999999", error: "cannot get document summary" } } } }],
+  ]);
+  const env = fakeEnv();
+  const app = createApp({ fetchImpl });
+  const get = async (q, e = env) => {
+    const res = await app.request("http://localhost/api/lookup/reference?q=" + encodeURIComponent(q), {}, e);
+    return [res.status, await res.json()];
+  };
+  let [status, body] = await get("https://doi.org/10.1111/jan.1");
+  assert.equal(status, 200);
+  assert.deepEqual([body.title, body.journal, body.authors[0].family], ["A trial", "Journal of Advanced Nursing", "Sung"]);
+  [, body] = await get("10.9999/cr");
+  assert.equal(body.title, "From Crossref");
+  [status, body] = await get("10.0000/none");
+  assert.equal(status, 404);
+  assert.match(body.error, /找不到這個 DOI/);
+  [, body] = await get("PMID 123456");
+  assert.deepEqual([body.title, body.pmid, body.doi], ["A trial", "123456", "10.1111/jan.1"], "PubMed record upgraded with doi.org metadata");
+  [status, body] = await get("999999");
+  assert.equal(status, 404);
+  [status] = await get("hello");
+  assert.equal(status, 400);
+  // Signed-in only.
+  const res = await app.request("http://localhost/api/lookup/reference?q=10.1111/jan.1", {}, { ...env, DEV_AUTH: "off" });
+  assert.equal(res.status, 401);
 });
 
 /* ============================================================ site patches */

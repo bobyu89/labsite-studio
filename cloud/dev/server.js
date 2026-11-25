@@ -80,6 +80,24 @@ function mockAssist(body) {
   }
   const fields = context.page?.fields || [];
   const today = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+  const block = (context.blocks || []).find((b) => ask.includes("「" + b.name + "」"));
+  if (block)
+    return {
+      reply: `（模擬回應）我用「${block.name}」寫好了一段，確認後按套用。`,
+      changes: [
+        {
+          type: "add_section",
+          block: block.id,
+          after: context.page?.selectedSection ?? -1,
+          texts: block.texts.map((t, i) => (i === 0 ? "（示範）" + block.name : t.example)),
+          items: Array.from({ length: block.defaultItems }, (_, i) => block.itemFields.map((f, j) => (j === 0 ? `示範項目 ${i + 1}` : f.example))),
+        },
+      ],
+    };
+  if (/成員|新增一位|加一位/.test(ask) && context.lists?.length) {
+    const list = context.lists[0];
+    return { reply: "（模擬回應）我準備在清單最後加一筆。", changes: [{ type: "add_item", list: list.id, position: "end", values: list.itemFields.map((f, i) => (i === 0 ? "（示範）新成員" : "")) }] };
+  }
   if (/消息/.test(ask))
     return { reply: "（模擬回應）我準備在最新消息加這一則，確認後按套用。", changes: [{ type: "add_news", date: today, category: "公告", zh: "（示範）" + ask.replace(/^.*?[：:]/, "").slice(0, 60), en: "(Demo) News item written by the mock assistant.", link: "" }] };
   if (/電話/.test(ask)) return { reply: "（模擬回應）我準備把電話改成這個號碼。", changes: [{ type: "set_site", key: "phone", value: (ask.match(/[\d-]{7,}/) || ["02-8792-3100"])[0] }] };
@@ -98,6 +116,15 @@ const mockFetch = async (url, init) => {
   await new Promise((r) => setTimeout(r, 800));
   const body = JSON.parse(init?.body || "{}");
   const assist = !!body.output_config?.format?.schema?.properties?.changes;
+  if (body.output_config?.format?.schema?.properties?.alt_en)
+    return new Response(
+      JSON.stringify({
+        id: "msg_mock", type: "message", role: "assistant", model: "claude-opus-5-5",
+        content: [{ type: "text", text: JSON.stringify({ caption: "（模擬）研究室成員合影", alt: "（模擬）多位研究室成員在會議室前排站立合影。", alt_en: "(Mock) Lab members standing together for a group photo." }) }],
+        stop_reason: "end_turn", stop_sequence: null, usage: { input_tokens: 0, output_tokens: 0 },
+      }),
+      { headers: { "Content-Type": "application/json" } },
+    );
   return new Response(
     JSON.stringify({
       id: "msg_mock", type: "message", role: "assistant", model: "claude-opus-5-5",

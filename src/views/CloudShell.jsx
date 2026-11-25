@@ -437,8 +437,8 @@ function CloudHome({ p, onSetPassword, setConfirm }) {
         <section className="admin-tools">
           <h2>管理者</h2>
           <button type="button" className="admin-link" onClick={() => setView("ai")}>
-            <span>AI 助手設定</span>
-            <span className="muted">{me.ai ? "已開啟" : "尚未設定金鑰"}</span>
+            <span>平台設定（AI 助手、GitHub 備份）</span>
+            <span className="muted">{me.ai ? "AI 已開啟" : "AI 尚未設定金鑰"}</span>
           </button>
           <details>
             <summary>新增網站（用模板）</summary>

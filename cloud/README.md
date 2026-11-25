@@ -116,13 +116,13 @@ npx --prefix cloud wrangler secret put GITHUB_BACKUP_TOKEN -c cloud/wrangler.api
 
 兩者共用一把 Anthropic API 金鑰、每個網站每天的次數上限（預設 20）與各網站的開關，每次使用都記在 `events` 表。
 
-**放金鑰**：管理者登入後，在「我的網站」下方的「管理者 › AI 助手設定」貼上金鑰（到 <https://console.anthropic.com/settings/keys> 建立）。儲存前會先測試連線；儲存後頁面只顯示最後 4 碼。金鑰存在 D1 的 `settings` 表（明文），只有 Worker 呼叫 API 時讀取，任何 API 回應都不含金鑰。想把金鑰放在 Cloudflare 而不是資料庫，可以改設 secret，它會優先於頁面上的設定：
+**放金鑰**：管理者登入後，在「我的網站」下方的「管理者 › 平台設定」貼上金鑰（到 <https://console.anthropic.com/settings/keys> 建立）。儲存前會先測試連線；儲存後頁面只顯示最後 4 碼。金鑰存在 D1 的 `settings` 表（明文），只有 Worker 呼叫 API 時讀取，任何 API 回應都不含金鑰。想把金鑰放在 Cloudflare 而不是資料庫，可以改設 secret，它會優先於頁面上的設定：
 
 ```bash
 npx --prefix cloud wrangler secret put ANTHROPIC_API_KEY -c cloud/wrangler.api.toml
 ```
 
-沒有金鑰時，編輯器不顯示這兩個功能。本機想試介面但沒有金鑰：`npm --prefix cloud run dev:node:ai-mock` 會回傳固定的模擬回應，不呼叫 API；加上 `-- --no-key` 則從沒有金鑰的狀態開始，用來試「AI 助手設定」頁（任何 `sk-ant-…` 格式的字串都會通過模擬的連線測試）。
+沒有金鑰時，編輯器不顯示這兩個功能。本機想試介面但沒有金鑰：`npm --prefix cloud run dev:node:ai-mock` 會回傳固定的模擬回應，不呼叫 API；加上 `-- --no-key` 則從沒有金鑰的狀態開始，用來試「平台設定」頁（任何 `sk-ant-…` 格式的字串都會通過模擬的連線測試）。
 
 ### 自動保存
 

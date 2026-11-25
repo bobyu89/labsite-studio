@@ -3,10 +3,11 @@
 // of the chosen list on the Chinese and the English page, numbered again.
 import React, { useEffect, useMemo, useState } from "react";
 import { Button } from "@radix-ui/themes";
-import { Plus } from "@phosphor-icons/react";
+import { Plus, MagnifyingGlass } from "@phosphor-icons/react";
 import { Modal, Field } from "./ui";
 import { parsePage, sectionElements, pairOf } from "../site/page.js";
 import { publicationLists, addCitation, addFieldsItem, guessJournal, matchingList, previewCitation } from "../site/quickAdd.js";
+import { formatReference, fieldValuesFor } from "../site/cite.js";
 
 // Pages that may hold publication lists, by file name.
 export const PUBLICATION_PAGE = /(^|\/)(publications?|conferences?|papers?|pubs)\.html?$/i;
@@ -47,6 +48,35 @@ export default function AddPublication({ p, open, onClose, onAdded }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  // DOI / PMID → the whole reference, in the list's own style.
+  const [lookup, setLookup] = useState({ q: "", busy: false, error: null, note: null });
+  const canLookup = !!p.cloudCalls?.lookupReference && p.project?.source.kind === "cloud";
+  const runLookup = async () => {
+    const q = lookup.q.trim();
+    if (!q || !target) return;
+    setLookup((l) => ({ ...l, busy: true, error: null, note: null }));
+    try {
+      const meta = await p.cloudCalls.lookupReference(q);
+      const hyphen = /\.-[A-Z]\./.test(target.list.bold || "");
+      if (target.list.shape === "citation") {
+        const ref = formatReference(meta, { hyphen });
+        setJournalTouched(true);
+        setValues((v) => ({ ...v, text: ref.text, journal: ref.journal, url: ref.url }));
+      } else {
+        const vals = fieldValuesFor(target.list.fields, meta, { hyphen });
+        setFieldValues(vals);
+      }
+      const shortPages = meta.pages && !/[-–]/.test(meta.pages) && !meta.article;
+      setLookup((l) => ({
+        ...l,
+        busy: false,
+        note: "已帶出資料，請確認作者、頁碼與標點。" + (shortPages ? "這篇的資料只有起始頁，請補上完整頁碼。" : ""),
+      }));
+    } catch (e) {
+      setLookup((l) => ({ ...l, busy: false, error: e.message }));
+    }
+  };
 
   const target = targets?.[pick] || null;
   useEffect(() => {
@@ -106,6 +136,29 @@ export default function AddPublication({ p, open, onClose, onAdded }) {
                 ))}
               </select>
             </label>
+          )}
+          {canLookup && (
+            <div className="quick-add-lookup">
+              <label className="field">
+                <span>DOI 或 PubMed 編號（貼上就能帶出整筆資料，可留白）</span>
+                <input
+                  value={lookup.q}
+                  placeholder="例如 10.1111/jan.15599 或 PMID 39889522"
+                  onChange={(e) => setLookup((l) => ({ ...l, q: e.target.value, error: null, note: null }))}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+                      e.preventDefault();
+                      runLookup();
+                    }
+                  }}
+                />
+              </label>
+              <Button type="button" variant="surface" color="gray" disabled={lookup.busy || !lookup.q.trim()} onClick={runLookup}>
+                <MagnifyingGlass size={16} /> {lookup.busy ? "查詢中…" : "帶出資料"}
+              </Button>
+              {lookup.error && <span className="small-note error-text">{lookup.error}</span>}
+              {lookup.note && <span className="small-note">{lookup.note}</span>}
+            </div>
           )}
           {target.list.shape === "citation" ? (
             <>

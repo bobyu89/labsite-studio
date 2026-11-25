@@ -37,15 +37,15 @@ export default function EditorGuide({ onClose, isCloud, hasAlbum, hasNews, hasAi
         <li>
           <CursorClick size={26} />
           <strong>點選要改的地方</strong>
-          <span>在中間的網站預覽裡點一下文字或照片，右邊就會出現可以修改的欄位。要改別頁，在左邊的「頁面」點那一頁。</span>
+          <span>在中間的網站預覽裡點一下文字或照片，右邊就會出現可以修改的欄位。要改別頁，在左邊的「網站」點那一頁。</span>
         </li>
         <li>
           <PencilSimpleLine size={26} />
           <strong>改文字、換照片</strong>
           <span>
             直接在右邊改字，或在預覽裡點文字直接打。照片按「換一張照片」，或把電腦裡的照片拖到預覽的圖片上。
-            {" 常用的新增（論文、" + (hasNews ? "最新消息、" : "") + "成員" + (hasAlbum ? "、活動照片" : "") + "）在左上角的「快速新增」。"}
-            {hasAi && " 也可以在右上角的「AI 助手」直接寫想怎麼改，助手會先給你看，按「套用」才會改。"}
+            {" 常用的新增（論文、" + (hasNews ? "最新消息、" : "") + "成員" + (hasAlbum ? "、活動照片" : "") + "）在左邊最上面的「新增」。"}
+            {hasAi && " 也可以在右邊最下面的「助手」直接寫想怎麼改，助手會先給你看，按「套用」才會改。"}
           </span>
         </li>
         <li>
@@ -53,7 +53,7 @@ export default function EditorGuide({ onClose, isCloud, hasAlbum, hasNews, hasAi
           <strong>{isCloud ? "確認後按「發布」" : "保存"}</strong>
           <span>
             {isCloud
-              ? "修改會自動存成草稿，只有編輯者看得到，關掉視窗也不會不見。按「發布」後，大家看到的網站才會更新。改錯了可以按復原，或到左上角的「舊版本」找回來。"
+              ? "修改會自動存成草稿，只有編輯者看得到，關掉視窗也不會不見。按「發布」後，大家看到的網站才會更新。改錯了可以按復原，或到左邊「設定 › 舊版本」找回來。"
               : "「保存」會把修改寫回網站檔案。改錯了可以按復原。"}
           </span>
         </li>

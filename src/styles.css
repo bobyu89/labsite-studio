@@ -6192,3 +6192,615 @@ h3 {
   margin: 0;
   color: #a12a1b;
 }
+
+/* 新增論文: DOI / PMID lookup row. */
+.quick-add-lookup {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 6px 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+.quick-add-lookup .field {
+  margin: 0;
+}
+.quick-add-lookup .small-note {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+.settings-heading {
+  margin: 24px 0 8px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.settings-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 14px;
+  line-height: 1.8;
+}
+.settings-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  font-size: 14px;
+  line-height: 1.7;
+  padding: 4px 0;
+}
+.field-fx {
+  margin-top: 6px;
+}
+
+/* 版面靈感 */
+.prompt-groups {
+  margin: 12px 0 8px;
+}
+.prompt-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.prompt-list button {
+  width: 100%;
+  display: grid;
+  gap: 2px;
+  text-align: left;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  font: inherit;
+  color: var(--ink);
+  cursor: pointer;
+}
+.prompt-list button:hover {
+  border-color: var(--accent);
+}
+.prompt-list span {
+  font-size: 14px;
+  color: var(--muted);
+}
+.prompt-list small {
+  font-size: 12px;
+  color: var(--muted);
+}
+.ai-row-group {
+  margin: 0;
+  padding: 8px 10px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  display: grid;
+  gap: 6px;
+}
+.ai-row-group legend {
+  padding: 0 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* One AI suggestion for one field. */
+.ai-suggest {
+  margin-top: 4px;
+  display: grid;
+  gap: 4px;
+}
+.ai-suggest .link-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  justify-self: start;
+}
+.ai-suggest-box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  padding: 6px 8px;
+  border-left: 2px solid var(--accent);
+  background: var(--soft);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.ai-suggest-box span {
+  flex: 1 1 200px;
+}
+.link-button {
+  border: 0;
+  background: none;
+  padding: 2px 0;
+  font: inherit;
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.link-button:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+.link-button.muted {
+  color: var(--muted);
+}
+
+/* =====================================================================
+   v4.20 介面：A 的字體與留白（紙本編輯台）＋ B 的結構樹。
+   Warm paper ground, serif headings, hairline rules instead of boxes,
+   underline fields, the site as a tree on the left. Loaded last so it
+   wins over the earlier layout rules.
+   ===================================================================== */
+:root {
+  --paper: #f6f4ef;
+  --ink: #1f1d1a;
+  --muted: #6b665e;
+  --faint: #a39d92;
+  --line: #ddd8cd;
+  --rule: #b9b2a5;
+  --soft: #efece5;
+  --serif: "Noto Serif TC", "Songti TC", "Source Han Serif TC", serif;
+  font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  color: var(--ink);
+  background: var(--paper);
+}
+body,
+.app-shell,
+.cloud-shell {
+  background: var(--paper);
+}
+.radix-themes {
+  --default-font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --heading-font-family: var(--serif);
+}
+h1,
+.page-heading h1,
+.signed-out h1,
+.rt-DialogTitle,
+.rt-AlertDialogTitle,
+.inspector-subtitle,
+.studio-panel-head strong,
+.settings-heading {
+  font-family: var(--serif);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+/* Top bar: no boxes, text first. */
+.studio-bar {
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
+  gap: 10px 18px;
+  padding: 10px 24px;
+}
+.studio-site {
+  border: 0;
+  background: none;
+  padding: 0;
+  font-family: var(--serif);
+  font-size: 18px;
+}
+.studio-site strong {
+  font-weight: 700;
+}
+.studio-page strong {
+  font-weight: 500;
+}
+.studio-page span {
+  color: var(--faint);
+}
+.studio-state {
+  font-size: 14px;
+}
+
+/* Columns: paper, hairlines, more air. */
+.studio-body {
+  background: var(--paper);
+}
+.studio-left,
+.studio-right {
+  background: var(--paper);
+}
+.studio-left {
+  padding: 20px 22px 28px;
+  gap: 22px;
+  border-right: 1px solid var(--line);
+}
+.studio-right {
+  border-left: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+}
+.studio-body > .editor-canvas {
+  background: var(--soft);
+}
+.inspector-body {
+  padding: 20px 24px 28px;
+}
+
+/* Left: 新增 line. */
+.tree-quick {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 4px;
+  font-size: 14px;
+  line-height: 1.9;
+  color: var(--muted);
+}
+.tree-quick > span:first-child {
+  margin-right: 10px;
+}
+.tree-quick button {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--rule);
+  text-underline-offset: 4px;
+  cursor: pointer;
+}
+.tree-quick button:hover {
+  text-decoration-color: var(--accent);
+}
+
+/* Left: group headings like a book's section marks. */
+.studio-left .tree-group h2 {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 0 0 6px;
+  font-family: var(--serif);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+}
+.tree-lang {
+  font-family: "Noto Sans TC", system-ui, sans-serif;
+  letter-spacing: 0;
+  font-weight: 400;
+  display: inline-flex;
+  gap: 4px;
+  color: var(--faint);
+}
+.tree-lang button {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.tree-lang button.active {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+/* The tree (B), set in A's type. */
+.tree {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.tree > li > button,
+.tree-page {
+  width: 100%;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 2px;
+  background: none;
+  font: inherit;
+  font-size: 15px;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.tree > li > button:hover {
+  background: var(--soft);
+}
+.tree-caret {
+  width: 12px;
+  font-size: 11px;
+  color: var(--faint);
+}
+.tree-page.open {
+  font-weight: 700;
+}
+.tree-flat > li > button {
+  padding-left: 6px;
+}
+.tree-flat > li > button.active {
+  font-weight: 700;
+  box-shadow: inset 3px 0 0 var(--accent);
+  padding-left: 12px;
+}
+.tree-count {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+.tree-children {
+  margin: 2px 0 10px 18px;
+}
+
+/* Sections of the open page: ruled list, the selected one marked by a rule. */
+.studio-left .section-list {
+  border-top: 1px solid var(--line);
+}
+.studio-left .section-row {
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: none;
+  outline: 0;
+}
+.studio-left .section-row.selected {
+  background: none;
+  color: var(--ink);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.studio-left .section-row.selected .section-pick {
+  font-weight: 700;
+}
+.studio-left .section-row.selected .section-pick,
+.studio-left .section-row.selected .drag-handle,
+.studio-left .section-row.selected .icon-button {
+  color: var(--ink);
+}
+.studio-left .section-row.selected .icon-button:hover {
+  background: var(--soft);
+}
+.studio-left .section-pick {
+  min-height: 36px;
+  font-size: 14px;
+}
+.studio-left .drag-handle {
+  color: var(--faint);
+}
+.section-add {
+  border: 0;
+  background: none;
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+/* 加入新內容: text links, not a row of pills. */
+.studio-left .insert-blocks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 12px;
+  padding: 10px 0 0;
+  font-size: 14px;
+}
+.studio-left .insert-blocks > span {
+  width: 100%;
+  color: var(--muted);
+  font-size: 13px;
+}
+.studio-left .insert-blocks .rt-Button {
+  height: auto;
+  min-height: 30px;
+  padding: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 400;
+  text-decoration: underline;
+  text-decoration-color: var(--rule);
+  text-underline-offset: 4px;
+}
+.studio-left .insert-blocks .rt-Button[data-accent-color="orange"] {
+  color: var(--accent);
+  text-decoration-color: currentColor;
+}
+.studio-left .insert-blocks .rt-Button:disabled {
+  color: var(--faint);
+}
+
+/* Right: fields as lines on paper. */
+.studio-right .field > span,
+.studio-right .field-label {
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.studio-right .field input,
+.studio-right .field textarea,
+.studio-right .field select {
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  border-radius: 0;
+  background: transparent;
+  padding: 8px 0;
+  font-size: 15px;
+}
+.studio-right .field select {
+  padding-right: 18px;
+}
+.studio-right .field input:focus,
+.studio-right .field textarea:focus,
+.studio-right .field select:focus {
+  border-bottom-color: var(--accent);
+  box-shadow: 0 1px 0 var(--accent);
+}
+.studio-right .field-item.focused {
+  background: none;
+  box-shadow: inset 2px 0 0 var(--accent);
+  padding-left: 10px;
+}
+.inspector-subtitle {
+  font-size: 20px;
+}
+.studio-panel-head {
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
+}
+.studio-panel-head button {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+/* AI: one quiet line at the foot of the right column (A). */
+.studio-ai.compact {
+  order: 9;
+  margin-top: auto;
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  background: var(--paper);
+}
+.studio-ai.compact .ai-compact {
+  border-top: 1px solid var(--line);
+  border-bottom: 0;
+  padding: 10px 24px 14px;
+}
+.ai-form-box {
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  border-radius: 0;
+  padding: 4px 0;
+  background: transparent;
+  align-items: center;
+}
+.ai-form-box:focus-within {
+  outline: 0;
+  border-bottom-color: var(--accent);
+  box-shadow: 0 1px 0 var(--accent);
+}
+.ai-form-box label {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+}
+.ai-form-box label > span {
+  flex: none;
+}
+.ai-form-box textarea {
+  flex: 1;
+  background: transparent;
+}
+.ai-form-box button {
+  width: auto;
+  height: 34px;
+  padding: 0 4px;
+  background: none;
+  color: var(--accent);
+  font-weight: 700;
+}
+.ai-form-box button:disabled {
+  background: none;
+  color: var(--faint);
+}
+.ai-panel .ai-foot {
+  background: var(--paper);
+}
+.ai-card {
+  border-color: var(--rule);
+  border-radius: 2px;
+  background: #fff;
+}
+.ai-said {
+  border-radius: 2px;
+}
+
+/* Lists of sites and cards elsewhere: fewer boxes, square corners. */
+.site-row,
+.settings-card,
+.admin-tools details,
+.admin-tools .admin-link {
+  border-radius: 2px;
+}
+
+/* Columns stick under the bar (its height is measured in Project.jsx). */
+.cloud-shell .studio-left,
+.cloud-shell .studio-right {
+  top: var(--studio-top, 119px);
+  /* 100vh is in screen pixels; inside a zoomed page (文字 大／特大) it has to be scaled back. */
+  max-height: calc(100vh / var(--ui-zoom, 1) - var(--studio-top, 119px));
+}
+:root[data-ui-size="large"] {
+  --ui-zoom: 1.12;
+}
+:root[data-ui-size="xlarge"] {
+  --ui-zoom: 1.25;
+}
+.cloud-topbar,
+.topbar {
+  background: var(--paper);
+}
+.studio-bar .icon-button {
+  border-color: transparent;
+  background: none;
+}
+.studio-bar .icon-button:hover:not(:disabled) {
+  background: var(--soft);
+}
+.inspector-subtitle {
+  display: grid;
+  gap: 2px;
+  font-size: 17px;
+  line-height: 1.5;
+}
+.inspector-subtitle .muted {
+  font-family: "Noto Sans TC", system-ui, sans-serif;
+  font-weight: 400;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+}
+/* AI panel in A's type: lined fields, text-link prompts. */
+.ai-panel .ai-form-box label {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+}
+.ai-value textarea,
+.ai-value input {
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  border-radius: 0;
+  background: transparent;
+  padding: 6px 0;
+}
+.ai-value textarea:disabled,
+.ai-value input:disabled {
+  background: transparent;
+}
+.ai-prompts {
+  gap: 2px 14px;
+}
+.ai-prompts button {
+  min-height: 30px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 14px;
+  text-decoration: underline;
+  text-decoration-color: var(--rule);
+  text-underline-offset: 4px;
+}
+.ai-prompts button:hover:not(:disabled) {
+  background: none;
+  text-decoration-color: var(--accent);
+}
+.ai-card-head strong {
+  font-family: var(--serif);
+}

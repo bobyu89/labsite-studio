@@ -5,6 +5,7 @@ import { Button } from "@radix-ui/themes";
 import { ImagesSquare, ArrowUp, ArrowDown, Trash, FloppyDisk, UploadSimple, ArrowSquareOut } from "@phosphor-icons/react";
 import { PICKER_ACCEPT } from "../site/images.js";
 import { useDragReorder } from "../hooks/useDragReorder";
+import AiSuggest from "./AiSuggest";
 
 export function Thumb({ p, src }) {
   const [url, setUrl] = useState(null);
@@ -118,6 +119,15 @@ export default function AlbumPanel({ p, writable, galleryPage, openPage, setConf
                   <span>照片說明</span>
                   <input value={photo.caption} onChange={(e) => update(i, { caption: e.target.value })} disabled={!writable} />
                 </label>
+                {p.ai?.available && writable && (
+                  <AiSuggest
+                    label="AI 看照片寫說明"
+                    disabled={p.busy}
+                    ask={() => p.ai.describePhoto(photo.src, { note: photo.caption })}
+                    pickText={(r) => r.caption}
+                    onApply={(caption) => update(i, { caption })}
+                  />
+                )}
                 <div className="album-row-actions">
                   <button type="button" className="icon-button" aria-label="往前移" disabled={!writable || i === 0} onClick={() => move(i, -1)}>
                     <ArrowUp size={15} />

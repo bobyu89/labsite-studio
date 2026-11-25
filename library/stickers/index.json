@@ -1,0 +1,1904 @@
+{
+ "sources": {
+  "fluent": {
+   "name": "Fluent Emoji (Microsoft)",
+   "license": "MIT",
+   "url": "https://github.com/microsoft/fluentui-emoji",
+   "commit": "1ffb34c752ecf5d402f04cfb4b392c77f57c54bc"
+  },
+  "bioicons": {
+   "name": "Bioicons (CC0 collection)",
+   "license": "CC0 1.0",
+   "url": "https://github.com/duerrsimon/bioicons",
+   "commit": "30f1dd71314bf99d22668318769e5f91834660ee"
+  }
+ },
+ "items": [
+  {
+   "id": "fluent-health-worker",
+   "name": "醫護人員",
+   "en": "Health worker",
+   "group": "醫療",
+   "source": "fluent",
+   "file": "fluent/fluent-health-worker.svg"
+  },
+  {
+   "id": "fluent-woman-health-worker",
+   "name": "女醫護",
+   "en": "Woman health worker",
+   "group": "醫療",
+   "source": "fluent",
+   "file": "fluent/fluent-woman-health-worker.svg"
+  },
+  {
+   "id": "fluent-man-health-worker",
+   "name": "男醫護",
+   "en": "Man health worker",
+   "group": "醫療",
+   "source": "fluent",
+   "file": "fluent/fluent-man-health-worker.svg"
+  },
+  {
+   "id": "fluent-stethoscope",
+   "name": "聽診器",
+   "en": "Stethoscope",
+   "group": "醫療",
+   "source": "fluent",
+   "file": "fluent/fluent-stethoscope.svg"
+  },
+  {
+   "id": "fluent-syringe",
+   "name": "針筒",
+   "en": "Syringe",
+   "group": "醫療",
+   "source": "fluent",
+   "file": "fluent/fluent-syringe.svg"
+  },
+  {
+   "id": "fluent-pill",
+   "name": "藥丸",
+   "en": "Pill",
+   "group": "醫療",
+   "source": "fluent",
+   "file": "fluent/fluent-pill.svg"
+  },
+  {
+   "id": "fluent-adhesive-bandage",
+   "name": "OK 繃",
+   "en": "Adhesive bandage",
+   "group": "醫療",
+   "source": "fluent",
+   "file": "fluent/fluent-adhesive-bandage.svg"
+  },
+  {
+   "id": "fluent-hospital",
+   "name": "醫院",
+   "en": "Hospital",
+   "group": "醫療",
+   "source": "fluent",
+   "file": "fluent/fluent-hospital.svg"
+  },
+  {
+   "id": "fluent-ambulance",
+   "name": "救護車",
+   "en": "Ambulance",
+   "group": "醫療",
+   "source": "fluent",
+   "file": "fluent/fluent-ambulance.svg"
+  },
+  {
+   "id": "fluent-drop-of-blood",
+   "name": "血滴",
+   "en": "Drop of blood",
+   "group": "醫療",
+   "source": "fluent",
+   "file": "fluent/fluent-drop-of-blood.svg"
+  },
+  {
+   "id": "fluent-anatomical-heart",
+   "name": "心臟",
+   "en": "Anatomical heart",
+   "group": "醫療",
+   "source": "fluent",
+   "file": "fluent/fluent-anatomical-heart.svg"
+  },
+  {
+   "id": "fluent-lungs",
+   "name": "肺",
+   "en": "Lungs",
+   "group": "醫療",
+   "source": "fluent",
+   "file": "fluent/fluent-lungs.svg"
+  },
+  {
+   "id": "fluent-brain",
+   "name": "大腦",
+   "en": "Brain",
+   "group": "醫療",
+   "source": "fluent",
+   "file": "fluent/fluent-brain.svg"
+  },
+  {
+   "id": "fluent-bone",
+   "name": "骨頭",
+   "en": "Bone",
+   "group": "醫療",
+   "source": "fluent",
+   "file": "fluent/fluent-bone.svg"
+  },
+  {
+   "id": "fluent-tooth",
+   "name": "牙齒",
+   "en": "Tooth",
+   "group": "醫療",
+   "source": "fluent",
+   "file": "fluent/fluent-tooth.svg"
+  },
+  {
+   "id": "fluent-crutch",
+   "name": "拐杖",
+   "en": "Crutch",
+   "group": "醫療",
+   "source": "fluent",
+   "file": "fluent/fluent-crutch.svg"
+  },
+  {
+   "id": "fluent-manual-wheelchair",
+   "name": "輪椅",
+   "en": "Manual wheelchair",
+   "group": "醫療",
+   "source": "fluent",
+   "file": "fluent/fluent-manual-wheelchair.svg"
+  },
+  {
+   "id": "fluent-thermometer",
+   "name": "體溫計",
+   "en": "Thermometer",
+   "group": "醫療",
+   "source": "fluent",
+   "file": "fluent/fluent-thermometer.svg"
+  },
+  {
+   "id": "fluent-lab-coat",
+   "name": "實驗衣",
+   "en": "Lab coat",
+   "group": "研究",
+   "source": "fluent",
+   "file": "fluent/fluent-lab-coat.svg"
+  },
+  {
+   "id": "fluent-microscope",
+   "name": "顯微鏡",
+   "en": "Microscope",
+   "group": "研究",
+   "source": "fluent",
+   "file": "fluent/fluent-microscope.svg"
+  },
+  {
+   "id": "fluent-test-tube",
+   "name": "試管",
+   "en": "Test tube",
+   "group": "研究",
+   "source": "fluent",
+   "file": "fluent/fluent-test-tube.svg"
+  },
+  {
+   "id": "fluent-petri-dish",
+   "name": "培養皿",
+   "en": "Petri dish",
+   "group": "研究",
+   "source": "fluent",
+   "file": "fluent/fluent-petri-dish.svg"
+  },
+  {
+   "id": "fluent-dna",
+   "name": "DNA",
+   "en": "Dna",
+   "group": "研究",
+   "source": "fluent",
+   "file": "fluent/fluent-dna.svg"
+  },
+  {
+   "id": "fluent-alembic",
+   "name": "蒸餾瓶",
+   "en": "Alembic",
+   "group": "研究",
+   "source": "fluent",
+   "file": "fluent/fluent-alembic.svg"
+  },
+  {
+   "id": "fluent-bar-chart",
+   "name": "長條圖",
+   "en": "Bar chart",
+   "group": "研究",
+   "source": "fluent",
+   "file": "fluent/fluent-bar-chart.svg"
+  },
+  {
+   "id": "fluent-chart-increasing",
+   "name": "成長圖表",
+   "en": "Chart increasing",
+   "group": "研究",
+   "source": "fluent",
+   "file": "fluent/fluent-chart-increasing.svg"
+  },
+  {
+   "id": "fluent-clipboard",
+   "name": "記錄板",
+   "en": "Clipboard",
+   "group": "研究",
+   "source": "fluent",
+   "file": "fluent/fluent-clipboard.svg"
+  },
+  {
+   "id": "fluent-light-bulb",
+   "name": "靈感燈泡",
+   "en": "Light bulb",
+   "group": "研究",
+   "source": "fluent",
+   "file": "fluent/fluent-light-bulb.svg"
+  },
+  {
+   "id": "fluent-magnifying-glass-tilted-left",
+   "name": "放大鏡",
+   "en": "Magnifying glass tilted left",
+   "group": "研究",
+   "source": "fluent",
+   "file": "fluent/fluent-magnifying-glass-tilted-left.svg"
+  },
+  {
+   "id": "fluent-laptop",
+   "name": "筆電",
+   "en": "Laptop",
+   "group": "研究",
+   "source": "fluent",
+   "file": "fluent/fluent-laptop.svg"
+  },
+  {
+   "id": "fluent-robot",
+   "name": "機器人",
+   "en": "Robot",
+   "group": "研究",
+   "source": "fluent",
+   "file": "fluent/fluent-robot.svg"
+  },
+  {
+   "id": "fluent-books",
+   "name": "書本",
+   "en": "Books",
+   "group": "教學",
+   "source": "fluent",
+   "file": "fluent/fluent-books.svg"
+  },
+  {
+   "id": "fluent-open-book",
+   "name": "打開的書",
+   "en": "Open book",
+   "group": "教學",
+   "source": "fluent",
+   "file": "fluent/fluent-open-book.svg"
+  },
+  {
+   "id": "fluent-graduation-cap",
+   "name": "學士帽",
+   "en": "Graduation cap",
+   "group": "教學",
+   "source": "fluent",
+   "file": "fluent/fluent-graduation-cap.svg"
+  },
+  {
+   "id": "fluent-memo",
+   "name": "筆記",
+   "en": "Memo",
+   "group": "教學",
+   "source": "fluent",
+   "file": "fluent/fluent-memo.svg"
+  },
+  {
+   "id": "fluent-pencil",
+   "name": "鉛筆",
+   "en": "Pencil",
+   "group": "教學",
+   "source": "fluent",
+   "file": "fluent/fluent-pencil.svg"
+  },
+  {
+   "id": "fluent-school",
+   "name": "學校",
+   "en": "School",
+   "group": "教學",
+   "source": "fluent",
+   "file": "fluent/fluent-school.svg"
+  },
+  {
+   "id": "fluent-teacher",
+   "name": "老師",
+   "en": "Teacher",
+   "group": "教學",
+   "source": "fluent",
+   "file": "fluent/fluent-teacher.svg"
+  },
+  {
+   "id": "fluent-student",
+   "name": "學生",
+   "en": "Student",
+   "group": "教學",
+   "source": "fluent",
+   "file": "fluent/fluent-student.svg"
+  },
+  {
+   "id": "fluent-scroll",
+   "name": "證書卷軸",
+   "en": "Scroll",
+   "group": "教學",
+   "source": "fluent",
+   "file": "fluent/fluent-scroll.svg"
+  },
+  {
+   "id": "fluent-trophy",
+   "name": "獎盃",
+   "en": "Trophy",
+   "group": "榮譽",
+   "source": "fluent",
+   "file": "fluent/fluent-trophy.svg"
+  },
+  {
+   "id": "fluent-1st-place-medal",
+   "name": "金牌",
+   "en": "1st place medal",
+   "group": "榮譽",
+   "source": "fluent",
+   "file": "fluent/fluent-1st-place-medal.svg"
+  },
+  {
+   "id": "fluent-sports-medal",
+   "name": "獎牌",
+   "en": "Sports medal",
+   "group": "榮譽",
+   "source": "fluent",
+   "file": "fluent/fluent-sports-medal.svg"
+  },
+  {
+   "id": "fluent-glowing-star",
+   "name": "閃亮星星",
+   "en": "Glowing star",
+   "group": "榮譽",
+   "source": "fluent",
+   "file": "fluent/fluent-glowing-star.svg"
+  },
+  {
+   "id": "fluent-party-popper",
+   "name": "拉炮",
+   "en": "Party popper",
+   "group": "活動",
+   "source": "fluent",
+   "file": "fluent/fluent-party-popper.svg"
+  },
+  {
+   "id": "fluent-confetti-ball",
+   "name": "彩球",
+   "en": "Confetti ball",
+   "group": "活動",
+   "source": "fluent",
+   "file": "fluent/fluent-confetti-ball.svg"
+  },
+  {
+   "id": "fluent-balloon",
+   "name": "氣球",
+   "en": "Balloon",
+   "group": "活動",
+   "source": "fluent",
+   "file": "fluent/fluent-balloon.svg"
+  },
+  {
+   "id": "fluent-wrapped-gift",
+   "name": "禮物",
+   "en": "Wrapped gift",
+   "group": "活動",
+   "source": "fluent",
+   "file": "fluent/fluent-wrapped-gift.svg"
+  },
+  {
+   "id": "fluent-birthday-cake",
+   "name": "生日蛋糕",
+   "en": "Birthday cake",
+   "group": "活動",
+   "source": "fluent",
+   "file": "fluent/fluent-birthday-cake.svg"
+  },
+  {
+   "id": "fluent-clapping-hands",
+   "name": "拍手",
+   "en": "Clapping hands",
+   "group": "活動",
+   "source": "fluent",
+   "file": "fluent/fluent-clapping-hands.svg"
+  },
+  {
+   "id": "fluent-handshake",
+   "name": "握手",
+   "en": "Handshake",
+   "group": "活動",
+   "source": "fluent",
+   "file": "fluent/fluent-handshake.svg"
+  },
+  {
+   "id": "fluent-heart-hands",
+   "name": "比心",
+   "en": "Heart hands",
+   "group": "活動",
+   "source": "fluent",
+   "file": "fluent/fluent-heart-hands.svg"
+  },
+  {
+   "id": "fluent-thumbs-up",
+   "name": "讚",
+   "en": "Thumbs up",
+   "group": "活動",
+   "source": "fluent",
+   "file": "fluent/fluent-thumbs-up.svg"
+  },
+  {
+   "id": "fluent-camera-with-flash",
+   "name": "相機",
+   "en": "Camera with flash",
+   "group": "活動",
+   "source": "fluent",
+   "file": "fluent/fluent-camera-with-flash.svg"
+  },
+  {
+   "id": "fluent-airplane",
+   "name": "飛機（出國）",
+   "en": "Airplane",
+   "group": "活動",
+   "source": "fluent",
+   "file": "fluent/fluent-airplane.svg"
+  },
+  {
+   "id": "fluent-globe-showing-asia-australia",
+   "name": "地球（亞洲）",
+   "en": "Globe showing asia-australia",
+   "group": "活動",
+   "source": "fluent",
+   "file": "fluent/fluent-globe-showing-asia-australia.svg"
+  },
+  {
+   "id": "fluent-calendar",
+   "name": "日曆",
+   "en": "Calendar",
+   "group": "公告",
+   "source": "fluent",
+   "file": "fluent/fluent-calendar.svg"
+  },
+  {
+   "id": "fluent-spiral-calendar",
+   "name": "行事曆",
+   "en": "Spiral calendar",
+   "group": "公告",
+   "source": "fluent",
+   "file": "fluent/fluent-spiral-calendar.svg"
+  },
+  {
+   "id": "fluent-alarm-clock",
+   "name": "鬧鐘",
+   "en": "Alarm clock",
+   "group": "公告",
+   "source": "fluent",
+   "file": "fluent/fluent-alarm-clock.svg"
+  },
+  {
+   "id": "fluent-loudspeaker",
+   "name": "大聲公",
+   "en": "Loudspeaker",
+   "group": "公告",
+   "source": "fluent",
+   "file": "fluent/fluent-loudspeaker.svg"
+  },
+  {
+   "id": "fluent-megaphone",
+   "name": "擴音器",
+   "en": "Megaphone",
+   "group": "公告",
+   "source": "fluent",
+   "file": "fluent/fluent-megaphone.svg"
+  },
+  {
+   "id": "fluent-bell",
+   "name": "鈴鐺",
+   "en": "Bell",
+   "group": "公告",
+   "source": "fluent",
+   "file": "fluent/fluent-bell.svg"
+  },
+  {
+   "id": "fluent-pushpin",
+   "name": "圖釘",
+   "en": "Pushpin",
+   "group": "公告",
+   "source": "fluent",
+   "file": "fluent/fluent-pushpin.svg"
+  },
+  {
+   "id": "fluent-envelope",
+   "name": "信封",
+   "en": "Envelope",
+   "group": "公告",
+   "source": "fluent",
+   "file": "fluent/fluent-envelope.svg"
+  },
+  {
+   "id": "fluent-telephone-receiver",
+   "name": "電話",
+   "en": "Telephone receiver",
+   "group": "公告",
+   "source": "fluent",
+   "file": "fluent/fluent-telephone-receiver.svg"
+  },
+  {
+   "id": "fluent-link",
+   "name": "連結",
+   "en": "Link",
+   "group": "公告",
+   "source": "fluent",
+   "file": "fluent/fluent-link.svg"
+  },
+  {
+   "id": "fluent-check-mark-button",
+   "name": "完成",
+   "en": "Check mark button",
+   "group": "公告",
+   "source": "fluent",
+   "file": "fluent/fluent-check-mark-button.svg"
+  },
+  {
+   "id": "fluent-warning",
+   "name": "注意",
+   "en": "Warning",
+   "group": "公告",
+   "source": "fluent",
+   "file": "fluent/fluent-warning.svg"
+  },
+  {
+   "id": "fluent-speech-balloon",
+   "name": "對話框",
+   "en": "Speech balloon",
+   "group": "公告",
+   "source": "fluent",
+   "file": "fluent/fluent-speech-balloon.svg"
+  },
+  {
+   "id": "fluent-red-heart",
+   "name": "紅心",
+   "en": "Red heart",
+   "group": "心情",
+   "source": "fluent",
+   "file": "fluent/fluent-red-heart.svg"
+  },
+  {
+   "id": "fluent-sparkles",
+   "name": "閃光",
+   "en": "Sparkles",
+   "group": "心情",
+   "source": "fluent",
+   "file": "fluent/fluent-sparkles.svg"
+  },
+  {
+   "id": "fluent-smiling-face-with-smiling-eyes",
+   "name": "微笑",
+   "en": "Smiling face with smiling eyes",
+   "group": "心情",
+   "source": "fluent",
+   "file": "fluent/fluent-smiling-face-with-smiling-eyes.svg"
+  },
+  {
+   "id": "fluent-seedling",
+   "name": "幼苗",
+   "en": "Seedling",
+   "group": "自然",
+   "source": "fluent",
+   "file": "fluent/fluent-seedling.svg"
+  },
+  {
+   "id": "fluent-four-leaf-clover",
+   "name": "幸運草",
+   "en": "Four leaf clover",
+   "group": "自然",
+   "source": "fluent",
+   "file": "fluent/fluent-four-leaf-clover.svg"
+  },
+  {
+   "id": "fluent-sunflower",
+   "name": "向日葵",
+   "en": "Sunflower",
+   "group": "自然",
+   "source": "fluent",
+   "file": "fluent/fluent-sunflower.svg"
+  },
+  {
+   "id": "fluent-sun",
+   "name": "太陽",
+   "en": "Sun",
+   "group": "自然",
+   "source": "fluent",
+   "file": "fluent/fluent-sun.svg"
+  },
+  {
+   "id": "bio-blood-immunology-antibody-heavy-chain-vdj-recombination",
+   "name": "antibody heavy chain vdj recombination",
+   "en": "antibody heavy chain vdj recombination",
+   "group": "血液與免疫",
+   "source": "bioicons",
+   "author": "Derek Croote",
+   "file": "bioicons/bio-blood-immunology-antibody-heavy-chain-vdj-recombination.svg"
+  },
+  {
+   "id": "bio-blood-immunology-blood-sample",
+   "name": "blood sample",
+   "en": "blood sample",
+   "group": "血液與免疫",
+   "source": "bioicons",
+   "author": "Marcel Tisch",
+   "file": "bioicons/bio-blood-immunology-blood-sample.svg"
+  },
+  {
+   "id": "bio-blood-immunology-blood-sample-tube",
+   "name": "blood sample tube",
+   "en": "blood sample tube",
+   "group": "血液與免疫",
+   "source": "bioicons",
+   "author": "Marcel Tisch",
+   "file": "bioicons/bio-blood-immunology-blood-sample-tube.svg"
+  },
+  {
+   "id": "bio-cell-types-cell-balance",
+   "name": "cell balance",
+   "en": "cell balance",
+   "group": "細胞",
+   "source": "bioicons",
+   "author": "ASE",
+   "file": "bioicons/bio-cell-types-cell-balance.svg"
+  },
+  {
+   "id": "bio-cell-types-cell-imbalance",
+   "name": "cell imbalance",
+   "en": "cell imbalance",
+   "group": "細胞",
+   "source": "bioicons",
+   "author": "ASE",
+   "file": "bioicons/bio-cell-types-cell-imbalance.svg"
+  },
+  {
+   "id": "bio-cell-types-smooth-muscle-cell-v2",
+   "name": "Smooth muscle cell v2",
+   "en": "Smooth muscle cell v2",
+   "group": "細胞",
+   "source": "bioicons",
+   "author": "Daniel Marcos",
+   "file": "bioicons/bio-cell-types-smooth-muscle-cell-v2.svg"
+  },
+  {
+   "id": "bio-cell-types-smooth-muscle-cell-v1",
+   "name": "smooth muscle cell v1",
+   "en": "smooth muscle cell v1",
+   "group": "細胞",
+   "source": "bioicons",
+   "author": "Daniel Marcos",
+   "file": "bioicons/bio-cell-types-smooth-muscle-cell-v1.svg"
+  },
+  {
+   "id": "bio-cell-types-redbloodcell",
+   "name": "redbloodcell",
+   "en": "redbloodcell",
+   "group": "細胞",
+   "source": "bioicons",
+   "author": "EwaOz",
+   "file": "bioicons/bio-cell-types-redbloodcell.svg"
+  },
+  {
+   "id": "bio-cell-types-cell-group",
+   "name": "cell group",
+   "en": "cell group",
+   "group": "細胞",
+   "source": "bioicons",
+   "author": "JhonnyXC",
+   "file": "bioicons/bio-cell-types-cell-group.svg"
+  },
+  {
+   "id": "bio-cell-types-simple-cardiomyocyte",
+   "name": "simple cardiomyocyte",
+   "en": "simple cardiomyocyte",
+   "group": "細胞",
+   "source": "bioicons",
+   "author": "Marnie Maddock",
+   "file": "bioicons/bio-cell-types-simple-cardiomyocyte.svg"
+  },
+  {
+   "id": "bio-cell-types-simple-cell1",
+   "name": "simple cell1",
+   "en": "simple cell1",
+   "group": "細胞",
+   "source": "bioicons",
+   "author": "Marnie Maddock",
+   "file": "bioicons/bio-cell-types-simple-cell1.svg"
+  },
+  {
+   "id": "bio-cell-types-1cell-pn4-zygote",
+   "name": "1cell pn4 zygote",
+   "en": "1cell pn4 zygote",
+   "group": "細胞",
+   "source": "bioicons",
+   "author": "Xi Chen",
+   "file": "bioicons/bio-cell-types-1cell-pn4-zygote.svg"
+  },
+  {
+   "id": "bio-cell-types-2c-embryo",
+   "name": "2c embryo",
+   "en": "2c embryo",
+   "group": "細胞",
+   "source": "bioicons",
+   "author": "Xi Chen",
+   "file": "bioicons/bio-cell-types-2c-embryo.svg"
+  },
+  {
+   "id": "bio-cell-types-4c-embryo-style1",
+   "name": "4c embryo style1",
+   "en": "4c embryo style1",
+   "group": "細胞",
+   "source": "bioicons",
+   "author": "Xi Chen",
+   "file": "bioicons/bio-cell-types-4c-embryo-style1.svg"
+  },
+  {
+   "id": "bio-cell-types-4c-embryo-style2",
+   "name": "4c embryo style2",
+   "en": "4c embryo style2",
+   "group": "細胞",
+   "source": "bioicons",
+   "author": "Xi Chen",
+   "file": "bioicons/bio-cell-types-4c-embryo-style2.svg"
+  },
+  {
+   "id": "bio-cell-types-8c-embryo",
+   "name": "8c embryo",
+   "en": "8c embryo",
+   "group": "細胞",
+   "source": "bioicons",
+   "author": "Xi Chen",
+   "file": "bioicons/bio-cell-types-8c-embryo.svg"
+  },
+  {
+   "id": "bio-general-items-freezer-tube",
+   "name": "freezer tube",
+   "en": "freezer tube",
+   "group": "一般物品",
+   "source": "bioicons",
+   "author": "FGC",
+   "file": "bioicons/bio-general-items-freezer-tube.svg"
+  },
+  {
+   "id": "bio-general-items-magnifying-glass",
+   "name": "magnifying glass",
+   "en": "magnifying glass",
+   "group": "一般物品",
+   "source": "bioicons",
+   "author": "Marcel Tisch",
+   "file": "bioicons/bio-general-items-magnifying-glass.svg"
+  },
+  {
+   "id": "bio-general-items-document",
+   "name": "Document",
+   "en": "Document",
+   "group": "一般物品",
+   "source": "bioicons",
+   "author": "OpenClipart",
+   "file": "bioicons/bio-general-items-document.svg"
+  },
+  {
+   "id": "bio-general-items-image",
+   "name": "Image",
+   "en": "Image",
+   "group": "一般物品",
+   "source": "bioicons",
+   "author": "OpenClipart",
+   "file": "bioicons/bio-general-items-image.svg"
+  },
+  {
+   "id": "bio-general-items-smartphone",
+   "name": "smartphone",
+   "en": "smartphone",
+   "group": "一般物品",
+   "source": "bioicons",
+   "author": "OpenClipart",
+   "file": "bioicons/bio-general-items-smartphone.svg"
+  },
+  {
+   "id": "bio-general-items-terminal",
+   "name": "terminal",
+   "en": "terminal",
+   "group": "一般物品",
+   "source": "bioicons",
+   "author": "OpenClipart",
+   "file": "bioicons/bio-general-items-terminal.svg"
+  },
+  {
+   "id": "bio-general-items-nitrile-gloves",
+   "name": "nitrile gloves",
+   "en": "nitrile gloves",
+   "group": "一般物品",
+   "source": "bioicons",
+   "author": "Riccardo Iacovelli",
+   "file": "bioicons/bio-general-items-nitrile-gloves.svg"
+  },
+  {
+   "id": "bio-general-items-bucket-tub-tun-with-water-min",
+   "name": "bucket tub tun with water.min",
+   "en": "bucket tub tun with water.min",
+   "group": "一般物品",
+   "source": "bioicons",
+   "author": "Samuel Nestor Meckoni",
+   "file": "bioicons/bio-general-items-bucket-tub-tun-with-water-min.svg"
+  },
+  {
+   "id": "bio-general-items-thermometer",
+   "name": "thermometer",
+   "en": "thermometer",
+   "group": "一般物品",
+   "source": "bioicons",
+   "author": "kehan",
+   "file": "bioicons/bio-general-items-thermometer.svg"
+  },
+  {
+   "id": "bio-human-physiology-pyramidal-neuron",
+   "name": "Pyramidal Neuron",
+   "en": "Pyramidal Neuron",
+   "group": "人體生理",
+   "source": "bioicons",
+   "author": "Fabian Mikulasch",
+   "file": "bioicons/bio-human-physiology-pyramidal-neuron.svg"
+  },
+  {
+   "id": "bio-human-physiology-healthy-liver",
+   "name": "healthy liver",
+   "en": "healthy liver",
+   "group": "人體生理",
+   "source": "bioicons",
+   "author": "Jan Clusmann",
+   "file": "bioicons/bio-human-physiology-healthy-liver.svg"
+  },
+  {
+   "id": "bio-human-physiology-drugs",
+   "name": "drugs",
+   "en": "drugs",
+   "group": "人體生理",
+   "source": "bioicons",
+   "author": "Marcel Tisch",
+   "file": "bioicons/bio-human-physiology-drugs.svg"
+  },
+  {
+   "id": "bio-human-physiology-patient",
+   "name": "patient",
+   "en": "patient",
+   "group": "人體生理",
+   "source": "bioicons",
+   "author": "Marcel Tisch",
+   "file": "bioicons/bio-human-physiology-patient.svg"
+  },
+  {
+   "id": "bio-human-physiology-pill-blue",
+   "name": "pill blue",
+   "en": "pill blue",
+   "group": "人體生理",
+   "source": "bioicons",
+   "author": "Marcel Tisch",
+   "file": "bioicons/bio-human-physiology-pill-blue.svg"
+  },
+  {
+   "id": "bio-human-physiology-pill-green",
+   "name": "pill green",
+   "en": "pill green",
+   "group": "人體生理",
+   "source": "bioicons",
+   "author": "Marcel Tisch",
+   "file": "bioicons/bio-human-physiology-pill-green.svg"
+  },
+  {
+   "id": "bio-human-physiology-pill-purple",
+   "name": "pill purple",
+   "en": "pill purple",
+   "group": "人體生理",
+   "source": "bioicons",
+   "author": "Marcel Tisch",
+   "file": "bioicons/bio-human-physiology-pill-purple.svg"
+  },
+  {
+   "id": "bio-human-physiology-pill-red",
+   "name": "pill red",
+   "en": "pill red",
+   "group": "人體生理",
+   "source": "bioicons",
+   "author": "Marcel Tisch",
+   "file": "bioicons/bio-human-physiology-pill-red.svg"
+  },
+  {
+   "id": "bio-human-physiology-pill-yellow",
+   "name": "pill yellow",
+   "en": "pill yellow",
+   "group": "人體生理",
+   "source": "bioicons",
+   "author": "Marcel Tisch",
+   "file": "bioicons/bio-human-physiology-pill-yellow.svg"
+  },
+  {
+   "id": "bio-human-physiology-syringe-with-blood",
+   "name": "syringe with blood",
+   "en": "syringe with blood",
+   "group": "人體生理",
+   "source": "bioicons",
+   "author": "va",
+   "file": "bioicons/bio-human-physiology-syringe-with-blood.svg"
+  },
+  {
+   "id": "bio-imaging-fluoresent-bead-blue",
+   "name": "Fluoresent bead blue",
+   "en": "Fluoresent bead blue",
+   "group": "影像",
+   "source": "bioicons",
+   "author": "B Gideon Bergheim",
+   "file": "bioicons/bio-imaging-fluoresent-bead-blue.svg"
+  },
+  {
+   "id": "bio-imaging-fluoresent-bead-green",
+   "name": "Fluoresent bead green",
+   "en": "Fluoresent bead green",
+   "group": "影像",
+   "source": "bioicons",
+   "author": "B Gideon Bergheim",
+   "file": "bioicons/bio-imaging-fluoresent-bead-green.svg"
+  },
+  {
+   "id": "bio-imaging-fluoresent-bead-orange",
+   "name": "Fluoresent bead orange",
+   "en": "Fluoresent bead orange",
+   "group": "影像",
+   "source": "bioicons",
+   "author": "B Gideon Bergheim",
+   "file": "bioicons/bio-imaging-fluoresent-bead-orange.svg"
+  },
+  {
+   "id": "bio-imaging-fluoresent-bead-red",
+   "name": "Fluoresent bead red",
+   "en": "Fluoresent bead red",
+   "group": "影像",
+   "source": "bioicons",
+   "author": "B Gideon Bergheim",
+   "file": "bioicons/bio-imaging-fluoresent-bead-red.svg"
+  },
+  {
+   "id": "bio-imaging-fluoresent-bead-yellow",
+   "name": "Fluoresent bead yellow",
+   "en": "Fluoresent bead yellow",
+   "group": "影像",
+   "source": "bioicons",
+   "author": "B Gideon Bergheim",
+   "file": "bioicons/bio-imaging-fluoresent-bead-yellow.svg"
+  },
+  {
+   "id": "bio-lab-apparatus-flow-cytometer-cell-sorter",
+   "name": "flow cytometer cell sorter",
+   "en": "flow cytometer cell sorter",
+   "group": "實驗器材",
+   "source": "bioicons",
+   "author": "Derek Croote",
+   "file": "bioicons/bio-lab-apparatus-flow-cytometer-cell-sorter.svg"
+  },
+  {
+   "id": "bio-lab-apparatus-round-bottomed-flask-cartoon",
+   "name": "round bottomed flask cartoon",
+   "en": "round bottomed flask cartoon",
+   "group": "實驗器材",
+   "source": "bioicons",
+   "author": "Derek Croote",
+   "file": "bioicons/bio-lab-apparatus-round-bottomed-flask-cartoon.svg"
+  },
+  {
+   "id": "bio-lab-apparatus-simple-syringe-cartoon",
+   "name": "simple syringe cartoon",
+   "en": "simple syringe cartoon",
+   "group": "實驗器材",
+   "source": "bioicons",
+   "author": "Derek Croote",
+   "file": "bioicons/bio-lab-apparatus-simple-syringe-cartoon.svg"
+  },
+  {
+   "id": "bio-lab-apparatus-120ml-vial",
+   "name": "120ml Vial",
+   "en": "120ml Vial",
+   "group": "實驗器材",
+   "source": "bioicons",
+   "author": "Geomicrobio",
+   "file": "bioicons/bio-lab-apparatus-120ml-vial.svg"
+  },
+  {
+   "id": "bio-lab-apparatus-chromatography",
+   "name": "chromatography",
+   "en": "chromatography",
+   "group": "實驗器材",
+   "source": "bioicons",
+   "author": "Graham Delafield",
+   "file": "bioicons/bio-lab-apparatus-chromatography.svg"
+  },
+  {
+   "id": "bio-lab-apparatus-erlenmeyer-filled",
+   "name": "erlenmeyer filled",
+   "en": "erlenmeyer filled",
+   "group": "實驗器材",
+   "source": "bioicons",
+   "author": "KeHan",
+   "file": "bioicons/bio-lab-apparatus-erlenmeyer-filled.svg"
+  },
+  {
+   "id": "bio-lab-apparatus-incubator",
+   "name": "incubator",
+   "en": "incubator",
+   "group": "實驗器材",
+   "source": "bioicons",
+   "author": "KeHan",
+   "file": "bioicons/bio-lab-apparatus-incubator.svg"
+  },
+  {
+   "id": "bio-lab-apparatus-ln2-tank",
+   "name": "ln2 tank",
+   "en": "ln2 tank",
+   "group": "實驗器材",
+   "source": "bioicons",
+   "author": "KeHan",
+   "file": "bioicons/bio-lab-apparatus-ln2-tank.svg"
+  },
+  {
+   "id": "bio-lab-apparatus-qpcr-machine",
+   "name": "qpcr machine",
+   "en": "qpcr machine",
+   "group": "實驗器材",
+   "source": "bioicons",
+   "author": "KeHan",
+   "file": "bioicons/bio-lab-apparatus-qpcr-machine.svg"
+  },
+  {
+   "id": "bio-lab-apparatus-vortex-mixer",
+   "name": "vortex mixer",
+   "en": "vortex mixer",
+   "group": "實驗器材",
+   "source": "bioicons",
+   "author": "KeHan",
+   "file": "bioicons/bio-lab-apparatus-vortex-mixer.svg"
+  },
+  {
+   "id": "bio-lab-apparatus-water-bath",
+   "name": "water bath",
+   "en": "water bath",
+   "group": "實驗器材",
+   "source": "bioicons",
+   "author": "KeHan",
+   "file": "bioicons/bio-lab-apparatus-water-bath.svg"
+  },
+  {
+   "id": "bio-lab-apparatus-bomb-caloriemeter",
+   "name": "bomb caloriemeter",
+   "en": "bomb caloriemeter",
+   "group": "實驗器材",
+   "source": "bioicons",
+   "author": "Luis Vollmers",
+   "file": "bioicons/bio-lab-apparatus-bomb-caloriemeter.svg"
+  },
+  {
+   "id": "bio-lab-apparatus-t75-flask",
+   "name": "T75 flask",
+   "en": "T75 flask",
+   "group": "實驗器材",
+   "source": "bioicons",
+   "author": "Marcel Tisch",
+   "file": "bioicons/bio-lab-apparatus-t75-flask.svg"
+  },
+  {
+   "id": "bio-lab-apparatus-bioreactor",
+   "name": "bioreactor",
+   "en": "bioreactor",
+   "group": "實驗器材",
+   "source": "bioicons",
+   "author": "Marcel Tisch",
+   "file": "bioicons/bio-lab-apparatus-bioreactor.svg"
+  },
+  {
+   "id": "bio-lab-apparatus-micro-carrier",
+   "name": "micro carrier",
+   "en": "micro carrier",
+   "group": "實驗器材",
+   "source": "bioicons",
+   "author": "Marcel Tisch",
+   "file": "bioicons/bio-lab-apparatus-micro-carrier.svg"
+  },
+  {
+   "id": "bio-lab-apparatus-microfluids-chip",
+   "name": "microfluids chip",
+   "en": "microfluids chip",
+   "group": "實驗器材",
+   "source": "bioicons",
+   "author": "Marcel Tisch",
+   "file": "bioicons/bio-lab-apparatus-microfluids-chip.svg"
+  },
+  {
+   "id": "bio-lab-apparatus-recording-pipette",
+   "name": "recording pipette",
+   "en": "recording pipette",
+   "group": "實驗器材",
+   "source": "bioicons",
+   "author": "Marcel Tisch",
+   "file": "bioicons/bio-lab-apparatus-recording-pipette.svg"
+  },
+  {
+   "id": "bio-lab-apparatus-clamp-2d-closed",
+   "name": "clamp 2d closed",
+   "en": "clamp 2d closed",
+   "group": "實驗器材",
+   "source": "bioicons",
+   "author": "OpenClipart",
+   "file": "bioicons/bio-lab-apparatus-clamp-2d-closed.svg"
+  },
+  {
+   "id": "bio-lab-apparatus-clamp-2d-open",
+   "name": "clamp 2d open",
+   "en": "clamp 2d open",
+   "group": "實驗器材",
+   "source": "bioicons",
+   "author": "OpenClipart",
+   "file": "bioicons/bio-lab-apparatus-clamp-2d-open.svg"
+  },
+  {
+   "id": "bio-lab-apparatus-clamp-2d-side",
+   "name": "clamp 2d side",
+   "en": "clamp 2d side",
+   "group": "實驗器材",
+   "source": "bioicons",
+   "author": "OpenClipart",
+   "file": "bioicons/bio-lab-apparatus-clamp-2d-side.svg"
+  },
+  {
+   "id": "bio-lab-apparatus-dewar-big",
+   "name": "dewar big",
+   "en": "dewar big",
+   "group": "實驗器材",
+   "source": "bioicons",
+   "author": "OpenClipart",
+   "file": "bioicons/bio-lab-apparatus-dewar-big.svg"
+  },
+  {
+   "id": "bio-lab-apparatus-distillation",
+   "name": "distillation",
+   "en": "distillation",
+   "group": "實驗器材",
+   "source": "bioicons",
+   "author": "OpenClipart",
+   "file": "bioicons/bio-lab-apparatus-distillation.svg"
+  },
+  {
+   "id": "bio-lab-apparatus-dropper-bottles",
+   "name": "dropper bottles",
+   "en": "dropper bottles",
+   "group": "實驗器材",
+   "source": "bioicons",
+   "author": "OpenClipart",
+   "file": "bioicons/bio-lab-apparatus-dropper-bottles.svg"
+  },
+  {
+   "id": "bio-lab-apparatus-dropper-glas",
+   "name": "dropper glas",
+   "en": "dropper glas",
+   "group": "實驗器材",
+   "source": "bioicons",
+   "author": "OpenClipart",
+   "file": "bioicons/bio-lab-apparatus-dropper-glas.svg"
+  },
+  {
+   "id": "bio-lab-apparatus-dropper-plastic",
+   "name": "dropper plastic",
+   "en": "dropper plastic",
+   "group": "實驗器材",
+   "source": "bioicons",
+   "author": "OpenClipart",
+   "file": "bioicons/bio-lab-apparatus-dropper-plastic.svg"
+  },
+  {
+   "id": "bio-lab-apparatus-dropper",
+   "name": "dropper",
+   "en": "dropper",
+   "group": "實驗器材",
+   "source": "bioicons",
+   "author": "OpenClipart",
+   "file": "bioicons/bio-lab-apparatus-dropper.svg"
+  },
+  {
+   "id": "bio-lab-apparatus-fractional-distillation",
+   "name": "fractional distillation",
+   "en": "fractional distillation",
+   "group": "實驗器材",
+   "source": "bioicons",
+   "author": "OpenClipart",
+   "file": "bioicons/bio-lab-apparatus-fractional-distillation.svg"
+  },
+  {
+   "id": "bio-lab-apparatus-glass-rod",
+   "name": "glass rod",
+   "en": "glass rod",
+   "group": "實驗器材",
+   "source": "bioicons",
+   "author": "OpenClipart",
+   "file": "bioicons/bio-lab-apparatus-glass-rod.svg"
+  },
+  {
+   "id": "bio-lab-apparatus-lab-tong",
+   "name": "lab tong",
+   "en": "lab tong",
+   "group": "實驗器材",
+   "source": "bioicons",
+   "author": "OpenClipart",
+   "file": "bioicons/bio-lab-apparatus-lab-tong.svg"
+  },
+  {
+   "id": "bio-lab-apparatus-laboratory-scissor-jack",
+   "name": "laboratory scissor jack",
+   "en": "laboratory scissor jack",
+   "group": "實驗器材",
+   "source": "bioicons",
+   "author": "OpenClipart",
+   "file": "bioicons/bio-lab-apparatus-laboratory-scissor-jack.svg"
+  },
+  {
+   "id": "bio-lab-apparatus-spatula-side",
+   "name": "spatula side",
+   "en": "spatula side",
+   "group": "實驗器材",
+   "source": "bioicons",
+   "author": "OpenClipart",
+   "file": "bioicons/bio-lab-apparatus-spatula-side.svg"
+  },
+  {
+   "id": "bio-lab-apparatus-spatula-top",
+   "name": "spatula top",
+   "en": "spatula top",
+   "group": "實驗器材",
+   "source": "bioicons",
+   "author": "OpenClipart",
+   "file": "bioicons/bio-lab-apparatus-spatula-top.svg"
+  },
+  {
+   "id": "bio-lab-apparatus-spoon-spatula-side",
+   "name": "spoon spatula side",
+   "en": "spoon spatula side",
+   "group": "實驗器材",
+   "source": "bioicons",
+   "author": "OpenClipart",
+   "file": "bioicons/bio-lab-apparatus-spoon-spatula-side.svg"
+  },
+  {
+   "id": "bio-lab-apparatus-spoon-spatula-top",
+   "name": "spoon spatula top",
+   "en": "spoon spatula top",
+   "group": "實驗器材",
+   "source": "bioicons",
+   "author": "OpenClipart",
+   "file": "bioicons/bio-lab-apparatus-spoon-spatula-top.svg"
+  },
+  {
+   "id": "bio-lab-apparatus-weck-jar-with-media",
+   "name": "weck jar with media",
+   "en": "weck jar with media",
+   "group": "實驗器材",
+   "source": "bioicons",
+   "author": "Samuel Nestor Meckoni",
+   "file": "bioicons/bio-lab-apparatus-weck-jar-with-media.svg"
+  },
+  {
+   "id": "bio-lab-apparatus-1000-ml-erlenmeyer-flask",
+   "name": "1000 ml Erlenmeyer flask",
+   "en": "1000 ml Erlenmeyer flask",
+   "group": "實驗器材",
+   "source": "bioicons",
+   "author": "Xavax",
+   "file": "bioicons/bio-lab-apparatus-1000-ml-erlenmeyer-flask.svg"
+  },
+  {
+   "id": "bio-lab-apparatus-beakers",
+   "name": "Beakers",
+   "en": "Beakers",
+   "group": "實驗器材",
+   "source": "bioicons",
+   "author": "Xavax",
+   "file": "bioicons/bio-lab-apparatus-beakers.svg"
+  },
+  {
+   "id": "bio-lab-apparatus-fernbach-flask",
+   "name": "Fernbach Flask",
+   "en": "Fernbach Flask",
+   "group": "實驗器材",
+   "source": "bioicons",
+   "author": "Xavax",
+   "file": "bioicons/bio-lab-apparatus-fernbach-flask.svg"
+  },
+  {
+   "id": "bio-lab-apparatus-graduated-cylinder-low-form-250ml",
+   "name": "Graduated Cylinder low form 250ml",
+   "en": "Graduated Cylinder low form 250ml",
+   "group": "實驗器材",
+   "source": "bioicons",
+   "author": "Xavax",
+   "file": "bioicons/bio-lab-apparatus-graduated-cylinder-low-form-250ml.svg"
+  },
+  {
+   "id": "bio-lab-apparatus-graduated-cylinder-tall-form-250ml",
+   "name": "Graduated Cylinder tall form 250ml",
+   "en": "Graduated Cylinder tall form 250ml",
+   "group": "實驗器材",
+   "source": "bioicons",
+   "author": "Xavax",
+   "file": "bioicons/bio-lab-apparatus-graduated-cylinder-tall-form-250ml.svg"
+  },
+  {
+   "id": "bio-machine-learning-keras",
+   "name": "Keras",
+   "en": "Keras",
+   "group": "機器學習",
+   "source": "bioicons",
+   "author": "Francois Chollet",
+   "file": "bioicons/bio-machine-learning-keras.svg"
+  },
+  {
+   "id": "bio-machine-learning-colab",
+   "name": "colab",
+   "en": "colab",
+   "group": "機器學習",
+   "source": "bioicons",
+   "author": "Google",
+   "file": "bioicons/bio-machine-learning-colab.svg"
+  },
+  {
+   "id": "bio-machine-learning-julia",
+   "name": "Julia",
+   "en": "Julia",
+   "group": "機器學習",
+   "source": "bioicons",
+   "author": "Julia",
+   "file": "bioicons/bio-machine-learning-julia.svg"
+  },
+  {
+   "id": "bio-machine-learning-ai-bulb",
+   "name": "ai bulb",
+   "en": "ai bulb",
+   "group": "機器學習",
+   "source": "bioicons",
+   "author": "OpenClipart",
+   "file": "bioicons/bio-machine-learning-ai-bulb.svg"
+  },
+  {
+   "id": "bio-machine-learning-ai-cognition",
+   "name": "ai cognition",
+   "en": "ai cognition",
+   "group": "機器學習",
+   "source": "bioicons",
+   "author": "OpenClipart",
+   "file": "bioicons/bio-machine-learning-ai-cognition.svg"
+  },
+  {
+   "id": "bio-machine-learning-python-logo-notext",
+   "name": "Python logo notext",
+   "en": "Python logo notext",
+   "group": "機器學習",
+   "source": "bioicons",
+   "author": "Python",
+   "file": "bioicons/bio-machine-learning-python-logo-notext.svg"
+  },
+  {
+   "id": "bio-machine-learning-rust",
+   "name": "Rust",
+   "en": "Rust",
+   "group": "機器學習",
+   "source": "bioicons",
+   "author": "Rust",
+   "file": "bioicons/bio-machine-learning-rust.svg"
+  },
+  {
+   "id": "bio-machine-learning-intelligence",
+   "name": "intelligence",
+   "en": "intelligence",
+   "group": "機器學習",
+   "source": "bioicons",
+   "author": "fang fangyang",
+   "file": "bioicons/bio-machine-learning-intelligence.svg"
+  },
+  {
+   "id": "bio-microbiology-tree-life-prokarytes",
+   "name": "Tree Life Prokarytes",
+   "en": "Tree Life Prokarytes",
+   "group": "微生物",
+   "source": "bioicons",
+   "author": "Geomicrobio",
+   "file": "bioicons/bio-microbiology-tree-life-prokarytes.svg"
+  },
+  {
+   "id": "bio-microbiology-bacteria-swimming",
+   "name": "Bacteria Swimming",
+   "en": "Bacteria Swimming",
+   "group": "微生物",
+   "source": "bioicons",
+   "author": "James Lloyd",
+   "file": "bioicons/bio-microbiology-bacteria-swimming.svg"
+  },
+  {
+   "id": "bio-microbiology-phage",
+   "name": "Phage",
+   "en": "Phage",
+   "group": "微生物",
+   "source": "bioicons",
+   "author": "James Lloyd",
+   "file": "bioicons/bio-microbiology-phage.svg"
+  },
+  {
+   "id": "bio-microbiology-96-well-plate-2d",
+   "name": "96 well plate 2d",
+   "en": "96 well plate 2d",
+   "group": "微生物",
+   "source": "bioicons",
+   "author": "OpenClipart",
+   "file": "bioicons/bio-microbiology-96-well-plate-2d.svg"
+  },
+  {
+   "id": "bio-microbiology-agarose-gel",
+   "name": "agarose gel",
+   "en": "agarose gel",
+   "group": "微生物",
+   "source": "bioicons",
+   "author": "OpenClipart",
+   "file": "bioicons/bio-microbiology-agarose-gel.svg"
+  },
+  {
+   "id": "bio-microbiology-generic-bacterium",
+   "name": "generic bacterium",
+   "en": "generic bacterium",
+   "group": "微生物",
+   "source": "bioicons",
+   "author": "Pauline Franz",
+   "file": "bioicons/bio-microbiology-generic-bacterium.svg"
+  },
+  {
+   "id": "bio-safety-symbols-acute-text",
+   "name": "acute text",
+   "en": "acute text",
+   "group": "安全標示",
+   "source": "bioicons",
+   "author": "David Eccles gringer ",
+   "file": "bioicons/bio-safety-symbols-acute-text.svg"
+  },
+  {
+   "id": "bio-safety-symbols-acute",
+   "name": "acute",
+   "en": "acute",
+   "group": "安全標示",
+   "source": "bioicons",
+   "author": "David Eccles gringer ",
+   "file": "bioicons/bio-safety-symbols-acute.svg"
+  },
+  {
+   "id": "bio-safety-symbols-biohazard-text",
+   "name": "biohazard text",
+   "en": "biohazard text",
+   "group": "安全標示",
+   "source": "bioicons",
+   "author": "David Eccles gringer ",
+   "file": "bioicons/bio-safety-symbols-biohazard-text.svg"
+  },
+  {
+   "id": "bio-safety-symbols-chronic-text",
+   "name": "chronic text",
+   "en": "chronic text",
+   "group": "安全標示",
+   "source": "bioicons",
+   "author": "David Eccles gringer ",
+   "file": "bioicons/bio-safety-symbols-chronic-text.svg"
+  },
+  {
+   "id": "bio-safety-symbols-chronic",
+   "name": "chronic",
+   "en": "chronic",
+   "group": "安全標示",
+   "source": "bioicons",
+   "author": "David Eccles gringer ",
+   "file": "bioicons/bio-safety-symbols-chronic.svg"
+  },
+  {
+   "id": "bio-safety-symbols-corrosive-text",
+   "name": "corrosive text",
+   "en": "corrosive text",
+   "group": "安全標示",
+   "source": "bioicons",
+   "author": "David Eccles gringer ",
+   "file": "bioicons/bio-safety-symbols-corrosive-text.svg"
+  },
+  {
+   "id": "bio-safety-symbols-corrosive",
+   "name": "corrosive",
+   "en": "corrosive",
+   "group": "安全標示",
+   "source": "bioicons",
+   "author": "David Eccles gringer ",
+   "file": "bioicons/bio-safety-symbols-corrosive.svg"
+  },
+  {
+   "id": "bio-safety-symbols-cryogenic-text",
+   "name": "cryogenic text",
+   "en": "cryogenic text",
+   "group": "安全標示",
+   "source": "bioicons",
+   "author": "David Eccles gringer ",
+   "file": "bioicons/bio-safety-symbols-cryogenic-text.svg"
+  },
+  {
+   "id": "bio-safety-symbols-cytotoxic-waste-text",
+   "name": "cytotoxic waste text",
+   "en": "cytotoxic waste text",
+   "group": "安全標示",
+   "source": "bioicons",
+   "author": "David Eccles gringer ",
+   "file": "bioicons/bio-safety-symbols-cytotoxic-waste-text.svg"
+  },
+  {
+   "id": "bio-safety-symbols-dinosaur-text",
+   "name": "dinosaur text",
+   "en": "dinosaur text",
+   "group": "安全標示",
+   "source": "bioicons",
+   "author": "David Eccles gringer ",
+   "file": "bioicons/bio-safety-symbols-dinosaur-text.svg"
+  },
+  {
+   "id": "bio-safety-symbols-ecotoxic-text",
+   "name": "ecotoxic text",
+   "en": "ecotoxic text",
+   "group": "安全標示",
+   "source": "bioicons",
+   "author": "David Eccles gringer ",
+   "file": "bioicons/bio-safety-symbols-ecotoxic-text.svg"
+  },
+  {
+   "id": "bio-safety-symbols-ecotoxic",
+   "name": "ecotoxic",
+   "en": "ecotoxic",
+   "group": "安全標示",
+   "source": "bioicons",
+   "author": "David Eccles gringer ",
+   "file": "bioicons/bio-safety-symbols-ecotoxic.svg"
+  },
+  {
+   "id": "bio-safety-symbols-electrical-text",
+   "name": "electrical text",
+   "en": "electrical text",
+   "group": "安全標示",
+   "source": "bioicons",
+   "author": "David Eccles gringer ",
+   "file": "bioicons/bio-safety-symbols-electrical-text.svg"
+  },
+  {
+   "id": "bio-safety-symbols-explosive-text",
+   "name": "explosive text",
+   "en": "explosive text",
+   "group": "安全標示",
+   "source": "bioicons",
+   "author": "David Eccles gringer ",
+   "file": "bioicons/bio-safety-symbols-explosive-text.svg"
+  },
+  {
+   "id": "bio-safety-symbols-explosive",
+   "name": "explosive",
+   "en": "explosive",
+   "group": "安全標示",
+   "source": "bioicons",
+   "author": "David Eccles gringer ",
+   "file": "bioicons/bio-safety-symbols-explosive.svg"
+  },
+  {
+   "id": "bio-safety-symbols-flammable-text",
+   "name": "flammable text",
+   "en": "flammable text",
+   "group": "安全標示",
+   "source": "bioicons",
+   "author": "David Eccles gringer ",
+   "file": "bioicons/bio-safety-symbols-flammable-text.svg"
+  },
+  {
+   "id": "bio-safety-symbols-flammable",
+   "name": "flammable",
+   "en": "flammable",
+   "group": "安全標示",
+   "source": "bioicons",
+   "author": "David Eccles gringer ",
+   "file": "bioicons/bio-safety-symbols-flammable.svg"
+  },
+  {
+   "id": "bio-safety-symbols-gas-text",
+   "name": "gas text",
+   "en": "gas text",
+   "group": "安全標示",
+   "source": "bioicons",
+   "author": "David Eccles gringer ",
+   "file": "bioicons/bio-safety-symbols-gas-text.svg"
+  },
+  {
+   "id": "bio-safety-symbols-gas",
+   "name": "gas",
+   "en": "gas",
+   "group": "安全標示",
+   "source": "bioicons",
+   "author": "David Eccles gringer ",
+   "file": "bioicons/bio-safety-symbols-gas.svg"
+  },
+  {
+   "id": "bio-safety-symbols-harmful",
+   "name": "harmful",
+   "en": "harmful",
+   "group": "安全標示",
+   "source": "bioicons",
+   "author": "David Eccles gringer ",
+   "file": "bioicons/bio-safety-symbols-harmful.svg"
+  },
+  {
+   "id": "bio-safety-symbols-hot-surface-text",
+   "name": "hot surface text",
+   "en": "hot surface text",
+   "group": "安全標示",
+   "source": "bioicons",
+   "author": "David Eccles gringer ",
+   "file": "bioicons/bio-safety-symbols-hot-surface-text.svg"
+  },
+  {
+   "id": "bio-safety-symbols-irritant-text",
+   "name": "irritant text",
+   "en": "irritant text",
+   "group": "安全標示",
+   "source": "bioicons",
+   "author": "David Eccles gringer ",
+   "file": "bioicons/bio-safety-symbols-irritant-text.svg"
+  },
+  {
+   "id": "bio-safety-symbols-laser-text",
+   "name": "laser text",
+   "en": "laser text",
+   "group": "安全標示",
+   "source": "bioicons",
+   "author": "David Eccles gringer ",
+   "file": "bioicons/bio-safety-symbols-laser-text.svg"
+  },
+  {
+   "id": "bio-safety-symbols-oxidiser-text",
+   "name": "oxidiser text",
+   "en": "oxidiser text",
+   "group": "安全標示",
+   "source": "bioicons",
+   "author": "David Eccles gringer ",
+   "file": "bioicons/bio-safety-symbols-oxidiser-text.svg"
+  },
+  {
+   "id": "bio-safety-symbols-oxidiser",
+   "name": "oxidiser",
+   "en": "oxidiser",
+   "group": "安全標示",
+   "source": "bioicons",
+   "author": "David Eccles gringer ",
+   "file": "bioicons/bio-safety-symbols-oxidiser.svg"
+  },
+  {
+   "id": "bio-safety-symbols-peroxide-text",
+   "name": "peroxide text",
+   "en": "peroxide text",
+   "group": "安全標示",
+   "source": "bioicons",
+   "author": "David Eccles gringer ",
+   "file": "bioicons/bio-safety-symbols-peroxide-text.svg"
+  },
+  {
+   "id": "bio-safety-symbols-radiation-text",
+   "name": "radiation text",
+   "en": "radiation text",
+   "group": "安全標示",
+   "source": "bioicons",
+   "author": "David Eccles gringer ",
+   "file": "bioicons/bio-safety-symbols-radiation-text.svg"
+  },
+  {
+   "id": "bio-safety-symbols-toxic-text",
+   "name": "toxic text",
+   "en": "toxic text",
+   "group": "安全標示",
+   "source": "bioicons",
+   "author": "David Eccles gringer ",
+   "file": "bioicons/bio-safety-symbols-toxic-text.svg"
+  },
+  {
+   "id": "bio-safety-symbols-toxic",
+   "name": "toxic",
+   "en": "toxic",
+   "group": "安全標示",
+   "source": "bioicons",
+   "author": "David Eccles gringer ",
+   "file": "bioicons/bio-safety-symbols-toxic.svg"
+  },
+  {
+   "id": "bio-safety-symbols-trip-text",
+   "name": "trip text",
+   "en": "trip text",
+   "group": "安全標示",
+   "source": "bioicons",
+   "author": "David Eccles gringer ",
+   "file": "bioicons/bio-safety-symbols-trip-text.svg"
+  },
+  {
+   "id": "bio-safety-symbols-uv-text",
+   "name": "uv text",
+   "en": "uv text",
+   "group": "安全標示",
+   "source": "bioicons",
+   "author": "David Eccles gringer ",
+   "file": "bioicons/bio-safety-symbols-uv-text.svg"
+  },
+  {
+   "id": "bio-safety-symbols-nfpa-diamond",
+   "name": "NFPA diamond",
+   "en": "NFPA diamond",
+   "group": "安全標示",
+   "source": "bioicons",
+   "author": "Emmett Leddin",
+   "file": "bioicons/bio-safety-symbols-nfpa-diamond.svg"
+  },
+  {
+   "id": "bio-safety-symbols-acute-toxicity",
+   "name": "acute toxicity",
+   "en": "acute toxicity",
+   "group": "安全標示",
+   "source": "bioicons",
+   "author": "UNECE",
+   "file": "bioicons/bio-safety-symbols-acute-toxicity.svg"
+  },
+  {
+   "id": "bio-safety-symbols-corrosive",
+   "name": "corrosive",
+   "en": "corrosive",
+   "group": "安全標示",
+   "source": "bioicons",
+   "author": "UNECE",
+   "file": "bioicons/bio-safety-symbols-corrosive.svg"
+  },
+  {
+   "id": "bio-safety-symbols-explosive",
+   "name": "explosive",
+   "en": "explosive",
+   "group": "安全標示",
+   "source": "bioicons",
+   "author": "UNECE",
+   "file": "bioicons/bio-safety-symbols-explosive.svg"
+  },
+  {
+   "id": "bio-safety-symbols-flammable",
+   "name": "flammable",
+   "en": "flammable",
+   "group": "安全標示",
+   "source": "bioicons",
+   "author": "UNECE",
+   "file": "bioicons/bio-safety-symbols-flammable.svg"
+  },
+  {
+   "id": "bio-safety-symbols-gas-under-pressure",
+   "name": "gas under pressure",
+   "en": "gas under pressure",
+   "group": "安全標示",
+   "source": "bioicons",
+   "author": "UNECE",
+   "file": "bioicons/bio-safety-symbols-gas-under-pressure.svg"
+  },
+  {
+   "id": "bio-safety-symbols-hazardous-environment",
+   "name": "hazardous environment",
+   "en": "hazardous environment",
+   "group": "安全標示",
+   "source": "bioicons",
+   "author": "UNECE",
+   "file": "bioicons/bio-safety-symbols-hazardous-environment.svg"
+  },
+  {
+   "id": "bio-safety-symbols-health-hazard",
+   "name": "health hazard",
+   "en": "health hazard",
+   "group": "安全標示",
+   "source": "bioicons",
+   "author": "UNECE",
+   "file": "bioicons/bio-safety-symbols-health-hazard.svg"
+  },
+  {
+   "id": "bio-safety-symbols-oxidizing",
+   "name": "oxidizing",
+   "en": "oxidizing",
+   "group": "安全標示",
+   "source": "bioicons",
+   "author": "UNECE",
+   "file": "bioicons/bio-safety-symbols-oxidizing.svg"
+  },
+  {
+   "id": "bio-safety-symbols-serious-health-hazard",
+   "name": "serious health hazard",
+   "en": "serious health hazard",
+   "group": "安全標示",
+   "source": "bioicons",
+   "author": "UNECE",
+   "file": "bioicons/bio-safety-symbols-serious-health-hazard.svg"
+  },
+  {
+   "id": "bio-safety-symbols-unknown-danger",
+   "name": "unknown danger",
+   "en": "unknown danger",
+   "group": "安全標示",
+   "source": "bioicons",
+   "author": "UNECE",
+   "file": "bioicons/bio-safety-symbols-unknown-danger.svg"
+  },
+  {
+   "id": "bio-scientific-graphs-action-potentials",
+   "name": "Action potentials",
+   "en": "Action potentials",
+   "group": "科學圖表",
+   "source": "bioicons",
+   "author": "Marcel Tisch",
+   "file": "bioicons/bio-scientific-graphs-action-potentials.svg"
+  },
+  {
+   "id": "bio-scientific-graphs-patch-clamp-recording",
+   "name": "patch clamp recording",
+   "en": "patch clamp recording",
+   "group": "科學圖表",
+   "source": "bioicons",
+   "author": "Marcel Tisch",
+   "file": "bioicons/bio-scientific-graphs-patch-clamp-recording.svg"
+  },
+  {
+   "id": "bio-scientific-graphs-qpcr-plot",
+   "name": "qPCR plot",
+   "en": "qPCR plot",
+   "group": "科學圖表",
+   "source": "bioicons",
+   "author": "Marcel Tisch",
+   "file": "bioicons/bio-scientific-graphs-qpcr-plot.svg"
+  },
+  {
+   "id": "bio-scientific-graphs-outlier",
+   "name": "Outlier",
+   "en": "Outlier",
+   "group": "科學圖表",
+   "source": "bioicons",
+   "author": "Marius Mathies",
+   "file": "bioicons/bio-scientific-graphs-outlier.svg"
+  },
+  {
+   "id": "bio-viruses-virus-sketch",
+   "name": "virus sketch",
+   "en": "virus sketch",
+   "group": "病毒",
+   "source": "bioicons",
+   "author": "Marcel Tisch",
+   "file": "bioicons/bio-viruses-virus-sketch.svg"
+  },
+  {
+   "id": "bio-viruses-virus-titer-plaque-assay",
+   "name": "virus titer plaque assay",
+   "en": "virus titer plaque assay",
+   "group": "病毒",
+   "source": "bioicons",
+   "author": "kehan",
+   "file": "bioicons/bio-viruses-virus-titer-plaque-assay.svg"
+  }
+ ]
+}

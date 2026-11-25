@@ -22,12 +22,13 @@ import {
 import { fromBase64, enc } from "./bytes.js";
 import { contentType } from "./mime.js";
 import { zip } from "./zip.js";
-import { fetchRepoFiles, backupToGitHub, backupAll, parseRepo } from "./github.js";
+import { fetchRepoFiles, backupToGitHub, backupAll, parseRepo, githubToken, testGithubToken, backupAdminView, saveGithubToken } from "./github.js";
 import { moveSitesOffSheets } from "./sheets.js";
 import { applyPatches } from "./patches.js";
+import { lookupReference } from "./lookup.js";
 import { templateFiles, personalize, applySkin } from "./templates.js";
 import { adminOverview } from "./overview.js";
-import { aiThemes, aiAssist, aiUsage, aiConfig, aiEnabledFor, aiAdminView, saveAiSettings, removeAiKey, testAiKey } from "./ai.js";
+import { aiThemes, aiAssist, aiDescribePhoto, aiUsage, aiConfig, aiEnabledFor, aiAdminView, saveAiSettings, removeAiKey, testAiKey } from "./ai.js";
 import {
   RepoError,
   isAdmin,
@@ -188,6 +189,9 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
     });
   });
 
+  // DOI / PMID → reference metadata for 新增論文 (any signed-in editor).
+  app.get("/api/lookup/reference", async (c) => c.json(await lookupReference(c.req.query("q"), fetchImpl)));
+
   app.post("/api/logout", async (c) => {
     await endSession(c.env, readCookie(c.req.raw, COOKIE));
     const secure = new URL(c.req.url).protocol === "https:";
@@ -251,6 +255,28 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
     await removeAiKey(c.env);
     return c.json(await aiAdminView(c.env));
   });
+  // GitHub 備份: same pattern as the AI key (write-only, last 4 only).
+  app.get("/api/admin/backup", requireAdmin, async (c) => c.json(await backupAdminView(c.env)));
+  app.put("/api/admin/backup", requireAdmin, async (c) => {
+    if (c.env.GITHUB_BACKUP_TOKEN) throw new RepoError(409, "權杖目前由 Cloudflare 的 GITHUB_BACKUP_TOKEN 設定提供，請到 Cloudflare 更換。");
+    const body = await c.req.json().catch(() => ({}));
+    await saveGithubToken(c.env, body.token, c.get("user").email);
+    return c.json(await backupAdminView(c.env));
+  });
+  app.delete("/api/admin/backup", requireAdmin, async (c) => {
+    if (c.env.GITHUB_BACKUP_TOKEN) throw new RepoError(409, "權杖目前由 Cloudflare 的 GITHUB_BACKUP_TOKEN 設定提供，請到 Cloudflare 移除。");
+    await saveGithubToken(c.env, null);
+    return c.json(await backupAdminView(c.env));
+  });
+  app.post("/api/admin/backup/test", requireAdmin, async (c) => {
+    const body = await c.req.json().catch(() => ({}));
+    return c.json(await testGithubToken(c.env, body.token, fetchImpl));
+  });
+  app.post("/api/admin/backup/run", requireAdmin, async (c) => {
+    const done = await backupAll(c.env, fetchImpl);
+    return c.json({ done, view: await backupAdminView(c.env) });
+  });
+
   app.post("/api/admin/ai/test", requireAdmin, async (c) => {
     const body = await c.req.json().catch(() => ({}));
     return c.json(await testAiKey(c.env, body.key, fetchImpl));
@@ -277,7 +303,7 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
       owner,
       repo,
       branch: body.branch || "",
-      token: c.env.GITHUB_BACKUP_TOKEN,
+      token: await githubToken(c.env),
       fetchImpl,
     });
     const site = await createSite(c.env, {
@@ -429,6 +455,15 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
     const body = await c.req.json().catch(() => ({}));
     const result = await aiAssist(c.env, body, fetchImpl, config.key);
     await logEvent(c.env, site.id, "ai_assist", null, c.get("user").email, String(body.message || "").slice(0, 300));
+    return c.json({ ...result, remaining });
+  });
+
+  // 照片說明與替代文字 (vision): suggestions only.
+  app.post("/api/sites/:id/describe-photo", async (c) => {
+    const { site, config, remaining } = await aiGate(c);
+    const body = await c.req.json().catch(() => ({}));
+    const result = await aiDescribePhoto(c.env, body, fetchImpl, config.key);
+    await logEvent(c.env, site.id, "ai_photo", null, c.get("user").email, String(body.note || "").slice(0, 200));
     return c.json({ ...result, remaining });
   });
 

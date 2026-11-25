@@ -10,6 +10,7 @@ import {
   duplicateSection,
   setText,
   setAttribute,
+  setButtonFx,
   writeHead,
   addItem,
   removeItem,
@@ -24,7 +25,7 @@ import {
 import { loadLibrary, snippetPath, LIBRARY_PATH } from "../site/library.js";
 import { THEME_PATH, readTheme, patchTheme } from "../site/themes.js";
 import { SKINS_PATH, SITE_CSS, loadSkins, readSkin, themeForSkin, withCurrent } from "../site/skins.js";
-import { prepareImage, formatBytes, isImagePath, referencedImages } from "../site/images.js";
+import { prepareImage, formatBytes, isImagePath, referencedImages, toAiImage } from "../site/images.js";
 import { readSiteFields, patchSiteField } from "../site/siteData.js";
 import { readAlbum, writeAlbum, defaultCaption, albumPath } from "../site/album.js";
 import { readNews, writeNews, detachSheet } from "../site/news.js";
@@ -827,6 +828,8 @@ export function useProject(notify) {
     edit((doc) => {
       if (!insertSection(doc, afterIndex, html, page)) return;
       ensureBlockAssets(doc, page);
+      // Content written for the block (AI 助手) goes in before the heading takes the page's style.
+      if (opts?.fill) opts.fill(sectionElements(doc)[afterIndex + 1]);
       // Dress the new heading like the page's own section headings.
       const kicker =
         kind === "catalog" ? blockById(opts.id).kicker : kind === "album" ? "GALLERY" : kind === "embed" ? (opts.kind === "map" ? "LOCATION" : "VIDEO") : "";
@@ -837,8 +840,18 @@ export function useProject(notify) {
     stageRuntime(await missingRuntime(), page);
     const label =
       kind === "album" ? "相簿展示" : kind === "text" ? "標題與文字" : kind === "catalog" ? blockById(opts.id).name : kind === "embed" ? (opts.kind === "map" ? "地圖" : "影片") : "照片";
-    notify(`已插入「${label}」，在左邊改內容，保存這一頁後生效。`);
+    if (!opts?.quiet) notify(`已插入「${label}」，在右邊改內容。`);
     return true;
+  }
+  // 按鈕動態 on one button or link; the effects live in css/labsite-blocks.css.
+  async function setButtonMotion(index, path, fx) {
+    const page = current;
+    edit((doc) => {
+      const s = sectionElements(doc)[index];
+      if (!s || !setButtonFx(s, path, fx)) return false;
+      if (fx) ensureBlockAssets(doc, page, { script: false });
+    }, "fx:" + index + ":" + path.join("."));
+    if (fx) stageRuntime(await missingRuntime(), page);
   }
   // 進場動畫 for any section (sites without the template's own motion system).
   async function setEntrance(index, value) {
@@ -1362,6 +1375,16 @@ export function useProject(notify) {
   // AI themes (LabSite Cloud with an API key): one sentence → three themes,
   // already contrast-checked by the server. Applying one is setTheme().
   const aiAvailable = !!cloud.me?.ai && project?.source.kind === "cloud" && !(cloud.me.aiOff || []).includes(project.source.site.id);
+  // 照片說明與替代文字: the photo at `src` (staged or saved), described by the AI.
+  // `page`: the src is written relative to that page (an <img> on it).
+  async function describePhoto(src, { page = null, note = "" } = {}) {
+    if (!aiAvailable) throw new Error("這個網站沒有開啟 AI 助手。");
+    if (page) src = resolveFrom(page, src) || src;
+    if (/^(https?:|data:)/.test(src)) throw new Error("這張圖不在網站裡，AI 沒辦法讀取。");
+    const raw = staged[src]?.file ?? (await project.source.readBlob(src));
+    const photo = await toAiImage(raw);
+    return cloudCalls.describePhoto(project.source.site.id, { ...photo, note: note || src.split("/").pop().replace(/\.[a-z0-9]+$/i, "").replace(/-[0-9a-f]{6}$/, "") });
+  }
   const askAssistant = (body) => {
     if (!aiAvailable) throw new Error("這個網站沒有開啟 AI 助手。");
     return cloudCalls.assistant(project.source.site.id, body);
@@ -1626,7 +1649,7 @@ export function useProject(notify) {
       : null,
     setTextSize,
     skins: skin ? { list: skin.list, current: skin.current, pending: skin.pending } : null,
-    ai: { available: aiAvailable, generate: generateAiThemes, ask: askAssistant },
+    ai: { available: aiAvailable, generate: generateAiThemes, ask: askAssistant, describePhoto },
     autosave: { ...autosave, on: autosaveOn, pending: autosaveOn && contentDirty },
     flushAutosave: () => flushRef.current(),
     previewSkin,
@@ -1680,6 +1703,7 @@ export function useProject(notify) {
     saveAlbums,
     insertBlock,
     setEntrance,
+    setButtonMotion,
     stageLibraryAsset,
     planAddresses,
     replaceAddresses,

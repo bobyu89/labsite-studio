@@ -29,6 +29,7 @@ import { Thumb } from "../components/AlbumPanel";
 import NewsPanel from "../components/NewsPanel";
 import AddPublication, { publicationPages } from "../components/AddPublication";
 import Assistant from "../components/Assistant";
+import PromptBank from "../components/PromptBank";
 import AlbumPanel from "../components/AlbumPanel";
 import RelocatePanel from "../components/RelocatePanel";
 import TextSizePanel from "../components/TextSizePanel";
@@ -92,7 +93,24 @@ export default function Project({ p, device, setDevice, setConfirm }) {
   const [grabFocus, setGrabFocus] = useState(true);
   const [guide, setGuide] = useState(() => !guideDismissed());
   const [addPub, setAddPub] = useState(false);
-  const [allPages, setAllPages] = useState(false);
+  // The side columns stick right under the bar, whatever height it wraps to.
+  const studioRef = useRef(null);
+  const barRef = useRef(null);
+  useEffect(() => {
+    const bar = barRef.current;
+    if (!bar || typeof ResizeObserver === "undefined") return;
+    const set = () => {
+      const top = parseFloat(getComputedStyle(bar).top) || 0;
+      // offsetHeight is in the page's own (unzoomed) pixels, like `top`.
+      studioRef.current?.style.setProperty("--studio-top", Math.round(top + bar.offsetHeight) + "px");
+    };
+    const ro = new ResizeObserver(set);
+    ro.observe(bar);
+    set();
+    return () => ro.disconnect();
+  });
+  const [promptsOpen, setPromptsOpen] = useState(false);
+  const [aiSeed, setAiSeed] = useState(null);
   // After publishing: { previous } — the version visitors saw before, so it can be put back.
   const [published, setPublished] = useState(null);
   // A photo dropped anywhere else would make the browser open the file and
@@ -298,8 +316,8 @@ export default function Project({ p, device, setDevice, setConfirm }) {
     else p.closeProject();
   };
   return (
-    <div className="studio">
-      <div className="studio-bar">
+    <div className="studio" ref={studioRef}>
+      <div className="studio-bar" ref={barRef}>
         <button type="button" className="studio-site" onClick={close} title="回到網站列表">
           <CaretLeft size={16} />
           <strong>{p.project.source.name}</strong>
@@ -418,147 +436,182 @@ export default function Project({ p, device, setDevice, setConfirm }) {
       </Modal>
       {guide && <EditorGuide onClose={() => setGuide(false)} isCloud={isCloud} hasAlbum={!!p.album?.ok} hasNews={hasNews} hasAi={aiOn} />}
       <div className={"studio-body" + (tab === "pair" ? " wide-inspector" : "")}>
-        <aside className="studio-left" aria-label="頁面與內容">
-          <div className="studio-seg" role="group" aria-label="面板">
-            <button type="button" className={tab === "blocks" ? "active" : ""} onClick={() => setTab("blocks")}>
-              內容
-            </button>
-            {(p.album?.ok || p.canListAssets) && (
-              <button type="button" className={tab === "album" ? "active" : ""} onClick={openPhotos}>
-                照片
-              </button>
-            )}
-            {isCloud && (
-              <button type="button" className={tab === "history" ? "active" : ""} onClick={() => setTab("history")}>
-                舊版本
-              </button>
-            )}
-          </div>
+        <aside className="studio-left" aria-label="網站結構">
           {writable && quick.length > 0 && (
-            <section>
-              <h2>快速新增</h2>
-              <div className="studio-quick">
-                {quick.map((q) => (
-                  <button type="button" key={q.id} onClick={q.run}>
-                    ＋ {q.title}
+            <p className="tree-quick">
+              <span>新增</span>
+              {quick.map((q, i) => (
+                <React.Fragment key={q.id}>
+                  {i > 0 && <span aria-hidden="true">・</span>}
+                  <button type="button" onClick={q.run}>
+                    {q.title}
                   </button>
-                ))}
-              </div>
-            </section>
+                </React.Fragment>
+              ))}
+            </p>
           )}
-          <section>
+          <section className="tree-group">
             <h2>
-              頁面
+              網站
               {p.pair && (
-                <span className="studio-lang" role="group" aria-label="語言">
+                <span className="tree-lang" role="group" aria-label="語言">
                   <button type="button" className={inEnglish ? "" : "active"} disabled={p.busy} onClick={() => inEnglish && switchPage(p.pair)}>
                     中文
                   </button>
+                  <span aria-hidden="true">｜</span>
                   <button type="button" className={inEnglish ? "active" : ""} disabled={p.busy} onClick={() => !inEnglish && switchPage(p.pair)}>
                     English
                   </button>
                 </span>
               )}
             </h2>
-            <div className={"studio-pages" + (allPages ? " all" : "")}>
-              {pageList.map((path, i) => (
-                <button
-                  type="button"
-                  key={path}
-                  className={(path === p.current ? "active" : "") + (i >= 6 && path !== p.current ? " extra" : "")}
-                  disabled={p.busy}
-                  onClick={() => switchPage(path)}
-                  title={path}
-                >
-                  {p.labelOf(path)}
-                  {p.dirtyPages.includes(path) && dot("未保存")}
-                </button>
-              ))}
-              {pageList.length > 6 && (
-                <button type="button" className="studio-pages-toggle" onClick={() => setAllPages((v) => !v)}>
-                  {allPages ? "收起" : `其他 ${pageList.length - 6} 頁…`}
-                </button>
-              )}
-            </div>
+            <ul className="tree" role="tree" aria-label="頁面">
+              {pageList.map((path) => {
+                const open = path === p.current;
+                return (
+                  <li key={path} role="treeitem" aria-expanded={open} aria-selected={open && tab === "blocks"}>
+                    <button
+                      type="button"
+                      className={"tree-page" + (open ? " open" : "")}
+                      disabled={p.busy}
+                      title={path}
+                      onClick={() => {
+                        if (!open) switchPage(path);
+                        setTab("blocks");
+                      }}
+                    >
+                      <span className="tree-caret" aria-hidden="true">{open ? "▾" : "▸"}</span>
+                      {p.labelOf(path)}
+                      {p.dirtyPages.includes(path) && dot("未保存")}
+                    </button>
+                    {open && (
+                      <div className="tree-children">
+                        {sections.length === 0 && (
+                          <div className="message" role="status">
+                            <WarningCircle size={20} />
+                            <span>
+                              這一頁沒有可編輯的區塊。LabSite 只辨識 <code>&lt;body&gt;</code> 直屬的 <code>&lt;section&gt;</code>
+                              ；包在 <code>&lt;main&gt;</code> 或 <code>&lt;div&gt;</code> 裡的區塊目前不會列出。頁面標題與描述仍可在「頁面資訊」修改。
+                            </span>
+                          </div>
+                        )}
+                        <SectionList
+                          sections={sections}
+                          selected={selected}
+                          onSelect={(i) => {
+                            p.setSelected(i);
+                            p.setFocus(null);
+                            setTab("blocks");
+                          }}
+                          onMove={p.move}
+                          onDuplicate={p.duplicate}
+                          onRemove={(i) =>
+                            setConfirm({
+                              title: "刪除「" + sections[i].title + "」？",
+                              description: "會從這一頁移除整個區塊與相鄰分隔線；可用復原找回。",
+                              action: () => p.remove(i),
+                            })
+                          }
+                          onAdd={p.library?.sections.length && sections.length ? () => setLibraryOpen(true) : null}
+                          onSave={writable ? (i) => setSaving(i) : null}
+                        />
+                        {writable && (
+                          <div className="insert-blocks">
+                            <span>{sections.length ? "在選取的區塊後面加入：" : "加入："}</span>
+                            {aiOn && (
+                              <Button size="1" color="orange" variant="soft" onClick={() => setPromptsOpen(true)}>
+                                ＋ 用 AI 寫一段
+                              </Button>
+                            )}
+                            <Button
+                              size="1"
+                              variant="soft"
+                              disabled={!p.canListAssets}
+                              onClick={() =>
+                                pickPhoto("選一張照片放到這一頁", (src) => {
+                                  const all = [...(p.albums?.albums || []).flatMap((a) => a.photos), ...(p.album?.photos || [])];
+                                  const caption = all.find((x) => x.src === src)?.caption || "";
+                                  p.insertBlock(insertAfter, "photo", { src, caption });
+                                })
+                              }
+                            >
+                              ＋ 照片
+                            </Button>
+                            <Button size="1" variant="soft" disabled={!p.albums} onClick={() => setInsertAlbum(true)}>
+                              ＋ 相簿展示
+                            </Button>
+                            <Button size="1" variant="soft" onClick={() => p.insertBlock(insertAfter, "text", {})}>
+                              ＋ 標題與文字
+                            </Button>
+                            <Button size="1" variant="soft" onClick={() => setEmbedOpen(true)}>
+                              ＋ 影片／地圖
+                            </Button>
+                            <Button size="1" onClick={() => setAnimOpen(true)}>
+                              ＋ 動畫元件
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
           </section>
-          <section>
-            <h2>這一頁由上到下</h2>
-              {sections.length === 0 && (
-                <div className="message" role="status">
-                  <WarningCircle size={20} />
-                  <span>
-                    這一頁沒有可編輯的區塊。LabSite 只辨識 <code>&lt;body&gt;</code> 直屬的 <code>&lt;section&gt;</code>
-                    ；包在 <code>&lt;main&gt;</code> 或 <code>&lt;div&gt;</code> 裡的區塊目前不會列出。頁面標題與描述仍可在「頁面資訊」修改。
-                  </span>
-                </div>
+          <section className="tree-group">
+            <h2>資料</h2>
+            <ul className="tree tree-flat">
+              {hasNews && (
+                <li>
+                  <button type="button" className={tab === "news" ? "active" : ""} onClick={() => setTab("news")}>
+                    最新消息 <span className="tree-count">{p.news?.items?.length || ""}</span>
+                    {p.siteDirty && dot("未保存")}
+                  </button>
+                </li>
               )}
-              <SectionList
-                sections={sections}
-                selected={selected}
-                onSelect={(i) => {
-                  p.setSelected(i);
-                  p.setFocus(null);
-                }}
-                onMove={p.move}
-                onDuplicate={p.duplicate}
-                onRemove={(i) =>
-                  setConfirm({
-                    title: "刪除「" + sections[i].title + "」？",
-                    description: "會從這一頁移除整個區塊與相鄰分隔線；可用復原找回。",
-                    action: () => p.remove(i),
-                  })
-                }
-                onAdd={p.library?.sections.length && sections.length ? () => setLibraryOpen(true) : null}
-                onSave={writable ? (i) => setSaving(i) : null}
-              />
-              {writable && (
-                <div className="insert-blocks">
-                  <span>{sections.length ? "在選取的區塊後面加入：" : "加入："}</span>
-                  <Button
-                    size="1"
-                    variant="soft"
-                    disabled={!p.canListAssets}
-                    onClick={() =>
-                      pickPhoto("選一張照片放到這一頁", (src) => {
-                        const all = [...(p.albums?.albums || []).flatMap((a) => a.photos), ...(p.album?.photos || [])];
-                        const caption = all.find((x) => x.src === src)?.caption || "";
-                        p.insertBlock(insertAfter, "photo", { src, caption });
-                      })
-                    }
-                  >
-                    ＋ 照片
-                  </Button>
-                  <Button size="1" variant="soft" disabled={!p.albums} onClick={() => setInsertAlbum(true)}>
-                    ＋ 相簿展示
-                  </Button>
-                  <Button size="1" variant="soft" onClick={() => p.insertBlock(insertAfter, "text", {})}>
-                    ＋ 標題與文字
-                  </Button>
-                  <Button size="1" variant="soft" onClick={() => setEmbedOpen(true)}>
-                    ＋ 影片／地圖
-                  </Button>
-                  <Button size="1" onClick={() => setAnimOpen(true)}>
-                    ＋ 動畫元件
-                  </Button>
-                </div>
+              {(p.album?.ok || p.canListAssets) && (
+                <li>
+                  <button type="button" className={tab === "album" ? "active" : ""} onClick={openPhotos}>
+                    活動照片 <span className="tree-count">{p.album?.ok ? p.album.photos.length : ""}</span>
+                  </button>
+                </li>
               )}
-          </section>
-          <section>
-            <h2>更多設定</h2>
-            <div className="studio-more">
-              {more.map((m) => (
-                <button type="button" key={m.id} className={tab === m.id ? "active" : ""} onClick={() => setTab(m.id)}>
-                  {m.title}
-                  {m.mark}
+              <li>
+                <button type="button" className={tab === "site" ? "active" : ""} onClick={() => setTab("site")}>
+                  研究室資料
                 </button>
-              ))}
+              </li>
               {p.canListAssets && p.albums && (
-                <button type="button" onClick={() => setPhotos({})}>
-                  雲端相簿與素材庫
-                  {p.albumsDirty && dot("未保存")}
-                </button>
+                <li>
+                  <button type="button" onClick={() => setPhotos({})}>
+                    雲端相簿與素材庫
+                    {p.albumsDirty && dot("未保存")}
+                  </button>
+                </li>
               )}
-            </div>
+            </ul>
+          </section>
+          <section className="tree-group">
+            <h2>設定</h2>
+            <ul className="tree tree-flat">
+              {more
+                .filter((m) => m.id !== "news" && m.id !== "site")
+                .map((m) => (
+                  <li key={m.id}>
+                    <button type="button" className={tab === m.id ? "active" : ""} onClick={() => setTab(m.id)}>
+                      {m.title}
+                      {m.mark}
+                    </button>
+                  </li>
+                ))}
+              {isCloud && (
+                <li>
+                  <button type="button" className={tab === "history" ? "active" : ""} onClick={() => setTab("history")}>
+                    舊版本
+                  </button>
+                </li>
+              )}
+            </ul>
           </section>
         </aside>
         <aside className="studio-right inspector" aria-label="修改選到的內容">
@@ -571,8 +624,16 @@ export default function Project({ p, device, setDevice, setConfirm }) {
             </div>
           )}
           {aiOn && (
-            <div hidden={tab !== "blocks" && tab !== "ai"}>
-              <Assistant p={p} selected={selected} full={tab === "ai"} onOpen={() => setTab("ai")} onShow={() => setTab("ai")} />
+            <div hidden={tab !== "blocks" && tab !== "ai"} className={"studio-ai " + (tab === "ai" ? "full" : "compact")}>
+              <Assistant
+                p={p}
+                selected={selected}
+                sectionCount={sections.length}
+                full={tab === "ai"}
+                seed={aiSeed}
+                onOpen={() => setTab("ai")}
+                onShow={() => setTab("ai")}
+              />
             </div>
           )}
           {tab === "ai" && aiOn ? null : tab === "pages" ? (
@@ -700,6 +761,9 @@ export default function Project({ p, device, setDevice, setConfirm }) {
                   setFocus={p.setFocus}
                   setText={p.setText}
                   setAttr={p.setAttr}
+                  setFx={writable ? p.setButtonMotion : null}
+                  describe={aiOn ? (src) => p.ai.describePhoto(src, { page: p.current }) : null}
+                  lang={inEnglish ? "en" : "zh"}
                   replaceImage={p.replaceImage}
                   openLibrary={p.canListAssets ? (index, path) => pickPhoto("選一張照片放進這個欄位", (asset) => p.useAsset(index, path, asset)) : null}
                   writable={writable}
@@ -721,6 +785,12 @@ export default function Project({ p, device, setDevice, setConfirm }) {
           onClose={() => setEmbedOpen(false)}
           where={sections.length ? "插在「" + (sections[selected]?.title || "") + "」後面" : "插在頁面開頭"}
           onInsert={(opts) => p.insertBlock(insertAfter, "embed", opts)}
+        />
+        <PromptBank
+          open={promptsOpen}
+          onClose={() => setPromptsOpen(false)}
+          where={sections.length ? "放在「" + (sections[selected]?.title || "") + "」後面" : "放在頁面開頭"}
+          onPick={(text) => setAiSeed({ text, n: Date.now() })}
         />
         <AnimationLibrary
           open={animOpen}
