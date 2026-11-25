@@ -24,6 +24,7 @@ import { contentType } from "./mime.js";
 import { zip } from "./zip.js";
 import { fetchRepoFiles, backupToGitHub, backupAll, parseRepo } from "./github.js";
 import { moveSitesOffSheets } from "./sheets.js";
+import { applyPatches } from "./patches.js";
 import { templateFiles, personalize, applySkin } from "./templates.js";
 import { adminOverview } from "./overview.js";
 import { aiThemes, aiAssist, aiUsage, aiConfig, aiEnabledFor, aiAdminView, saveAiSettings, removeAiKey, testAiKey } from "./ai.js";
@@ -474,6 +475,12 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
 const app = createApp();
 export default {
   fetch: (request, env, ctx) => app.fetch(request, env, ctx),
-  // Hourly: move any site still reading a Google Sheet into LabSite, then back up to GitHub.
-  scheduled: (event, env, ctx) => ctx.waitUntil(moveSitesOffSheets(env).catch(() => []).then(() => backupAll(env))),
+  // Hourly: move sites off Google Sheets, apply one-off site fixes (patches.js), then back up to GitHub.
+  scheduled: (event, env, ctx) =>
+    ctx.waitUntil(
+      moveSitesOffSheets(env)
+        .catch(() => [])
+        .then(() => applyPatches(env).catch(() => []))
+        .then(() => backupAll(env)),
+    ),
 };
