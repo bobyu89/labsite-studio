@@ -5760,12 +5760,6 @@ h3 {
 }
 
 /* AI 助手: the input box at the top of the right column, and the conversation. */
-.ai-compact {
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--line);
-  display: grid;
-  gap: 6px;
-}
 .ai-form-box {
   display: flex;
   gap: 8px;
@@ -5815,17 +5809,6 @@ h3 {
 .ai-form-box button:disabled {
   background: #d0d0cd;
   cursor: default;
-}
-.ai-open {
-  justify-self: start;
-  border: 0;
-  background: none;
-  padding: 4px 0;
-  font: inherit;
-  font-size: 13px;
-  color: var(--muted);
-  text-decoration: underline;
-  cursor: pointer;
 }
 .ai-panel {
   display: flex;
@@ -6657,20 +6640,6 @@ h1,
   text-underline-offset: 4px;
 }
 
-/* AI: one quiet line at the foot of the right column (A). */
-.studio-ai.compact {
-  order: 9;
-  margin-top: auto;
-  position: sticky;
-  bottom: 0;
-  z-index: 3;
-  background: var(--paper);
-}
-.studio-ai.compact .ai-compact {
-  border-top: 1px solid var(--line);
-  border-bottom: 0;
-  padding: 10px 24px 14px;
-}
 .ai-form-box {
   border: 0;
   border-bottom: 1px solid var(--rule);
@@ -6803,4 +6772,191 @@ h1,
 }
 .ai-card-head strong {
   font-family: var(--serif);
+}
+
+/* v4.21 The assistant in its own floating window (AssistantDock.jsx), apart
+   from the editing columns. It opens beside the right column; the header can
+   be dragged anywhere. */
+.ai-launcher,
+.ai-dock {
+  position: fixed;
+  right: calc(var(--inspector-w, 0px) + 20px);
+  bottom: 20px;
+  z-index: 40;
+}
+.ai-launcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+/* The AI mark: a round badge in the accent colour with a sparkle. */
+.ai-mark {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 10px 26px rgba(154, 52, 18, 0.32), 0 0 0 4px rgba(255, 255, 255, 0.9);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.ai-mark.small {
+  display: inline-grid;
+  width: 22px;
+  height: 22px;
+  margin-right: 8px;
+  vertical-align: -4px;
+  box-shadow: none;
+}
+.ai-launcher-label {
+  padding: 6px 12px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  box-shadow: 0 4px 14px rgba(31, 29, 26, 0.1);
+}
+.ai-launcher:hover .ai-mark,
+.ai-launcher:focus-visible .ai-mark {
+  transform: translateY(-2px) scale(1.04);
+  box-shadow: 0 14px 30px rgba(154, 52, 18, 0.38), 0 0 0 4px rgba(255, 255, 255, 0.9);
+}
+.ai-launcher:focus-visible {
+  outline: 0;
+}
+.ai-launcher:focus-visible .ai-mark {
+  outline: 3px solid var(--ink);
+  outline-offset: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-mark {
+    transition: none;
+  }
+}
+.ai-apply-all {
+  justify-self: start;
+  align-self: flex-start;
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--accent);
+  border-radius: 2px;
+  background: #fff;
+  color: var(--accent);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.ai-apply-all:hover:not(:disabled) {
+  background: var(--accent);
+  color: #fff;
+}
+.ai-apply-all:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.ai-dock {
+  width: min(420px, calc(100vw / var(--ui-zoom, 1) - 32px));
+  height: min(640px, calc(100vh / var(--ui-zoom, 1) - 40px));
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  background: #fff;
+  box-shadow: 0 18px 48px rgba(31, 29, 26, 0.2);
+  overflow: hidden;
+}
+.ai-dock[hidden] {
+  display: none;
+}
+.ai-dock:focus {
+  outline: 0;
+}
+.ai-dock-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 10px 10px 18px;
+  border-bottom: 1px solid var(--line);
+  background: var(--paper);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.ai-dock-head:active {
+  cursor: grabbing;
+}
+.ai-dock-head > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.ai-dock-head strong {
+  font-family: var(--serif);
+  font-size: 16px;
+  letter-spacing: 0.08em;
+}
+.ai-dock-where {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ai-dock-close {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 2px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+.ai-dock-close:hover {
+  background: var(--soft, #ece8df);
+  color: inherit;
+}
+.ai-dock .ai-panel {
+  flex: 1;
+  min-height: 0;
+}
+.ai-dock .ai-turns {
+  overflow-y: auto;
+}
+.ai-dock .ai-foot {
+  position: static;
+}
+/* Phones: a sheet across the bottom of the screen, not draggable. */
+@media (max-width: 720px) {
+  .ai-launcher {
+    right: 16px;
+    bottom: 16px;
+  }
+  .ai-launcher-label {
+    display: none;
+  }
+  .ai-dock {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    height: min(78vh, calc(100vh / var(--ui-zoom, 1) - 56px));
+    border-radius: 10px 10px 0 0;
+    transform: none !important;
+  }
+  .ai-dock-head {
+    cursor: default;
+  }
 }

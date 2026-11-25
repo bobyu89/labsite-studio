@@ -45,7 +45,7 @@ export default function EditorGuide({ onClose, isCloud, hasAlbum, hasNews, hasAi
           <span>
             直接在右邊改字，或在預覽裡點文字直接打。照片按「換一張照片」，或把電腦裡的照片拖到預覽的圖片上。
             {" 常用的新增（論文、" + (hasNews ? "最新消息、" : "") + "成員" + (hasAlbum ? "、活動照片" : "") + "）在左邊最上面的「新增」。"}
-            {hasAi && " 也可以在右邊最下面的「助手」直接寫想怎麼改，助手會先給你看，按「套用」才會改。"}
+            {hasAi && " 也可以按右下角橘色圓形的「AI 助手」，在跳出的小視窗裡直接寫想怎麼改，助手會先給你看，按「套用」才會改。"}
           </span>
         </li>
         <li>
