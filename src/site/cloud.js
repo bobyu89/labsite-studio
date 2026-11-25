@@ -59,15 +59,23 @@ export function cloudApi(fetchImpl = (...a) => fetch(...a)) {
     lookupOrcid: (orcid) => call("GET", "/lookup/orcid?id=" + encodeURIComponent(orcid)),
     getOrcid: (id) => call("GET", site(id) + "/orcid"),
     checkLinks: (id, urls) => call("POST", site(id) + "/check-links", { urls }),
+    presence: (id, page, leave = false) => call("POST", site(id) + "/presence", leave ? { leave: true } : { page }),
     setOrcid: (id, orcid) => call("PUT", site(id) + "/orcid", { orcid }),
-    readPublished: async (id, path) => {
-      const res = await fetchImpl("/api" + site(id) + "/files/" + path.split("/").map(encodeURIComponent).join("/") + "?ref=published", { credentials: "same-origin" });
+    // A file as it is in one version (a commit id, "published" or "draft"); null when absent.
+    readAt: async (id, path, ref) => {
+      const res = await fetchImpl("/api" + site(id) + "/files/" + path.split("/").map(encodeURIComponent).join("/") + "?ref=" + encodeURIComponent(ref), { credentials: "same-origin" });
       return res.ok ? res.text() : null;
+    },
+    readPublished(id, path) {
+      return this.readAt(id, path, "published");
     },
     publish: (id, commit) => call("POST", site(id) + "/publish", commit ? { commit } : {}),
     restore: (id, commit) => call("POST", site(id) + "/restore", { commit }),
     addMember: (id, email) => call("POST", site(id) + "/members", { email }),
     removeMember: (id, email) => call("DELETE", site(id) + "/members/" + encodeURIComponent(email)),
+    setMemberRole: (id, email, role) => call("PUT", site(id) + "/members/" + encodeURIComponent(email), { role }),
+    requestReview: (id, note) => call("POST", site(id) + "/review", { note }),
+    returnReview: (id, note) => call("POST", site(id) + "/review/return", { note }),
     backup: (id) => call("POST", site(id) + "/backup", {}),
     aiTheme: (id, description) => call("POST", site(id) + "/ai-theme", { description }),
     assistant: (id, body) => call("POST", site(id) + "/assistant", body),

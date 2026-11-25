@@ -1,12 +1,13 @@
 // Shown in the 發布 confirmation: every saved change that would go live, by
 // person, so nobody publishes someone else's half-finished work by surprise.
-import React from "react";
+import React, { useState } from "react";
+import DiffView from "./DiffView";
 import { CheckCircle, Warning, Info } from "@phosphor-icons/react";
 import { pageLabel } from "../hooks/useProject";
 
 const when = (t) => new Intl.DateTimeFormat("zh-TW", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(t);
 
-export default function PublishSummary({ pending, unsaved = [], me }) {
+export default function PublishSummary({ pending, unsaved = [], me, p }) {
   if (pending === null) return <p className="small-note">（讀不到待發布的清單，仍可以發布。）</p>;
   const byAuthor = new Map();
   for (const c of pending.commits) {
@@ -44,6 +45,7 @@ export default function PublishSummary({ pending, unsaved = [], me }) {
         </p>
       )}
       {pending.files.length > 0 && <p className="small-note">共 {pending.files.length} 個檔案會更新。</p>}
+      {p && pending.files.length > 0 && <SeeChanges p={p} files={pending.files} unsaved={unsaved.length > 0} />}
     </div>
   );
 }
@@ -117,6 +119,24 @@ export function PublishChecks({ checks, onOpen, typoPages, onTypos }) {
       ))}
       <p className="small-note">這些不會擋住發布；如果是刻意保留的，可以直接發布。</p>
       <TypoAsk pages={typoPages} onTypos={onTypos} />
+    </div>
+  );
+}
+
+// 看改了什麼 in the 發布 dialog: the saved changes against the live site.
+function SeeChanges({ p, files, unsaved }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="publish-diff">
+      <button type="button" className="text-link" onClick={() => setOpen(!open)} aria-expanded={open}>
+        {open ? "收起" : "看改了什麼（和網站目前版本比較）"}
+      </button>
+      {open && (
+        <>
+          {unsaved && <p className="small-note">還沒保存的修改不在這裡，發布時會一起存好。</p>}
+          <DiffView p={p} from="published" to="draft" files={files} />
+        </>
+      )}
     </div>
   );
 }

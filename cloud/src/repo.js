@@ -274,13 +274,33 @@ export async function canEdit(env, site, email) {
   return !!row;
 }
 
+// "editor" (老師: may publish) or "contributor" (學生、助理: saves drafts,
+// asks a teacher to publish); null for someone who is not a member.
+// Admins are editors everywhere.
+export const ROLES = ["editor", "contributor"];
+export async function roleOf(env, site, email) {
+  if (isAdmin(env, email)) return "editor";
+  const row = await env.DB.prepare("SELECT role FROM members WHERE site_id = ? AND email = ?")
+    .bind(site.id, String(email).toLowerCase())
+    .first();
+  return row ? (ROLES.includes(row.role) ? row.role : "editor") : null;
+}
+
 export async function sitesFor(env, email) {
   const q = isAdmin(env, email)
-    ? env.DB.prepare("SELECT * FROM sites ORDER BY name")
+    ? env.DB.prepare("SELECT *, 'editor' AS role FROM sites ORDER BY name")
     : env.DB.prepare(
-        "SELECT sites.* FROM sites JOIN members ON members.site_id = sites.id WHERE members.email = ? ORDER BY sites.name",
+        "SELECT sites.*, members.role AS role FROM sites JOIN members ON members.site_id = sites.id WHERE members.email = ? ORDER BY sites.name",
       ).bind(String(email).toLowerCase());
   return (await q.all()).results;
+}
+
+export async function setMemberRole(env, siteId, email, role, actor, now) {
+  if (!ROLES.includes(role)) throw new RepoError(400, "不認得這個身分。");
+  const e = String(email || "").trim().toLowerCase();
+  const r = await env.DB.prepare("UPDATE members SET role = ? WHERE site_id = ? AND email = ?").bind(role, siteId, e).run();
+  if (!r.meta?.changes) throw new RepoError(404, "這個人還不是網站成員。");
+  await logEvent(env, siteId, "member_role", null, actor, e + " → " + role, now);
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

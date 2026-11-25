@@ -31,6 +31,8 @@ import AddPublication, { publicationPages } from "../components/AddPublication";
 import ImportPublications from "../components/ImportPublications";
 import OrcidReminder from "../components/OrcidReminder";
 import SyncNote from "../components/SyncNote";
+import Presence from "../components/Presence";
+import ReviewBanner from "../components/ReviewBanner";
 import Assistant from "../components/Assistant";
 import PromptBank from "../components/PromptBank";
 import AssistantDock from "../components/AssistantDock";
@@ -185,6 +187,43 @@ export default function Project({ p, device, setDevice, setConfirm }) {
     ...(p.textSize?.dirty ? ["外觀"] : []),
     ...(p.albumsDirty ? ["雲端相簿"] : []),
   ];
+  // 學生、助理 (contributor): instead of 發布, the saved changes go to the
+  // site's teachers with a note (the same checks and changes are shown).
+  const contributor = isCloud && p.cloudSite?.role === "contributor";
+  const onRequestReview = async () => {
+    const pending = await p.cloudCalls.pending(p.cloudSite.id).catch(() => null);
+    const changed = [...(pending?.files || []).map((f) => (Array.isArray(f) ? f[0] : f)), ...(p.dirtyPages || [])];
+    const checks = await p.prepublishCheck(changed).catch(() => null);
+    const note = { current: null };
+    setConfirm({
+      title: "請老師看看並發布？",
+      description: "修改會先存好，網站的老師會在「我的網站」和編輯畫面看到你的請求。老師發布前，訪客看到的還是舊的網站。",
+      body: (
+        <>
+          <label className="field review-note">
+            <span>給老師的話（選填）</span>
+            <textarea ref={(el) => (note.current = el)} rows={3} placeholder="例如：更新了 11 月的活動照片和兩則消息" />
+          </label>
+          <PublishChecks checks={checks} onOpen={() => setConfirm(null)} />
+          <PublishSummary p={p} pending={pending} unsaved={p.anyDirty ? unsavedNames() : []} me={p.cloud.me?.email} />
+        </>
+      ),
+      confirmLabel: "送給老師",
+      confirmColor: "orange",
+      cancelLabel: "先不要",
+      action: async () => {
+        const text = note.current?.value || "";
+        if (p.anyDirty && !(await p.saveAll())) return;
+        try {
+          await p.cloudCalls.requestReview(p.cloudSite.id, text);
+          await p.refreshCloud();
+          p.notify("已送給老師。老師發布後，網站就會更新。");
+        } catch (e) {
+          p.setError(e.message);
+        }
+      },
+    });
+  };
   const onPublish = async () => {
     const pending = await p.cloudCalls.pending(p.cloudSite.id).catch(() => null);
     const changed = [...(pending?.files || []).map((f) => (Array.isArray(f) ? f[0] : f.path || f)), ...(p.dirtyPages || [])];
@@ -210,7 +249,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
             setPendingAsk({ page, text: "檢查這一頁有沒有錯字或不通順的地方。" });
           }}
         />
-        <PublishSummary pending={pending} unsaved={p.anyDirty ? unsavedNames() : []} me={p.cloud.me?.email} />
+        <PublishSummary p={p} pending={pending} unsaved={p.anyDirty ? unsavedNames() : []} me={p.cloud.me?.email} />
       </>
     );
     const previous = p.cloudSite?.published || null;
@@ -376,6 +415,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
         <span className={"studio-state " + (auto.on && auto.pending && auto.status === "error" ? "dirty" : auto.on && auto.pending ? "pending" : state)} role="status">
           {stateText}
         </span>
+        <Presence others={p.others} current={p.current} labelOf={p.labelOf} onOpen={(page) => page && page !== p.current && switchPage(page)} />
         {writable && (unsavedCount > 0 || !isCloud) && (
           <Button
             variant={isCloud ? "surface" : "solid"}
@@ -397,12 +437,12 @@ export default function Project({ p, device, setDevice, setConfirm }) {
         {isCloud && (
           <Button
             color="orange"
-            onClick={onPublish}
+            onClick={contributor ? onRequestReview : onPublish}
             disabled={p.busy || (!p.cloudSite?.unpublished && !p.anyDirty)}
-            title={!p.cloudSite?.unpublished && !p.anyDirty ? "沒有需要發布的修改" : "把網站更新成最新版本"}
+            title={!p.cloudSite?.unpublished && !p.anyDirty ? "沒有需要發布的修改" : contributor ? "請網站的老師看過後發布" : "把網站更新成最新版本"}
           >
             <RocketLaunch size={18} />
-            發布
+            {contributor ? "請老師發布" : "發布"}
           </Button>
         )}
         <Button
@@ -497,6 +537,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
       {guide && <EditorGuide onClose={() => setGuide(false)} isCloud={isCloud} hasAlbum={!!p.album?.ok} hasNews={hasNews} hasAi={aiOn} />}
       <div className={"studio-body" + (tab === "pair" ? " wide-inspector" : "")}>
         <aside className="studio-left" aria-label="網站結構">
+          {isCloud && <ReviewBanner p={p} onPublish={onPublish} />}
           {isCloud && writable && <OrcidReminder key={orcidNonce} p={p} onOpen={(found) => setBulkPub({ n: Date.now(), ...found })} />}
           {writable && quick.length > 0 && (
             <p className="tree-quick">
