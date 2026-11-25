@@ -25,6 +25,7 @@ import { zip } from "./zip.js";
 import { fetchRepoFiles, backupToGitHub, backupAll, parseRepo } from "./github.js";
 import { moveSitesOffSheets } from "./sheets.js";
 import { applyPatches } from "./patches.js";
+import { lookupReference } from "./lookup.js";
 import { templateFiles, personalize, applySkin } from "./templates.js";
 import { adminOverview } from "./overview.js";
 import { aiThemes, aiAssist, aiUsage, aiConfig, aiEnabledFor, aiAdminView, saveAiSettings, removeAiKey, testAiKey } from "./ai.js";
@@ -187,6 +188,9 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
       sites: sites.map((s) => siteView(c.env, s)),
     });
   });
+
+  // DOI / PMID → reference metadata for 新增論文 (any signed-in editor).
+  app.get("/api/lookup/reference", async (c) => c.json(await lookupReference(c.req.query("q"), fetchImpl)));
 
   app.post("/api/logout", async (c) => {
     await endSession(c.env, readCookie(c.req.raw, COOKIE));

@@ -1132,6 +1132,43 @@ const FALLBACK_NEWS = [
   assert.equal((await history(env, await getSite(env, none.id))).length, 1);
 });
 
+/* ============================================================ DOI / PMID */
+test("reference lookup: doi.org first, Crossref fallback, PubMed with DOI upgrade, clear errors", async () => {
+  const csl = { author: [{ family: "Sung", given: "Chien-Mei" }], issued: { "date-parts": [[2026]] }, title: "A trial", "container-title": "Journal of Advanced Nursing", volume: "82", page: "1-9", DOI: "10.1111/jan.1" };
+  const fetchImpl = scriptedFetch([
+    [/doi\.org\/10\.1111\/jan\.1$/, (u, init) => ({ json: init.headers.Accept.includes("csl") ? csl : {} })],
+    [/doi\.org\/10\.9999\/cr$/, { status: 406, json: {} }],
+    [/api\.crossref\.org\/works\/10\.9999%2Fcr/, { json: { message: { ...csl, title: ["From Crossref"], "container-title": ["J"] } } }],
+    [/doi\.org\/10\.0000\/none/, { status: 404, json: {} }],
+    [/api\.crossref\.org\/works\/10\.0000/, { status: 404, json: {} }],
+    [/esummary\.fcgi.*id=123456/, { json: { result: { 123456: { uid: "123456", pubdate: "2020", source: "J Adv Nurs", fulljournalname: "Journal of advanced nursing", authors: [{ name: "Sung CM", authtype: "Author" }], title: "PubMed title.", articleids: [{ idtype: "doi", value: "10.1111/jan.1" }] } } } }],
+    [/esummary\.fcgi.*id=999999/, { json: { result: { 999999: { uid: "999999", error: "cannot get document summary" } } } }],
+  ]);
+  const env = fakeEnv();
+  const app = createApp({ fetchImpl });
+  const get = async (q, e = env) => {
+    const res = await app.request("http://localhost/api/lookup/reference?q=" + encodeURIComponent(q), {}, e);
+    return [res.status, await res.json()];
+  };
+  let [status, body] = await get("https://doi.org/10.1111/jan.1");
+  assert.equal(status, 200);
+  assert.deepEqual([body.title, body.journal, body.authors[0].family], ["A trial", "Journal of Advanced Nursing", "Sung"]);
+  [, body] = await get("10.9999/cr");
+  assert.equal(body.title, "From Crossref");
+  [status, body] = await get("10.0000/none");
+  assert.equal(status, 404);
+  assert.match(body.error, /找不到這個 DOI/);
+  [, body] = await get("PMID 123456");
+  assert.deepEqual([body.title, body.pmid, body.doi], ["A trial", "123456", "10.1111/jan.1"], "PubMed record upgraded with doi.org metadata");
+  [status, body] = await get("999999");
+  assert.equal(status, 404);
+  [status] = await get("hello");
+  assert.equal(status, 400);
+  // Signed-in only.
+  const res = await app.request("http://localhost/api/lookup/reference?q=10.1111/jan.1", {}, { ...env, DEV_AUTH: "off" });
+  assert.equal(res.status, 401);
+});
+
 /* ============================================================ site patches */
 test("one-off site patches: only on the exact file version, once, published when nothing else waits", async () => {
   const env = fakeEnv();

@@ -6192,3 +6192,20 @@ h3 {
   margin: 0;
   color: #a12a1b;
 }
+
+/* 新增論文: DOI / PMID lookup row. */
+.quick-add-lookup {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 6px 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+.quick-add-lookup .field {
+  margin: 0;
+}
+.quick-add-lookup .small-note {
+  grid-column: 1 / -1;
+  margin: 0;
+}
