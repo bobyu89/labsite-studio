@@ -57,6 +57,7 @@ export function cloudApi(fetchImpl = (...a) => fetch(...a)) {
     overview: () => call("GET", "/admin/overview"),
     lookupReference: (q) => call("GET", "/lookup/reference?q=" + encodeURIComponent(q)),
     lookupOrcid: (orcid) => call("GET", "/lookup/orcid?id=" + encodeURIComponent(orcid)),
+    searchPaper: (title, year) => call("GET", "/lookup/search?title=" + encodeURIComponent(title) + (year ? "&year=" + year : "")),
     getOrcid: (id) => call("GET", site(id) + "/orcid"),
     checkLinks: (id, urls) => call("POST", site(id) + "/check-links", { urls }),
     stats: (id, days = 30) => call("GET", site(id) + "/stats?days=" + days),

@@ -7573,3 +7573,243 @@ mark.diff-out {
     grid-template-columns: 1fr;
   }
 }
+
+/* v4.25 論文與成員總表 (ContentTables.jsx) */
+.content-tables {
+  display: grid;
+  gap: 10px;
+}
+.ct-tabs {
+  display: flex;
+  gap: 18px;
+  border-bottom: 1px solid var(--line);
+}
+.ct-tabs button {
+  min-height: 38px;
+  padding: 0 2px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  background: none;
+  font: inherit;
+  color: var(--muted);
+  cursor: pointer;
+}
+.ct-tabs button.active {
+  border-bottom-color: var(--accent);
+  color: var(--ink);
+  font-weight: 700;
+}
+.ct-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+.ct-filter {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.ct-filter.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+}
+.ct-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--rule);
+  color: var(--muted);
+}
+.ct-search input {
+  min-height: 30px;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  outline: 0;
+  width: 12em;
+}
+.ct-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+}
+.ct-list li {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: 4px;
+}
+.ct-main {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 8px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.ct-year {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.ct-title em {
+  display: block;
+  color: var(--muted);
+  font-size: 13px;
+}
+.ct-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  padding-left: 52px;
+  font-size: 13px;
+}
+.ct-meta .text-link {
+  font-size: 13px;
+}
+.ct-flag {
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 20px;
+  border: 1px solid var(--rule);
+  color: var(--muted);
+}
+.ct-flag.warn {
+  border-color: #e7b48f;
+  color: #9a3412;
+}
+.doi-finder {
+  display: grid;
+  gap: 6px;
+  margin-left: 52px;
+  padding: 8px 10px;
+  background: var(--paper);
+}
+.doi-candidate {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: #fff;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.doi-candidate:hover {
+  border-color: var(--accent);
+}
+.doi-candidate span {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.ct-people {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.ct-people th,
+.ct-people td {
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+.ct-people th {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+/* v4.25 前 10 分鐘 (GettingStarted.jsx) */
+.getting-started {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 12px;
+  background: #fff;
+  box-shadow: 0 0 0 1px var(--line);
+  border-left: 3px solid var(--accent);
+}
+.gs-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.gs-head strong {
+  font-family: var(--serif);
+  font-size: 15px;
+}
+.gs-x {
+  margin-left: auto;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+.gs-bar {
+  height: 4px;
+  background: var(--line);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.gs-bar span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+.gs-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+  font-size: 14px;
+}
+.gs-steps li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.gs-steps li.done {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+.gs-steps li.done svg {
+  color: #166534;
+}
+.gs-steps li.next .text-link {
+  font-weight: 700;
+}
+.gs-steps .text-link {
+  font-size: 14px;
+  text-align: left;
+}
+.gs-dot {
+  width: 8px;
+  height: 8px;
+  margin: 0 3px;
+  border-radius: 50%;
+  border: 1.5px solid var(--rule);
+}
+.getting-started .small-note {
+  margin: 0;
+}

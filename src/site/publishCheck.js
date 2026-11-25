@@ -31,9 +31,45 @@ export function resolveLink(page, href) {
 }
 
 // → { sample, placeholder, alt, empty, broken }: short examples for one page.
+const VAGUE = /^(點這裡|按這裡|這裡|點此|更多|看更多|詳見|click here|here|more|read more|link|連結)$/i;
+const FIXED = /(?:^|;)\s*(?:min-)?width\s*:\s*(\d{3,4})px/i;
+
+// 無障礙與手機版: what makes a page hard to read with a screen reader or on a
+// phone. Only what can be told from the HTML itself.
+function readability(doc, found) {
+  if (!doc.querySelector('meta[name="viewport"]')) found.viewport.push("缺少 viewport 設定，手機會顯示成縮小的電腦版");
+  if (!doc.documentElement) return;
+  if (!doc.documentElement.getAttribute("lang")) found.a11y.push("沒有標示網頁語言（lang）");
+  const h1 = doc.querySelectorAll("body h1").length;
+  if (h1 === 0) found.a11y.push("沒有主標題（h1）");
+  else if (h1 > 1) found.a11y.push(`有 ${h1} 個主標題（h1），建議只留一個`);
+  let last = 0;
+  for (const h of doc.querySelectorAll("body h1, body h2, body h3, body h4, body h5, body h6")) {
+    const level = Number(h.tagName[1]);
+    if (last && level > last + 1) {
+      found.a11y.push(`標題層級跳過了：「${short(h.textContent)}」是 h${level}，前一個是 h${last}`);
+      break;
+    }
+    last = level;
+  }
+  for (const a of doc.querySelectorAll("body a[href]")) {
+    const words = short(a.textContent);
+    const label = a.getAttribute("aria-label") || a.getAttribute("title") || [...a.querySelectorAll("img[alt]")].map((i) => i.getAttribute("alt")).join("").trim();
+    if (!words && !label) found.a11y.push("只有圖示、沒有文字的連結（" + (a.getAttribute("href") || "").slice(0, 30) + "）");
+    else if (words && VAGUE.test(words)) found.a11y.push(`連結文字「${words}」看不出要去哪裡`);
+  }
+  for (const f of doc.querySelectorAll("body iframe")) if (!f.getAttribute("title")) found.a11y.push("影片或地圖沒有標題（title）");
+  for (const el of doc.querySelectorAll("body [style], body table[width]")) {
+    const m = (el.getAttribute("style") || "").match(FIXED);
+    const w = m ? Number(m[1]) : Number(el.getAttribute("width")) || 0;
+    if (w > 480 && el.tagName !== "IMG") found.mobile.push(`<${el.tagName.toLowerCase()}> 寬度固定 ${w}px，手機上會超出畫面`);
+  }
+}
+
 export function checkPage(page, html, files) {
   const doc = new DOMParser().parseFromString(html, "text/html");
-  const found = { sample: [], placeholder: [], alt: [], empty: [], broken: [] };
+  const found = { sample: [], placeholder: [], alt: [], empty: [], broken: [], viewport: [], mobile: [], a11y: [] };
+  readability(doc, found);
   const walk = (node) => {
     for (const child of node.childNodes) {
       if (child.nodeType === 3) {
@@ -74,6 +110,9 @@ export const CHECKS = [
   { kind: "broken", level: "warn", title: "連到不存在的頁面", hint: "網址打錯，或那一頁已經刪掉了。" },
   { kind: "sync", level: "warn", title: "中英文沒有一起更新", hint: "一種語言改了，另一種還沒跟著改。到那一頁按「請 AI 助手翻譯」，或確定不用改就按「不用改」。" },
   { kind: "deadlink", level: "warn", title: "外部連結打不開", hint: "對方網站說找不到這一頁，或這個 DOI 不存在。請確認網址，或換成新的連結。" },
+  { kind: "viewport", level: "warn", title: "手機版會跑版", hint: "這一頁少了手機用的設定（viewport），手機會看到縮得很小的畫面。請管理者協助在頁面開頭加上 viewport。" },
+  { kind: "mobile", level: "info", title: "手機上可能超出畫面", hint: "有固定寬度的區塊，手機的畫面比較窄，可能要左右滑。可以改用相簿、影片等元件，或請管理者調整。" },
+  { kind: "a11y", level: "info", title: "無障礙：看不到畫面的讀者會卡住", hint: "用螢幕報讀軟體的讀者靠標題和連結文字瀏覽。連結文字請寫出要去哪裡（例如「下載招生簡章」），標題按層級排列。" },
   { kind: "alt", level: "info", title: "照片沒有替代文字", hint: "用一句話描述照片內容，看不到圖的讀者和搜尋引擎會讀這段文字。" },
 ];
 

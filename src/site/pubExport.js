@@ -54,7 +54,7 @@ export function publicationEntries(page, html) {
     const section = sectionElements(doc)[list.section];
     const container = nodeAt(section, list.path);
     const items = [];
-    for (const item of container.children) {
+    [...container.children].forEach((item, childIndex) => {
       let ref;
       if (list.shape === "citation") ref = readItem(citationElement(item) || item);
       else {
@@ -66,9 +66,9 @@ export function publicationEntries(page, html) {
         const text = parts.join("．") + (link ? " " + link : "");
         ref = { text, html: esc(text) };
       }
-      if (ref.text.length > 8) items.push({ ...ref, year: yearOf(ref.text) });
-    }
-    if (items.length) out.push({ page, heading: list.heading || "", items });
+      if (ref.text.length > 8) items.push({ ...ref, year: yearOf(ref.text), index: childIndex });
+    });
+    if (items.length) out.push({ page, heading: list.heading || "", section: list.section, path: list.path, shape: list.shape, bold: list.bold || "", items });
   }
   return out;
 }

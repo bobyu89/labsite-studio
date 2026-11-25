@@ -35,6 +35,8 @@ import QrDialog from "../components/QrDialog";
 import QuickPost from "../components/QuickPost";
 import ScheduleDialog, { scheduleText } from "../components/ScheduleDialog";
 import SemesterWizard from "../components/SemesterWizard";
+import ContentTables from "../components/ContentTables";
+import GettingStarted from "../components/GettingStarted";
 import OrcidReminder from "../components/OrcidReminder";
 import SyncNote from "../components/SyncNote";
 import Presence from "../components/Presence";
@@ -378,7 +380,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
     { id: "pair", title: "中英對照", mark: p.pairStatus[p.current] === "diff" && dot("結構不同") },
     { id: "head", title: "分享設定" },
   ].filter(Boolean);
-  const PANEL_TITLES = { news: "最新消息", pages: "頁面與選單", site: "研究室資料", theme: "外觀與字體大小", pair: "中英對照", head: "分享設定", album: "活動相簿", history: "舊版本" };
+  const PANEL_TITLES = { data: "論文與成員總表", news: "最新消息", pages: "頁面與選單", site: "研究室資料", theme: "外觀與字體大小", pair: "中英對照", head: "分享設定", album: "活動相簿", history: "舊版本" };
   const inEnglish = p.current?.startsWith("en/");
   const pageList = inEnglish ? en : zh;
   const state = unsavedCount > 0 ? "dirty" : isCloud && p.cloudSite?.unpublished ? "pending" : "live";
@@ -623,9 +625,23 @@ export default function Project({ p, device, setDevice, setConfirm }) {
         )}
       </Modal>
       {guide && <EditorGuide onClose={() => setGuide(false)} isCloud={isCloud} hasAlbum={!!p.album?.ok} hasNews={hasNews} hasAi={aiOn} />}
-      <div className={"studio-body" + (tab === "pair" ? " wide-inspector" : "")}>
+      <div className={"studio-body" + (tab === "pair" || tab === "data" ? " wide-inspector" : "")}>
         <aside className="studio-left" aria-label="網站結構">
           {isCloud && <ReviewBanner p={p} onPublish={onPublish} />}
+          {isCloud && writable && !contributor && (
+            <GettingStarted
+              p={p}
+              onGo={(go) => {
+                if (go.publish) return onPublish();
+                if (go.tab) return setTab(go.tab);
+                if (go.page) enter("blocks", go.page);
+                if (go.papers) {
+                  setAddPub(true);
+                  p.notify("先把清單裡標著「（範例）」的論文刪掉，再用這裡加入自己的論文；論文多的話按「一次匯入多篇」。");
+                } else if (go.page) p.notify("在預覽點標著「（範例）」的文字或範例照片，就能直接修改。");
+              }}
+            />
+          )}
           {isCloud && writable && <OrcidReminder key={orcidNonce} p={p} onOpen={(found) => setBulkPub({ n: Date.now(), ...found })} />}
           {writable && quick.length > 0 && (
             <p className="tree-quick">
@@ -767,6 +783,13 @@ export default function Project({ p, device, setDevice, setConfirm }) {
                   </button>
                 </li>
               )}
+              {(publicationPages(p.pages).length > 0 || membersPage) && (
+                <li>
+                  <button type="button" className={tab === "data" ? "active" : ""} onClick={() => setTab("data")}>
+                    論文與成員總表
+                  </button>
+                </li>
+              )}
               <li>
                 <button type="button" className={tab === "site" ? "active" : ""} onClick={() => setTab("site")}>
                   研究室資料
@@ -827,6 +850,18 @@ export default function Project({ p, device, setDevice, setConfirm }) {
               <ColorPanel p={p} writable={writable} />
               <TextSizePanel p={p} writable={writable} />
               {p.theme && <SiteThemePanel p={p} />}
+            </div>
+          ) : tab === "data" ? (
+            <div className="inspector-body">
+              <ContentTables
+                p={p}
+                writable={writable}
+                setConfirm={setConfirm}
+                onOpen={(page, section) => {
+                  enter("blocks", page);
+                  if (section != null) setTimeout(() => p.setSelected(section), 300);
+                }}
+              />
             </div>
           ) : tab === "news" && p.news ? (
             <div className="inspector-body">

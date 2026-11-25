@@ -60,3 +60,17 @@ export async function lookupOrcid(input, fetchImpl = fetch) {
   if (!data) throw new RepoError(404, "找不到這個 ORCID，或這個帳號的論文沒有公開。");
   return { orcid: id, works: orcidWorks(data) };
 }
+
+// A paper without a DOI → up to three likely matches from Crossref, by its
+// title (and year when known). The teacher picks one; nothing is guessed.
+export async function searchByTitle(title, year, fetchImpl = fetch) {
+  const t = String(title || "").replace(/\s+/g, " ").trim().slice(0, 300);
+  if (t.length < 12) throw new RepoError(400, "標題太短，查不到。");
+  const params = new URLSearchParams({ "query.bibliographic": t, rows: "3", select: "DOI,title,issued,container-title,author" });
+  if (/^\d{4}$/.test(String(year || ""))) params.set("filter", `from-pub-date:${Number(year) - 1},until-pub-date:${Number(year) + 1}`);
+  const data = await json(fetchImpl, "https://api.crossref.org/works?" + params, "Crossref");
+  return (data?.message?.items || []).map((m) => {
+    const meta = fromCsl(m);
+    return { doi: meta.doi, title: meta.title, year: meta.year, journal: meta.journal, authors: meta.authors.slice(0, 3).map((a) => a.family || a.literal).join(", ") };
+  });
+}

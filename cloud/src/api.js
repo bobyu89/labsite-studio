@@ -25,7 +25,7 @@ import { zip } from "./zip.js";
 import { fetchRepoFiles, backupToGitHub, backupAll, parseRepo, githubToken, testGithubToken, backupAdminView, saveGithubToken } from "./github.js";
 import { moveSitesOffSheets } from "./sheets.js";
 import { applyPatches } from "./patches.js";
-import { lookupReference, lookupOrcid } from "./lookup.js";
+import { lookupReference, lookupOrcid, searchByTitle } from "./lookup.js";
 import { parseOrcid } from "../../src/site/bibImport.js";
 import { checkLinks } from "./links.js";
 import { setSchedule, cancelSchedule, runSchedules } from "./schedule.js";
@@ -213,6 +213,7 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
   // DOI / PMID → reference metadata for 新增論文 (any signed-in editor).
   app.get("/api/lookup/reference", async (c) => c.json(await lookupReference(c.req.query("q"), fetchImpl)));
   app.get("/api/lookup/orcid", async (c) => c.json(await lookupOrcid(c.req.query("id"), fetchImpl)));
+  app.get("/api/lookup/search", async (c) => c.json({ results: await searchByTitle(c.req.query("title"), c.req.query("year"), fetchImpl) }));
 
   app.post("/api/logout", async (c) => {
     await endSession(c.env, readCookie(c.req.raw, COOKIE));

@@ -1,3 +1,23 @@
+# v4.25 論文與成員總表、前 10 分鐘引導、無障礙與手機版檢查
+
+日期：2026-11-26。管理者同意建議的「現在」階段 1～3。
+
+內容
+- `src/site/contentIndex.js`：`paperIndex`（每篇論文的年份、標題、期刊、DOI，以及出現在哪一頁哪個清單第幾筆；中英文頁先用 DOI／標題配對，清單長度相同時用位置配對；旗標 duplicate、no-en、no-zh、no-doi、no-year）、`peopleIndex`（成員中英文並列、照片狀態）、`titleIn`、`doiIn`。`pubExport.publicationEntries` 多帶清單位置與每筆的索引。
+- `ContentTables.jsx`（資料 › 論文與成員總表）：篩選、搜尋、去看、刪掉重複的、加到英文頁、找 DOI（`searchByTitle` → Crossref `query.bibliographic`，用字詞重疊 ≥ 0.6 篩掉不像的）；`quickAdd.addLinkToItem`。
+- `GettingStarted.jsx`：以 `prepublishCheck` 的範例文字／範例照片判斷六個步驟。
+- `publishCheck.js`：`viewport`（warn）、`mobile`、`a11y`（info）三類。
+
+驗證
+- `npm test` 247 pass（新增 `tests/content.test.js` 4 項；`tests/restored.test.js` 新增無障礙／手機版 1 項，原測試的範例頁補上 viewport 與 lang）。
+- 真實資料（宋老師網站的 GitHub 備份）：56 篇論文；找到 2 篇重複、1 篇英文頁沒有、33 篇沒有 DOI。瀏覽器裡「刪掉重複的」「加到英文頁」後，要處理的從 3 篇變 1 篇；「找 DOI」對一篇沒有 DOI 的論文只列出標題相近的候選。
+- 無障礙檢查的雜訊：範本 10 頁 0 處；宋老師網站 25 頁、賀老師網站 19 頁各 2 處（標題層級跳過）。
+- 引導卡片：範本網站顯示 6 步、點第一步打開研究室資料、可收起；宋老師網站（沒有範例內容）不顯示。
+
+尚未驗證／已知
+- 總表目前是「從網頁讀出來的資料」，修改仍寫回網頁；之後的系所總覽、評鑑匯出會用同一份索引。
+- 找 DOI 依賴 Crossref 的標題搜尋，研討會摘要和中文期刊常找不到。
+
 # v4.24 活動快報、學期更新、論文匯出、造訪統計、預約發布、QR Code
 
 日期：2026-11-25。管理者要求：#9 先上線，然後做 1～6。

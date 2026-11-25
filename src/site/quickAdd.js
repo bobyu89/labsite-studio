@@ -217,3 +217,27 @@ export function previewCitation(values) {
   return { parts, link: url ? { url, label: linkLabel(url, values.linkLabel) } : null };
 }
 
+
+// Gives the reference at `index` a DOI / full-text link: a "DOI" link after
+// a citation, or the entry's link field. Refused when it already has one.
+export function addLinkToItem(section, containerPath, index, url, shape) {
+  const item = nodeAt(section, containerPath)?.children[index];
+  const href = normalizeUrl(url);
+  if (!item || !href) return false;
+  if (shape === "fields") {
+    const a = item.querySelector("a");
+    if (!a || (a.getAttribute("href") && a.getAttribute("href") !== "#")) return false;
+    a.setAttribute("href", href);
+    return true;
+  }
+  const cite = citationElement(item) || item;
+  if (cite.querySelector("a[href^='http']")) return false;
+  const doc = section.ownerDocument;
+  const a = doc.createElement("a");
+  a.setAttribute("href", href);
+  a.setAttribute("target", "_blank");
+  a.setAttribute("rel", "noopener noreferrer");
+  a.textContent = linkLabel(href, "");
+  cite.append(doc.createTextNode(" "), a);
+  return true;
+}
