@@ -4,7 +4,59 @@
 //             commit (best effort; the cloud copy is the source of truth)
 import { toBase64 } from "./bytes.js";
 import { parseTar, stripTopDir, gunzip } from "./tar.js";
-import { RepoError, loadTree, getCommit, getBlob, diffTrees, getSite } from "./repo.js";
+import { RepoError, loadTree, getCommit, getBlob, diffTrees, getSite, getSettings, setSetting } from "./repo.js";
+
+/* ------------------------------------------------------- backup token */
+// The token that writes backups (and reads private repositories on import):
+// the worker's GITHUB_BACKUP_TOKEN secret when set, otherwise the one the
+// admin pasted in 平台設定 (stored in D1, never returned by the API).
+export async function githubToken(env) {
+  if (env.GITHUB_BACKUP_TOKEN) return env.GITHUB_BACKUP_TOKEN;
+  return (await getSettings(env, ["github_token"])).github_token || "";
+}
+
+const cleanToken = (value) => {
+  const t = String(value || "").trim();
+  if (!/^(github_pat_[A-Za-z0-9_]{20,255}|gh[pousr]_[A-Za-z0-9]{20,255})$/.test(t))
+    throw new RepoError(400, "這看起來不是 GitHub 的存取權杖。權杖以 github_pat_ 或 ghp_ 開頭，請整串貼上。");
+  return t;
+};
+
+// Checks a token against each site's backup repository: can it write there?
+export async function testGithubToken(env, candidate, fetchImpl = fetch) {
+  const token = candidate ? cleanToken(candidate) : await githubToken(env);
+  if (!token) throw new RepoError(400, "還沒有設定權杖。");
+  const { results } = await env.DB.prepare("SELECT slug, github_repo FROM sites WHERE github_repo IS NOT NULL ORDER BY slug").all();
+  const repos = [];
+  for (const r of results) {
+    const res = await fetchImpl(`https://api.github.com/repos/${r.github_repo}`, {
+      headers: { Authorization: "Bearer " + token, Accept: "application/vnd.github+json", "User-Agent": "LabSite" },
+    }).catch(() => null);
+    if (res?.status === 401) return { ok: false, error: "權杖無效或已過期，請重新建立一把。", repos: [] };
+    const data = res?.ok ? await res.json().catch(() => ({})) : {};
+    repos.push({ repo: r.github_repo, ok: !!data.permissions?.push, error: res?.ok ? (data.permissions?.push ? null : "權杖沒有寫入權限") : "權杖看不到這個儲存庫" });
+  }
+  return { ok: repos.every((r) => r.ok), last4: token.slice(-4), repos };
+}
+
+export async function backupAdminView(env) {
+  const stored = (await getSettings(env, ["github_token"])).github_token || "";
+  const token = env.GITHUB_BACKUP_TOKEN || stored;
+  const { results } = await env.DB.prepare("SELECT slug, name, github_repo, backup_status, backup_error, backup_at FROM sites ORDER BY name").all();
+  return {
+    configured: !!token,
+    source: env.GITHUB_BACKUP_TOKEN ? "env" : stored ? "settings" : null,
+    last4: token ? token.slice(-4) : null,
+    sites: results.map((s) => ({ slug: s.slug, name: s.name, repo: s.github_repo, status: s.backup_status, error: s.backup_error, at: s.backup_at })),
+  };
+}
+
+export async function saveGithubToken(env, value, actor) {
+  if (value === null) return setSetting(env, "github_token", null);
+  await setSetting(env, "github_token", cleanToken(value), actor);
+  // Sites marked "skipped" for want of a token get backed up on the next run.
+  await env.DB.prepare("UPDATE sites SET backup_status = NULL WHERE backup_status = 'skipped'").run();
+}
 
 const API = "https://api.github.com";
 const MAX_IMPORT_FILE = 20 * 1024 * 1024;
@@ -140,7 +192,7 @@ async function gitBlobSha(bytes) {
 // → "ok" | "partial" | "skipped" | "error"
 export async function backupToGitHub(env, siteId, fetchImpl = fetch, { batch = BACKUP_BATCH } = {}) {
   const site = await getSite(env, siteId);
-  const token = env.GITHUB_BACKUP_TOKEN;
+  const token = await githubToken(env);
   const target = site && backupTarget(env, site);
   if (!site || !target || !token || !site.draft_commit) {
     if (site) await recordBackup(env, site.id, { status: "skipped" });
@@ -207,7 +259,7 @@ export async function backupToGitHub(env, siteId, fetchImpl = fetch, { batch = B
 // The hourly run: every site whose latest version is not backed up yet,
 // least recently backed up first, within one run's request budget.
 export async function backupAll(env, fetchImpl = fetch, { budget = 45 } = {}) {
-  if (!env.GITHUB_BACKUP_TOKEN) return [];
+  if (!(await githubToken(env))) return [];
   const { results } = await env.DB.prepare(
     "SELECT id, slug FROM sites WHERE draft_commit IS NOT NULL AND (backup_commit IS NULL OR backup_commit != draft_commit) ORDER BY COALESCE(backup_at, 0)",
   ).all();

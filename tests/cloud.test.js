@@ -1132,6 +1132,51 @@ const FALLBACK_NEWS = [
   assert.equal((await history(env, await getSite(env, none.id))).length, 1);
 });
 
+/* ======================================================= GitHub backup token */
+test("GitHub backup token: admin only, tested per repository, write-only, used by the backup", async () => {
+  const GOOD = "github_pat_" + "a".repeat(40) + "Wx9z";
+  const fetchImpl = scriptedFetch([
+    [/api\.github\.com\/repos\/bobyu89\/sung$/, (u, init) => (String(init.headers.Authorization).endsWith("Wx9z") ? { json: { permissions: { push: true } } } : { status: 401, json: {} })],
+    [/api\.github\.com\/repos\/bobyu89\/ro$/, { json: { permissions: { push: false } } }],
+  ]);
+  const env = fakeEnv();
+  const site = await seed(env, { githubRepo: "bobyu89/sung", githubBranch: "main" });
+  await env.DB.prepare("UPDATE sites SET backup_status = 'skipped' WHERE id = ?").bind(site.id).run();
+  const app = createApp({ fetchImpl });
+  const as = (email) => ({ ...env, DEV_USER_EMAIL: email });
+  const admin = (method, path, body) => app.request("http://localhost/api/admin/backup" + path, jsonReq(method, body), as("admin@lab.tw"));
+  await addMember(env, site.id, "teacher@lab.tw", "admin@lab.tw");
+  assert.equal((await app.request("http://localhost/api/admin/backup", {}, as("teacher@lab.tw"))).status, 403);
+
+  let view = await (await admin("GET", "")).json();
+  assert.deepEqual([view.configured, view.last4, view.sites[0].repo], [false, null, "bobyu89/sung"]);
+  assert.equal((await admin("PUT", "", { token: "nope" })).status, 400);
+  const tested = await (await admin("POST", "/test", { token: GOOD })).json();
+  assert.deepEqual([tested.ok, tested.last4, tested.repos[0].ok], [true, "Wx9z", true]);
+  assert.equal((await (await admin("GET", "")).json()).configured, false, "testing does not store");
+
+  view = await (await admin("PUT", "", { token: GOOD })).json();
+  assert.deepEqual([view.configured, view.source, view.last4], [true, "settings", "Wx9z"]);
+  assert.ok(!JSON.stringify(view).includes(GOOD));
+  assert.equal(view.sites[0].status, null, "a site skipped for want of a token is queued again");
+  const { githubToken } = await import("../cloud/src/github.js");
+  assert.equal(await githubToken(env), GOOD);
+
+  // A repository the token cannot write to is reported by name.
+  await createSite(env, { slug: "ro", name: "唯讀", files: [file("index.html", "x")], author: "a", message: "m", githubRepo: "bobyu89/ro", githubBranch: "main", now: T0 });
+  const partly = await (await admin("POST", "/test", {})).json();
+  assert.equal(partly.ok, false);
+  assert.deepEqual(partly.repos.map((r) => [r.repo, r.ok]), [["bobyu89/ro", false], ["bobyu89/sung", true]]);
+
+  const removed = await (await admin("DELETE", "")).json();
+  assert.equal(removed.configured, false);
+  assert.equal(await githubToken(env), "");
+  // A worker secret wins and cannot be changed here.
+  const withSecret = { ...env, GITHUB_BACKUP_TOKEN: "ghp_" + "s".repeat(36), DEV_USER_EMAIL: "admin@lab.tw" };
+  assert.equal((await app.request("http://localhost/api/admin/backup", jsonReq("PUT", { token: GOOD }), withSecret)).status, 409);
+  assert.equal((await (await app.request("http://localhost/api/admin/backup", {}, withSecret)).json()).source, "env");
+});
+
 /* ============================================================ DOI / PMID */
 test("reference lookup: doi.org first, Crossref fallback, PubMed with DOI upgrade, clear errors", async () => {
   const csl = { author: [{ family: "Sung", given: "Chien-Mei" }], issued: { "date-parts": [[2026]] }, title: "A trial", "container-title": "Journal of Advanced Nursing", volume: "82", page: "1-9", DOI: "10.1111/jan.1" };

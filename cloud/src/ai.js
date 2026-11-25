@@ -14,7 +14,7 @@ const AI_KINDS = "('ai_theme', 'ai_assist')";
 
 /* ------------------------------------------------------------ settings */
 // The key comes from the worker's ANTHROPIC_API_KEY secret when one is set,
-// otherwise from the settings table (the admin's 「AI 助手設定」 page). It is
+// otherwise from the settings table (the admin's 「平台設定」 page). It is
 // only used here, to call the API: nothing returns it to a browser.
 export async function aiConfig(env) {
   const rows = await getSettings(env, ["ai_key", "ai_daily_limit", "ai_sites_off"]);
@@ -158,7 +158,7 @@ function aiError(e) {
 
 // → [{ name, rationale, font, vars, fontUrl, adjusted }]
 export async function aiThemes(env, description, fetchImpl, key = env.ANTHROPIC_API_KEY) {
-  if (!key) throw new RepoError(503, "AI 功能尚未設定（管理者需要在「AI 助手設定」放入 API 金鑰）。");
+  if (!key) throw new RepoError(503, "AI 功能尚未設定（管理者需要在「平台設定」放入 API 金鑰）。");
   const text = String(description || "").replace(/\s+/g, " ").trim();
   if (text.length < 2 || text.length > 300) throw new RepoError(400, "請用 2–300 字描述想要的感覺。");
   let response;
@@ -304,7 +304,7 @@ const taipeiDate = (now) => new Date(now + 8 * 3600 * 1000).toISOString().slice(
 
 // → { reply, changes }
 export async function aiAssist(env, { message, history = [], context }, fetchImpl, key, now = Date.now()) {
-  if (!key) throw new RepoError(503, "AI 助手尚未設定（管理者需要在「AI 助手設定」放入 API 金鑰）。");
+  if (!key) throw new RepoError(503, "AI 助手尚未設定（管理者需要在「平台設定」放入 API 金鑰）。");
   const ask = clip(message, 4000);
   if (ask.length < 2) throw new RepoError(400, "請寫下想怎麼改。");
   if (String(message || "").trim().length > 4000) throw new RepoError(400, "這段話太長了，請分幾次說（一次 4000 字以內）。");

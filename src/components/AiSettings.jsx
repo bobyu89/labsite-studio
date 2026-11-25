@@ -6,6 +6,7 @@
 import React, { useEffect, useState } from "react";
 import { Button } from "@radix-ui/themes";
 import { WarningCircle, CaretLeft } from "@phosphor-icons/react";
+import BackupSettings from "./BackupSettings";
 
 export default function AiSettings({ p, onBack, setConfirm }) {
   const [view, setView] = useState(null);
@@ -87,8 +88,8 @@ export default function AiSettings({ p, onBack, setConfirm }) {
     <div className="ai-settings">
       <div className="page-heading compact home-heading">
         <div>
-          <h1>AI 助手設定</h1>
-          <p>只有管理者看得到。老師在編輯畫面用 AI 助手時，用的是這裡的金鑰。</p>
+          <h1>平台設定</h1>
+          <p>只有管理者看得到：AI 助手的金鑰與用量，以及網站備份到 GitHub 的設定。</p>
         </div>
         <Button variant="surface" color="gray" onClick={onBack}>
           <CaretLeft size={16} /> 我的網站
@@ -103,6 +104,7 @@ export default function AiSettings({ p, onBack, setConfirm }) {
       {!view && !error && <p className="muted">正在讀取設定…</p>}
       {view && (
         <>
+          <h2 className="settings-heading">AI 助手</h2>
           <div className="settings-card">
             <section>
               <h2>API 金鑰</h2>
@@ -187,6 +189,8 @@ export default function AiSettings({ p, onBack, setConfirm }) {
               )}
             </section>
           </div>
+          <h2 className="settings-heading">GitHub 備份</h2>
+          <BackupSettings p={p} setConfirm={setConfirm} />
           <div className="settings-notes">
             <h2>金鑰怎麼保管</h2>
             <p>金鑰存在 LabSite 的資料庫（Cloudflare D1），只有伺服器在呼叫 AI 時會讀取。它不會傳到任何人的瀏覽器：老師看不到，你之後在這一頁也只看得到最後 4 碼。</p>

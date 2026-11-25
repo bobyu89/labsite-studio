@@ -67,6 +67,11 @@ export function cloudApi(fetchImpl = (...a) => fetch(...a)) {
     saveAiSettings: (patch) => call("PUT", "/admin/ai", patch),
     removeAiKey: () => call("DELETE", "/admin/ai"),
     testAiKey: (key) => call("POST", "/admin/ai/test", key ? { key } : {}),
+    backupSettings: () => call("GET", "/admin/backup"),
+    saveBackupToken: (token) => call("PUT", "/admin/backup", { token }),
+    removeBackupToken: () => call("DELETE", "/admin/backup"),
+    testBackupToken: (token) => call("POST", "/admin/backup/test", token ? { token } : {}),
+    runBackup: () => call("POST", "/admin/backup/run", {}),
     exportUrl: (id, ref = "draft") => "/api" + site(id) + "/export?ref=" + ref,
     fetchImpl,
   };

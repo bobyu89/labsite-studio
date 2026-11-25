@@ -6209,3 +6209,23 @@ h3 {
   grid-column: 1 / -1;
   margin: 0;
 }
+.settings-heading {
+  margin: 24px 0 8px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.settings-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 14px;
+  line-height: 1.8;
+}
+.settings-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  font-size: 14px;
+  line-height: 1.7;
+  padding: 4px 0;
+}
