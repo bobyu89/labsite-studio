@@ -23,6 +23,8 @@ const cleanToken = (value) => {
 };
 
 // Checks a token against each site's backup repository: can it write there?
+const NO_WRITE = "權杖沒有寫入權限：到 GitHub 編輯這把權杖，Permissions › Contents 改成 Read and write";
+
 export async function testGithubToken(env, candidate, fetchImpl = fetch) {
   const token = candidate ? cleanToken(candidate) : await githubToken(env);
   if (!token) throw new RepoError(400, "還沒有設定權杖。");
@@ -33,8 +35,22 @@ export async function testGithubToken(env, candidate, fetchImpl = fetch) {
       headers: { Authorization: "Bearer " + token, Accept: "application/vnd.github+json", "User-Agent": "LabSite" },
     }).catch(() => null);
     if (res?.status === 401) return { ok: false, error: "權杖無效或已過期，請重新建立一把。", repos: [] };
-    const data = res?.ok ? await res.json().catch(() => ({})) : {};
-    repos.push({ repo: r.github_repo, ok: !!data.permissions?.push, error: res?.ok ? (data.permissions?.push ? null : "權杖沒有寫入權限") : "權杖看不到這個儲存庫" });
+    if (!res?.ok) {
+      repos.push({ repo: r.github_repo, ok: false, error: "權杖看不到這個儲存庫（Repository access 沒有選它）" });
+      continue;
+    }
+    // The repository's `permissions` field describes the account, not the
+    // token: a fine-grained token with Contents "Read-only" still shows
+    // push: true. So try what the backup does first — create a blob. The
+    // empty blob already exists in nearly every repository, so this leaves
+    // nothing behind.
+    const probe = await fetchImpl(`https://api.github.com/repos/${r.github_repo}/git/blobs`, {
+      method: "POST",
+      headers: { Authorization: "Bearer " + token, Accept: "application/vnd.github+json", "User-Agent": "LabSite", "Content-Type": "application/json" },
+      body: JSON.stringify({ content: "", encoding: "utf-8" }),
+    }).catch(() => null);
+    const ok = !!probe?.ok;
+    repos.push({ repo: r.github_repo, ok, error: ok ? null : NO_WRITE });
   }
   return { ok: repos.every((r) => r.ok), last4: token.slice(-4), repos };
 }
@@ -151,7 +167,8 @@ async function call(fetchImpl, token, method, url, body) {
     } catch {
       /* ignore */
     }
-    throw new Error(`${method} ${url.replace(API, "")} → ${res.status} ${detail}`.trim());
+    const hint = res.status === 403 && /not accessible/i.test(detail) ? NO_WRITE + "（" : "";
+    throw new Error(`${hint}${method} ${url.replace(API, "")} → ${res.status} ${detail}`.trim() + (hint ? "）" : ""));
   }
   return res.json();
 }
