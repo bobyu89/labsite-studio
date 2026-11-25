@@ -1,9 +1,9 @@
-// The site's latest news (FALLBACK_NEWS in js/data.js): add, edit, remove,
-// save. A site that still reads its news from a Google Sheet first gets one
-// button that copies the sheet in and stops reading it.
+// The site's latest news (FALLBACK_NEWS in js/data.js): add, edit, remove.
+// A site that still reads its news from a Google Sheet gets one button that
+// copies the sheet in and stops reading it.
 import React, { useState } from "react";
 import { Button } from "@radix-ui/themes";
-import { Plus, Trash, FloppyDisk, CaretDown, CaretRight, ArrowSquareOut } from "@phosphor-icons/react";
+import { Plus, Trash, FloppyDisk, CaretDown, CaretRight } from "@phosphor-icons/react";
 import { Field } from "./ui";
 import { NEWS_CATEGORIES, sortNews, normalizeDate } from "../site/news.js";
 
@@ -48,35 +48,20 @@ export default function NewsPanel({ p, writable, setConfirm }) {
       </p>
     );
 
+  // LabSite moves every site off its sheet within the hour (cloud/src/sheets.js);
+  // this button does the same right away, into the draft.
   if (news.sheetId)
     return (
       <div className="news-panel">
         <div className="news-callout">
-          <strong>這個網站的最新消息目前來自 Google 試算表</strong>
+          <strong>這個網站的最新消息還在 Google 試算表</strong>
           <p>
-            搬進編輯器之後，就在這裡新增、修改消息，按「發布」網站就會更新，不用再開試算表。
-            會先把試算表裡現有的消息複製過來，試算表本身不會被刪除或修改。
+            系統會在一小時內自動把試算表裡的消息搬進來，之後就在這裡新增、修改，不用再開試算表。想現在就改，按下面的按鈕先搬。試算表本身不會被刪除或修改。
           </p>
           <Button size="3" disabled={!writable || p.busy} onClick={() => p.importSheetNews()}>
-            從試算表搬進來
+            現在就搬進來
           </Button>
-          <a className="small-note" href={`https://docs.google.com/spreadsheets/d/${news.sheetId}/edit`} target="_blank" rel="noopener">
-            <ArrowSquareOut size={14} /> 先看看試算表
-          </a>
         </div>
-        <button
-          className="link-button small-note"
-          disabled={!writable || p.busy}
-          onClick={() =>
-            setConfirm({
-              title: "不搬試算表，直接在這裡管理？",
-              description: `網站會改成顯示 js/data.js 裡目前的 ${news.items.length} 則消息，試算表裡比較新的消息不會出現。`,
-              action: p.detachNewsSheet,
-            })
-          }
-        >
-          不搬，直接在這裡管理（從網站目前的 {news.items.length} 則消息開始）
-        </button>
       </div>
     );
 

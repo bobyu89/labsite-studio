@@ -23,6 +23,7 @@ import { fromBase64, enc } from "./bytes.js";
 import { contentType } from "./mime.js";
 import { zip } from "./zip.js";
 import { fetchRepoFiles, backupToGitHub, backupAll, parseRepo } from "./github.js";
+import { moveSitesOffSheets } from "./sheets.js";
 import { templateFiles, personalize, applySkin } from "./templates.js";
 import { adminOverview } from "./overview.js";
 import { aiThemes, aiAssist, aiUsage, aiConfig, aiEnabledFor, aiAdminView, saveAiSettings, removeAiKey, testAiKey } from "./ai.js";
@@ -473,5 +474,6 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
 const app = createApp();
 export default {
   fetch: (request, env, ctx) => app.fetch(request, env, ctx),
-  scheduled: (event, env, ctx) => ctx.waitUntil(backupAll(env)),
+  // Hourly: move any site still reading a Google Sheet into LabSite, then back up to GitHub.
+  scheduled: (event, env, ctx) => ctx.waitUntil(moveSitesOffSheets(env).catch(() => []).then(() => backupAll(env))),
 };
