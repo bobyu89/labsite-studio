@@ -24,6 +24,7 @@ import { verifyAccessJwt, currentUser, _resetCertCache } from "../cloud/src/auth
 import { fetchRepoFiles, backupToGitHub, backupAll } from "../cloud/src/github.js";
 import { createApp } from "../cloud/src/api.js";
 import { serve, route } from "../cloud/src/sites.js";
+import { moveSitesOffSheets, SHEET_ACTOR } from "../cloud/src/sheets.js";
 
 const T0 = 1_780_000_000_000;
 const file = (path, text) => ({ path, bytes: enc.encode(text) });
@@ -1067,6 +1068,67 @@ test("autosave: a run of autosaves is one history entry; saved, published and ba
   const listed = await (await app.request(`http://localhost/api/sites/${site.id}/history`, {}, env)).json();
   assert.equal(listed.commits[0].auto, true);
   assert.equal(listed.commits.find((c) => c.id === manual.commit.id).auto, false);
+});
+
+/* ======================================================= off Google Sheets */
+test("hourly job: sites still reading a Google Sheet get the news copied in and published", async () => {
+  const sheetData = (id) => `const CONFIG = {
+  SHEET_ID: "${id}",
+};
+const FALLBACK_NEWS = [
+  { date: "2020-01-01", category: "公告", content: "舊消息", link: "" }
+];
+`;
+  const gvizNews = (content) =>
+    "google.visualization.Query.setResponse(" +
+    JSON.stringify({ table: { cols: [{ label: "date" }, { label: "category" }, { label: "content" }], rows: [{ c: [{ v: "Date(2026,10,1)" }, { v: "公告" }, { v: content }] }] } }) +
+    ");";
+  let down = false;
+  const fetchImpl = scriptedFetch([
+    [/docs\.google\.com\/spreadsheets\/d\/cleanSheet\//, () => (down ? { status: 500, body: "" } : { body: gvizNews("乾淨網站的消息") })],
+    [/docs\.google\.com\/spreadsheets\/d\/busySheet\//, { body: gvizNews("有草稿網站的消息") }],
+  ]);
+  const env = fakeEnv();
+  const file = (path, t) => ({ path, bytes: new TextEncoder().encode(t) });
+  const clean = await createSite(env, { slug: "clean", name: "乾淨", files: [file("index.html", "<h1>a</h1>"), file("js/data.js", sheetData("cleanSheet"))], author: "admin@lab.tw", message: "匯入", now: T0 });
+  const busy = await createSite(env, { slug: "busy", name: "有草稿", files: [file("index.html", "<h1>b</h1>"), file("js/data.js", sheetData("busySheet"))], author: "admin@lab.tw", message: "匯入", now: T0 });
+  const none = await createSite(env, { slug: "none", name: "沒有試算表", files: [file("index.html", "<h1>c</h1>")], author: "admin@lab.tw", message: "匯入", now: T0 });
+  // The busy site has a teacher's unpublished change waiting.
+  await commitChanges(env, busy.id, { files: [file("index.html", "<h1>b2</h1>")], author: "t@lab.tw", message: "老師的草稿", now: T0 + 1 });
+
+  down = true;
+  let r = await moveSitesOffSheets(env, fetchImpl, T0 + 10);
+  const bySlug = (list) => Object.fromEntries(list.map((x) => [x.slug, x]));
+  assert.deepEqual(Object.keys(bySlug(r)).sort(), ["busy", "clean"]);
+  assert.ok(bySlug(r).clean.error, "unreadable sheet is reported");
+  assert.match(await text(env, clean, "js/data.js"), /SHEET_ID: "cleanSheet"/, "unreadable sheet: nothing changed");
+  // The busy site moved, but stays a draft: its teacher's change is not published by this job.
+  assert.match(await text(env, busy, "js/data.js", "draft"), /有草稿網站的消息/);
+  assert.match(await text(env, busy, "js/data.js", "published"), /SHEET_ID: "busySheet"/);
+  assert.equal(bySlug(r).busy.published, false);
+
+  down = false;
+  r = await moveSitesOffSheets(env, fetchImpl, T0 + 20);
+  assert.deepEqual(r.map((x) => [x.slug, x.news, x.published]), [["clean", 1, true]]);
+  const live = await text(env, clean, "js/data.js", "published");
+  assert.match(live, /SHEET_ID: "" \/\* 最新消息改在 LabSite 編輯器管理；原試算表 cleanSheet \*\//);
+  assert.match(live, /content: "乾淨網站的消息"/);
+  const site = await getSite(env, clean.id);
+  assert.equal(site.published_commit, site.draft_commit);
+  const [latest] = await history(env, site);
+  assert.equal(latest.author, SHEET_ACTOR);
+  assert.match(latest.message, /從 Google 試算表搬進 LabSite：最新消息 1 則/);
+  const ev = await env.DB.prepare("SELECT kind, detail FROM events WHERE site_id = ? AND kind = 'sheets_moved'").bind(clean.id).first();
+  assert.equal(ev.detail, "最新消息 1 則");
+  // The public site serves the moved file.
+  const res = await serve(new Request("https://sites.example/clean/js/data.js"), env);
+  assert.match(await res.text(), /乾淨網站的消息/);
+
+  // Nothing left to do: no requests to Google, no new versions.
+  const before = fetchImpl.calls.length;
+  assert.deepEqual(await moveSitesOffSheets(env, fetchImpl, T0 + 30), []);
+  assert.equal(fetchImpl.calls.length, before);
+  assert.equal((await history(env, await getSite(env, none.id))).length, 1);
 });
 
 /* ============================================================ templates */

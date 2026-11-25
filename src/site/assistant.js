@@ -76,7 +76,7 @@ export function buildContext({ path, html, pairPath = null, pairHtml = null, sit
     const news = readNews(siteText);
     context.news = {
       canAdd: news.ok && !news.sheetId,
-      ...(news.ok && news.sheetId ? { why: "這個網站的最新消息目前讀自 Google 試算表；要先到「最新消息」把消息搬進編輯器。" } : {}),
+      ...(news.ok && news.sheetId ? { why: "這個網站的最新消息還在 Google 試算表，系統會在一小時內自動搬進來；急的話可以到「最新消息」按「現在就搬進來」。" } : {}),
       ...(!news.ok ? { why: "這個網站沒有可以直接編輯的最新消息清單。" } : {}),
       categories: NEWS_CATEGORIES,
       recent: news.ok ? news.items.slice(0, 5).map((x) => ({ date: x.date, category: x.category, zh: x.content })) : [],
@@ -105,7 +105,7 @@ export function resolveChanges(changes, index, { siteText = null, labelOf = (x) 
       const news = siteText ? readNews(siteText) : null;
       const base = { ...c, date: normalizeDate(c.date), title: "新增一則最新消息" };
       if (!news?.ok) return { ...base, ok: false, problem: "這個網站沒有可以直接編輯的最新消息清單。" };
-      if (news.sheetId) return { ...base, ok: false, problem: "這個網站的最新消息目前讀自 Google 試算表。請先到左邊「最新消息」把消息搬進來。" };
+      if (news.sheetId) return { ...base, ok: false, problem: "這個網站的最新消息還在 Google 試算表，系統會在一小時內自動搬進來。急的話到左邊「最新消息」按「現在就搬進來」，再請助手加一次。" };
       if (news.items.some((x) => x.date === base.date && same(x.content, c.zh))) return { ...base, ok: false, problem: "已經有一則同一天、同樣內容的消息。" };
       return { ...base, ok: true };
     }

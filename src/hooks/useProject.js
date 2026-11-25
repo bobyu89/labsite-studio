@@ -27,7 +27,8 @@ import { SKINS_PATH, SITE_CSS, loadSkins, readSkin, themeForSkin, withCurrent } 
 import { prepareImage, formatBytes, isImagePath, referencedImages } from "../site/images.js";
 import { readSiteFields, patchSiteField } from "../site/siteData.js";
 import { readAlbum, writeAlbum, defaultCaption, albumPath } from "../site/album.js";
-import { readNews, writeNews, detachSheet, fetchSheetNews } from "../site/news.js";
+import { readNews, writeNews, detachSheet } from "../site/news.js";
+import { moveOffSheets } from "../site/sheets.js";
 import { checkSite } from "../site/publishCheck.js";
 import { TEXT_FILE, planRelocation } from "../site/relocate.js";
 import { TEXT_SIZE_FILES, readTextSize, writeTextSize, carryTextSize } from "../site/textSize.js";
@@ -1190,19 +1191,22 @@ export function useProject(notify) {
       return { ...s, text, fields: readSiteFields(text).fields };
     });
   }
+  // Copies the site's Google Sheet(s) into js/data.js now (the hourly job on
+  // LabSite Cloud does the same on its own): news, and key events if any.
   async function importSheetNews() {
-    if (!news?.ok || !news.sheetId) return false;
+    if (!news?.ok || !news.sheetId || !siteData) return false;
     setBusy(true);
     try {
-      const items = await fetchSheetNews(news.sheetId);
-      setSiteData((s) => {
-        const text = detachSheet(writeNews(s.text, items));
-        return { ...s, text, fields: readSiteFields(text).fields };
-      });
-      notify(`已從試算表搬進 ${items.length} 則消息。確認無誤後${project?.source.kind === "cloud" ? "" : "按「保存消息」，再"}按「發布」。`);
+      const moved = await moveOffSheets(siteData.text);
+      if (!moved?.text || moved.news == null) throw new Error(moved?.errors?.join("；") || "試算表裡沒有消息。");
+      const text = moved.text;
+      setSiteData((s) => ({ ...s, text, fields: readSiteFields(text).fields }));
+      notify(
+        `已從試算表搬進 ${moved.news} 則消息${moved.events ? `、${moved.events} 則重要活動` : ""}。確認無誤後${project?.source.kind === "cloud" ? "" : "按「保存消息」，再"}按「發布」。`,
+      );
       return true;
     } catch (e) {
-      setError("沒辦法讀取 Google 試算表：" + e.message + " 也可以按「不搬，直接在這裡管理」，從網站目前的消息開始。");
+      setError("沒辦法讀取 Google 試算表：" + e.message + " 系統之後會再自動試一次。");
       return false;
     } finally {
       setBusy(false);

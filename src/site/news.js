@@ -16,7 +16,7 @@ const OPTIONAL = new Set(["content_en", "link"]);
 export const NEWS_CATEGORIES = ["公告", "榮譽", "發表", "活動"];
 
 // Index of the "]" closing the "[" at `open`, skipping strings and comments.
-function closeOf(text, open) {
+export function closeOf(text, open) {
   let depth = 0;
   for (let i = open; i < text.length; i++) {
     const ch = text[i];
