@@ -13,6 +13,18 @@ import {
   Question,
   Eye,
   CaretLeft,
+  House,
+  Newspaper,
+  Camera,
+  Images,
+  BookOpen,
+  UsersThree,
+  GraduationCap,
+  PencilSimpleLine,
+  AddressBook,
+  Sparkle,
+  ListChecks,
+  ClockCounterClockwise,
 } from "@phosphor-icons/react";
 import { IconButton, Field, Modal, download } from "../components/ui";
 import ProjectOpen from "../components/ProjectOpen";
@@ -37,6 +49,8 @@ import ScheduleDialog, { scheduleText } from "../components/ScheduleDialog";
 import SemesterWizard from "../components/SemesterWizard";
 import ContentTables from "../components/ContentTables";
 import GettingStarted from "../components/GettingStarted";
+import StartScreen, { startSkipped } from "../components/StartScreen";
+import Tour, { tourDone } from "../components/Tour";
 import OrcidReminder from "../components/OrcidReminder";
 import SyncNote from "../components/SyncNote";
 import Presence from "../components/Presence";
@@ -139,6 +153,22 @@ export default function Project({ p, device, setDevice, setConfirm }) {
   const [promptsOpen, setPromptsOpen] = useState(false);
   const [aiSeed, setAiSeed] = useState(null);
   const [aiOpen, setAiOpen] = useState(false);
+  // 新手步驟 the first time on LabSite Cloud, then 今天想改什麼 each time a
+  // site is opened (unless turned off).
+  const [tour, setTour] = useState(false);
+  const [start, setStart] = useState(false);
+  const openedSite = p.project?.source.kind === "cloud" && p.project.source.writable ? p.project.source.site.id : null;
+  useEffect(() => {
+    if (!openedSite) return;
+    // On LabSite Cloud the tour and the start screen take the place of the
+    // three-step card (still under 使用說明).
+    setGuide(false);
+    const t = setTimeout(() => {
+      if (!tourDone()) setTour(true);
+      else if (!startSkipped()) setStart(true);
+    }, 1200);
+    return () => clearTimeout(t);
+  }, [openedSite]);
   // A request for another page waits until that page is open.
   const [pendingAsk, setPendingAsk] = useState(null);
   useEffect(() => {
@@ -416,6 +446,31 @@ export default function Project({ p, device, setDevice, setConfirm }) {
     setAiSeed({ text, n: Date.now(), send: true });
     setAiOpen(true);
   };
+  // 今天想改什麼: each tile closes the start screen and goes to the place.
+  const go = (fn) => () => {
+    setStart(false);
+    fn();
+  };
+  const homePage = p.pages.includes("index.html") ? "index.html" : p.pages[0];
+  const startTiles = [
+    hasNews && p.news?.ok && !p.news.sheetId && { id: "news", icon: <Newspaper size={30} />, title: "加一則最新消息", text: "公告、獲獎、活動，日期自動排序", run: go(() => setTab("news")) },
+    hasNews && aiOn && p.news?.ok && !p.news.sheetId && { id: "quick", icon: <Camera size={30} />, title: "活動快報", text: "照片＋一句話，AI 寫好中英文消息", run: go(() => setQuickPost(true)), tone: "ai" },
+    (p.album?.ok || p.canListAssets) && { id: "photos", icon: <Images size={30} />, title: "放活動照片", text: "一次加很多張，自動縮小", run: go(openPhotos) },
+    publicationPages(p.pages).length > 0 && { id: "pub", icon: <BookOpen size={30} />, title: "加論文", text: "貼 DOI 自動帶出，或一次匯入", run: go(() => setAddPub(true)) },
+    membersPage && { id: "members", icon: <UsersThree size={30} />, title: "改成員", text: "點成員頁上要改的人", run: go(() => enter("blocks", membersPage)) },
+    membersPage && { id: "semester", icon: <GraduationCap size={30} />, title: "學期更新", text: "畢業、年級加一、新成員一次做完", run: go(() => setSemester(true)) },
+    homePage && { id: "home", icon: <PencilSimpleLine size={30} />, title: "改首頁的文字", text: "研究室介紹、主視覺標題", run: go(() => enter("blocks", homePage)) },
+    { id: "site", icon: <AddressBook size={30} />, title: "改電話、地址、Email", text: "研究室資料，全站一起更新", run: go(() => setTab("site")) },
+    aiOn && { id: "ai", icon: <Sparkle size={30} />, title: "請 AI 助手幫我改", text: "用一句話說想改什麼", run: go(() => setAiOpen(true)), tone: "ai" },
+    (publicationPages(p.pages).length > 0 || membersPage) && { id: "data", icon: <ListChecks size={30} />, title: "檢查論文和成員", text: "重複、英文頁缺漏、沒有 DOI", run: go(() => setTab("data")) },
+    { id: "history", icon: <ClockCounterClockwise size={30} />, title: "找回舊版本", text: "看改了什麼，或還原成之前的樣子", run: go(() => setTab("history")) },
+  ].filter(Boolean);
+  const startStatus = p.cloudSite?.unpublished ? "有修改還沒發布，訪客看到的還是舊的網站。" : "網站是最新的。";
+  const startNotices = [
+    p.cloudSite?.review?.status === "waiting" && !contributor && { id: "review", text: `${p.cloudSite.review.by.split("@")[0]} 請你看看並發布 →`, run: go(onPublish) },
+    p.cloudSite?.unpublished && !contributor && { id: "publish", text: "看看改了什麼，然後發布 →", run: go(onPublish) },
+    (p.sync || []).length > 0 && { id: "sync", text: `這一頁有 ${p.sync.length} 段中英文沒有一起更新 →`, run: go(() => setTab("blocks")) },
+  ].filter(Boolean);
   const close = async () => {
     // Store what was just typed before leaving; only unsaved looks still need a decision.
     const stored = auto.on && auto.pending ? await p.flushAutosave() : true;
@@ -492,6 +547,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
         {isCloud && (
           <Button
             color="orange"
+            className="publish-button"
             onClick={contributor ? onRequestReview : onPublish}
             disabled={p.busy || (!p.cloudSite?.unpublished && !p.anyDirty)}
             title={!p.cloudSite?.unpublished && !p.anyDirty ? "沒有需要發布的修改" : contributor ? "請網站的老師看過後發布" : "把網站更新成最新版本"}
@@ -509,6 +565,12 @@ export default function Project({ p, device, setDevice, setConfirm }) {
           <Eye size={18} />
           看預覽
         </Button>
+        {isCloud && writable && (
+          <Button variant="surface" color="gray" className="start-open" onClick={() => setStart(true)} title="常用的修改，一鍵到">
+            <House size={18} />
+            今天想改什麼
+          </Button>
+        )}
         <IconButton label="使用說明" onClick={() => setGuide((g) => !g)}>
           <Question size={19} />
         </IconButton>
@@ -540,6 +602,35 @@ export default function Project({ p, device, setDevice, setConfirm }) {
         }}
       />
       <ExportPublications p={p} open={exportPub} onClose={() => setExportPub(false)} />
+      {tour && (
+        <Tour
+          steps={[
+            { selector: ".start-open", title: "今天想改什麼", text: "最常做的修改都在這裡：加消息、加論文、換照片、改成員……點大按鈕就直接到要改的地方。" },
+            { selector: ".studio-left", title: "左邊：網站的結構", text: "「新增」是最常用的捷徑；「網站」列出每一頁和頁裡的段落；「資料」是消息、照片、論文總表；「設定」有外觀、分享和舊版本。" },
+            { selector: ".editor-canvas .canvas-frame, .editor-canvas", title: "中間：網站預覽", text: "這就是訪客會看到的樣子，電腦和手機並排。直接點文字或照片，就能修改那個地方。" },
+            { selector: ".studio-right", title: "右邊：修改欄位", text: "點了預覽或左邊的段落，這裡就會出現可以改的文字、照片和連結。" },
+            { selector: ".ai-launcher", title: "AI 助手", text: "不知道去哪裡改，就直接寫想怎麼改，例如「把電話改成 02-1234-5678」。助手會先給你看，按「套用」才會改。" },
+            { selector: ".publish-button", title: "改好了就發布", text: "修改會自動存成草稿，只有編輯的人看得到。按「發布」，大家看到的網站才會更新；改錯了可以從「舊版本」找回來。" },
+          ]}
+          onDone={() => {
+            setTour(false);
+            if (!startSkipped()) setStart(true);
+          }}
+        />
+      )}
+      {start && !tour && isCloud && (
+        <StartScreen
+          siteName={p.cloudSite?.name}
+          status={startStatus}
+          notices={startNotices}
+          tiles={startTiles}
+          onClose={() => setStart(false)}
+          onTour={() => {
+            setStart(false);
+            setTour(true);
+          }}
+        />
+      )}
       {isCloud && <ScheduleDialog p={p} open={scheduling} onClose={() => setScheduling(false)} />}
       <SemesterWizard
         p={p}
@@ -624,7 +715,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
           </div>
         )}
       </Modal>
-      {guide && <EditorGuide onClose={() => setGuide(false)} isCloud={isCloud} hasAlbum={!!p.album?.ok} hasNews={hasNews} hasAi={aiOn} />}
+      {guide && !tour && <EditorGuide onClose={() => setGuide(false)} isCloud={isCloud} hasAlbum={!!p.album?.ok} hasNews={hasNews} hasAi={aiOn} />}
       <div className={"studio-body" + (tab === "pair" || tab === "data" ? " wide-inspector" : "")}>
         <aside className="studio-left" aria-label="網站結構">
           {isCloud && <ReviewBanner p={p} onPublish={onPublish} />}

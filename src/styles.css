@@ -7813,3 +7813,227 @@ mark.diff-out {
 .getting-started .small-note {
   margin: 0;
 }
+
+/* v4.26 今天想改什麼 (StartScreen.jsx) */
+.start-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: start center;
+  overflow-y: auto;
+  padding: 6vh 16px 24px;
+  background: rgba(246, 244, 239, 0.94);
+  backdrop-filter: blur(3px);
+}
+.start-card {
+  position: relative;
+  width: min(980px, 100%);
+  display: grid;
+  gap: 14px;
+}
+.start-x {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+.start-x:hover {
+  background: var(--soft, #ece8df);
+}
+.start-site {
+  margin: 0;
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.start-card h2 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: clamp(26px, 4vw, 36px);
+  letter-spacing: 0.04em;
+}
+.start-status {
+  margin: 0;
+  color: var(--muted);
+}
+.start-notices {
+  list-style: none;
+  margin: 0;
+  padding: 10px 14px;
+  display: grid;
+  gap: 4px;
+  background: #fff;
+  border-left: 3px solid var(--accent);
+  box-shadow: 0 0 0 1px var(--line);
+}
+.start-notices .text-link {
+  font-size: 15px;
+  font-weight: 700;
+}
+.start-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 12px;
+  margin-top: 6px;
+}
+.start-tile {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-height: 132px;
+  padding: 18px 18px 16px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  font: inherit;
+  text-align: left;
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+.start-tile:hover,
+.start-tile:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 8px 22px rgba(31, 29, 26, 0.1);
+  transform: translateY(-2px);
+  outline: 0;
+}
+.start-tile strong {
+  font-size: 17px;
+}
+.start-tile > span:last-child {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.start-icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: var(--paper);
+  color: var(--accent);
+}
+.start-tile.ai .start-icon {
+  background: var(--accent);
+  color: #fff;
+}
+.start-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 20px;
+  margin-top: 6px;
+}
+.start-foot .text-link {
+  font-size: 15px;
+}
+.start-skip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+@media (max-width: 720px) {
+  .start-screen {
+    padding-top: 24px;
+  }
+  .start-tiles {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .start-tile {
+    min-height: 118px;
+    padding: 14px 12px;
+  }
+  .start-tile strong {
+    font-size: 15px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .start-tile {
+    transition: none;
+  }
+}
+
+/* v4.26 新手步驟 (Tour.jsx) */
+.tour {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+}
+.tour-hole {
+  position: fixed;
+  border-radius: 6px;
+  box-shadow: 0 0 0 9999px rgba(23, 21, 18, 0.62), 0 0 0 3px var(--accent);
+  pointer-events: none;
+  transition: all 0.25s ease;
+}
+.tour-note {
+  position: fixed;
+  display: grid;
+  gap: 8px;
+  padding: 16px 18px 14px;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
+}
+.tour-count {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+}
+.tour-note h3 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 19px;
+}
+.tour-note p {
+  margin: 0;
+  line-height: 1.7;
+  font-size: 15px;
+}
+.tour-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.tour-actions > span {
+  flex: 1;
+}
+.tour-next,
+.tour-back {
+  min-height: 38px;
+  padding: 0 16px;
+  border-radius: 4px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.tour-next {
+  border: 0;
+  background: var(--accent);
+  color: #fff;
+}
+.tour-back {
+  border: 1px solid var(--line);
+  background: #fff;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tour-hole {
+    transition: none;
+  }
+}
