@@ -659,6 +659,39 @@ export function useProject(notify) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cloudSiteId]);
 
+  /* -------------------------------------------- 在頁面上留言 (comments) */
+  const [comments, setComments] = useState([]);
+  const loadComments = () =>
+    cloudSiteId
+      ? cloudCalls
+          .comments(cloudSiteId)
+          .then((r) => setComments(r.comments || []))
+          .catch(() => {})
+      : Promise.resolve();
+  useEffect(() => {
+    if (!cloudSiteId) return setComments([]);
+    loadComments();
+    const timer = setInterval(() => document.visibilityState !== "hidden" && loadComments(), 60000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cloudSiteId]);
+  const commentApi = {
+    list: comments,
+    reload: loadComments,
+    add: async (body) => {
+      await cloudCalls.addComment(cloudSiteId, body);
+      await loadComments();
+    },
+    resolve: async (id, resolved = true) => {
+      await cloudCalls.resolveComment(cloudSiteId, id, resolved);
+      await loadComments();
+    },
+    remove: async (id) => {
+      await cloudCalls.deleteComment(cloudSiteId, id);
+      await loadComments();
+    },
+  };
+
   /* ------------------------------------------- 中英不同步 (pairSync.js) */
   const isEn = (path) => path.startsWith("en/");
   // Compared with the published version of both pages, read once per page.
@@ -1748,6 +1781,7 @@ export function useProject(notify) {
     dismissSync,
     syncReport,
     others,
+    comments: commentApi,
     draftOf: (path) => drafts[path]?.present ?? null,
     mirror,
     setMirror,

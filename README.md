@@ -101,6 +101,9 @@ npm --prefix cloud run deploy
 | 前 10 分鐘引導（v4.25） | 範本建立的網站在左上角顯示「把範本變成你的網站」六步驟，依發布前檢查的範例文字／範例照片自動打勾（`GettingStarted.jsx`） |
 | 今天想改什麼／新手步驟（v4.25） | 打開網站先看到大按鈕首頁（`StartScreen.jsx`，只列這個網站有的功能，並提醒待核准、未發布、中英不同步），可勾「下次直接進入」；第一次使用有逐步亮出畫面重點的新手步驟（`Tour.jsx`，localStorage `labsite.tour.v1`） |
 | 建立網站精靈（v4.26，AI） | 管理者「建立新網站：AI 精靈」：認識研究室 → 網站結構 → 風格（四種版型＋AI 配色）→ 內容初稿 → 建立。`POST /api/admin/wizard/plan`（`aiSitePlan`，只用老師給的事實）、`/api/admin/wizard/themes`；建立時 `POST /api/sites` 帶 `wizard`，由 `src/site/wizard.js` 把初稿填進 `labsite/template.json` 的 `slots`、刪掉不要的頁面（NAV、導引帶、連結一起）、改英文名稱、研究室資料與配色；`wizardPreview.js` 在瀏覽器即時預覽首頁 |
+| 分享草稿（v4.27） | `preview_links`（migration 0007）；公開網站 `/<slug>/_draft/<token>/` 顯示最新草稿或固定版本，頁面標示「草稿預覽」、`X-Robots-Tag: noindex`、不計入造訪；1～30 天到期、可收回（`/api/sites/:id/preview-links`） |
+| 在頁面上留言（v4.27） | `comments`（migration 0007）；每段可留言、已處理、刪除（留言的人或老師）；段落清單數字、今天想改什麼提醒；段落移動後依標題找回（`Comments.jsx`） |
+| 網站體檢（v4.27） | `src/site/health.js` 依最新消息日期、論文與成員總表、發布前檢查、中英不同步、未發布天數、留言、造訪找出問題並加權排序；開啟 AI 時 `/api/sites/:id/health`（`aiHealth`）挑 5 件、白話說明、指出英文首頁的錯句（只接受原文裡有的句子） |
 | 發布前檢查：無障礙與手機版（v4.25） | 缺 viewport（警示）、固定寬度超過 480px、缺 lang、h1 數量、標題層級跳過、沒有文字的連結、「點這裡」類連結、iframe 沒有 title |
 | 自動存草稿（v4.18，LabSite Cloud） | 停止輸入 20 秒後自動存成草稿，版本紀錄同一輪只留一筆；外觀的修改不自動保存。發布後可按「回到上一版」讓公開網站回到發布前的樣子 |
 | 並排預覽（v4.18） | 預覽可同時顯示電腦與手機尺寸（寬螢幕預設），兩邊都可以點選 |

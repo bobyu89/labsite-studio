@@ -1725,3 +1725,78 @@ test("建立網站精靈: AI plan from the answers (admin only), then a site bui
   assert.match(await text(env, site, "js/data.js"), /lab@elder\.edu\.tw/);
   assert.match(await text(env, site, "css/theme.css"), /--zone-research:\s*#123456/);
 });
+
+/* ============ v4.27 草稿分享連結, 留言, 網站體檢 */
+test("草稿分享連結: the draft is shown under the token, marked and not indexed; expired or taken back links stop", async () => {
+  const env = fakeEnv();
+  const site = await seed(env);
+  await publish(env, site.id, null, { actor: "admin@lab.tw" });
+  await commitChanges(env, site.id, { files: [file("index.html", "<html><body><h1>草稿的首頁</h1></body></html>")], author: "admin@lab.tw", message: "改首頁", now: T0 + 10 });
+  const app = createApp({ fetchImpl: scriptedFetch([]) });
+  const made = await (await app.request(`http://localhost/api/sites/${site.id}/preview-links`, jsonReq("POST", { days: 3 }), env)).json();
+  assert.match(made.link.url, /\/sung\/_draft\/[A-Za-z0-9_-]{20,}\/$/);
+  const path = "/sung/_draft/" + made.link.token + "/";
+  let res = await serve(new Request("https://sites.example" + path), env);
+  const html = await res.text();
+  assert.match(html, /草稿的首頁/);
+  assert.match(html, /草稿預覽/);
+  assert.equal(res.headers.get("X-Robots-Tag"), "noindex, nofollow");
+  assert.equal(res.headers.get("Cache-Control"), "no-store");
+  res = await serve(new Request("https://sites.example" + path + "css/main.css"), env);
+  assert.equal(res.status, 200);
+  // The public site still shows the published version, and draft views are not counted.
+  assert.match(await (await serve(new Request("https://sites.example/sung/"), env)).text(), /首頁/);
+  assert.equal((await env.DB.prepare("SELECT COALESCE(SUM(views), 0) AS n FROM page_views WHERE path = 'index.html'").first()).n, 1);
+  // A snapshot keeps its version.
+  const snap = await (await app.request(`http://localhost/api/sites/${site.id}/preview-links`, jsonReq("POST", { days: 1, snapshot: true }), env)).json();
+  await commitChanges(env, site.id, { files: [file("index.html", "<html><body><h1>更新的草稿</h1></body></html>")], author: "admin@lab.tw", message: "再改", now: T0 + 20 });
+  assert.match(await (await serve(new Request("https://sites.example/sung/_draft/" + snap.link.token + "/"), env)).text(), /草稿的首頁/);
+  assert.match(await (await serve(new Request("https://sites.example" + path), env)).text(), /更新的草稿/);
+  // Taken back, expired, wrong site, unknown.
+  await app.request(`http://localhost/api/sites/${site.id}/preview-links/${made.link.token}`, { method: "DELETE" }, env);
+  assert.equal((await serve(new Request("https://sites.example" + path), env)).status, 404);
+  await env.DB.prepare("UPDATE preview_links SET expires_at = 1 WHERE token = ?").bind(snap.link.token).run();
+  assert.equal((await serve(new Request("https://sites.example/sung/_draft/" + snap.link.token + "/"), env)).status, 404);
+  assert.equal((await serve(new Request("https://sites.example/sung/_draft/AAAAAAAAAAAAAAAAAAAAAAAA/"), env)).status, 404);
+  const list = await (await app.request(`http://localhost/api/sites/${site.id}/preview-links`, {}, env)).json();
+  assert.deepEqual(list.links.map((l) => l.active), [false]);
+  // Not a member: refused.
+  assert.equal((await app.request(`http://localhost/api/sites/${site.id}/preview-links`, jsonReq("POST", {}), { ...env, DEV_USER_EMAIL: "x@else.tw" })).status, 403);
+});
+
+test("留言: members leave notes on a section, anyone marks them done, only the author or a teacher deletes", async () => {
+  const env = fakeEnv();
+  const site = await seed(env);
+  await addMember(env, site.id, "teacher@lab.tw", "admin@lab.tw");
+  await addMember(env, site.id, "student@lab.tw", "admin@lab.tw");
+  await env.DB.prepare("UPDATE members SET role = 'contributor' WHERE email = 'student@lab.tw'").run();
+  const app = createApp({ fetchImpl: scriptedFetch([]) });
+  const as = (email) => ({ ...env, DEV_USER_EMAIL: email });
+  const url = `http://localhost/api/sites/${site.id}/comments`;
+  assert.equal((await app.request(url, jsonReq("POST", { page: "index.html", section: 1, body: "  " }), as("teacher@lab.tw"))).status, 400);
+  const made = await (await app.request(url, jsonReq("POST", { page: "index.html", section: 1, anchor: "關於我們", body: "這裡的日期請再確認" }), as("teacher@lab.tw"))).json();
+  assert.deepEqual([made.comment.page, made.comment.section, made.comment.anchor, made.comment.author], ["index.html", 1, "關於我們", "teacher@lab.tw"]);
+  let list = (await (await app.request(url, {}, as("student@lab.tw"))).json()).comments;
+  assert.equal(list.length, 1);
+  await app.request(url + "/" + made.comment.id, jsonReq("PUT", { resolved: true }), as("student@lab.tw"));
+  list = (await (await app.request(url, {}, as("teacher@lab.tw"))).json()).comments;
+  assert.deepEqual([list[0].resolvedBy, !!list[0].resolvedAt], ["student@lab.tw", true]);
+  assert.equal((await app.request(url + "/" + made.comment.id, { method: "DELETE" }, as("student@lab.tw"))).status, 403);
+  assert.equal((await app.request(url + "/" + made.comment.id, { method: "DELETE" }, as("teacher@lab.tw"))).status, 200);
+  assert.equal((await (await app.request(url, {}, as("teacher@lab.tw"))).json()).comments.length, 0);
+});
+
+test("網站體檢: findings ordered and worded by the AI, only from the given ids; English notes must quote the sample", async () => {
+  const reply = { summary: "網站大致完整。", items: [{ id: "news-old", why: "先補一則消息。" }, { id: "made-up", why: "x" }], english: [{ quote: "We are lab of nursing.", better: "We are a nursing lab." }, { quote: "Not in the sample at all.", better: "x" }] };
+  const app = createApp({
+    fetchImpl: scriptedFetch([["api.anthropic.com/v1/messages", () => ({ json: { id: "m", type: "message", role: "assistant", model: "claude-opus-5-5", content: [{ type: "text", text: JSON.stringify(reply) }], stop_reason: "end_turn", stop_sequence: null, usage: { input_tokens: 1, output_tokens: 1 } } })]]),
+  });
+  const env = fakeEnv();
+  const site = await seed(env);
+  await app.request("http://localhost/api/admin/ai", jsonReq("PUT", { key: TEST_KEY }), env);
+  const res = await app.request(`http://localhost/api/sites/${site.id}/health`, jsonReq("POST", { findings: [{ id: "news-old", title: "最新消息半年沒更新", why: "…" }], english: "Welcome. We are lab of nursing. Join us." }), env);
+  const body = await res.json();
+  assert.deepEqual(body.items, [{ id: "news-old", why: "先補一則消息。" }]);
+  assert.deepEqual(body.english, [{ quote: "We are lab of nursing.", better: "We are a nursing lab." }]);
+  assert.equal(body.summary, "網站大致完整。");
+});

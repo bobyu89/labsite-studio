@@ -48,6 +48,23 @@ export function countView(env, siteId, path, request, now = Date.now()) {
     .catch(() => null);
 }
 
+// 草稿分享連結: /<slug>/_draft/<token>/<path> shows the site's saved draft
+// (or the version the link was made for) while the link is valid. Marked as
+// a preview on every page, never indexed, never counted as a visit.
+const DRAFT = /^_draft\/([A-Za-z0-9_-]{20,64})\/(.*)$/;
+const DRAFT_BAR =
+  '<div role="note" style="position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:2147483647;background:#1f1d1a;color:#fff;padding:9px 18px;border-radius:999px;font:14px/1.4 system-ui,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.25)">草稿預覽・還沒發布，只有拿到這條連結的人看得到 · Draft preview</div>';
+
+async function draftTree(env, slug, token, now = Date.now()) {
+  const site = await getSite(env, slug);
+  if (!site || site.slug !== slug) return null;
+  const link = await env.DB.prepare("SELECT * FROM preview_links WHERE token = ? AND site_id = ?").bind(token, site.id).first();
+  if (!link || link.revoked_at || link.expires_at < now) return null;
+  const commit = await getCommit(env, link.commit_id || site.draft_commit);
+  if (!commit || commit.site_id !== site.id) return null;
+  return loadTree(env, commit.tree_id);
+}
+
 export async function serve(request, env, ctx) {
   if (request.method !== "GET" && request.method !== "HEAD")
     return new Response("Method Not Allowed", { status: 405, headers: { Allow: "GET, HEAD" } });
@@ -56,8 +73,13 @@ export async function serve(request, env, ctx) {
   if (!r) return notFound("這裡沒有網站。");
   if (r.redirect) return Response.redirect(url.origin + r.redirect, 301);
 
-  const tree = await publishedTree(env, r.slug);
-  if (!tree) return notFound("這個網站不存在或尚未發布。");
+  const draft = r.path.match(DRAFT);
+  const tree = draft ? await draftTree(env, r.slug, draft[1]) : await publishedTree(env, r.slug);
+  if (!tree) return notFound(draft ? "這個預覽連結已經過期或被收回了。" : "這個網站不存在或尚未發布。");
+  if (draft) {
+    r.path = draft[2];
+    r.prefix += "_draft/" + draft[1] + "/";
+  }
 
   let path;
   try {
@@ -86,7 +108,16 @@ export async function serve(request, env, ctx) {
     "Cache-Control": isHtml(path) ? "public, max-age=0, must-revalidate" : "public, max-age=300",
     "X-Content-Type-Options": "nosniff",
   };
-  if (status === 200 && request.method === "GET" && isHtml(path)) {
+  if (draft) {
+    headers["Cache-Control"] = "no-store";
+    headers["X-Robots-Tag"] = "noindex, nofollow";
+    if (isHtml(path) && request.method === "GET") {
+      const html = await new Response(await blobStream(env, entry.hash)).text();
+      const marked = /<body[^>]*>/i.test(html) ? html.replace(/<body[^>]*>/i, (b) => b + DRAFT_BAR) : DRAFT_BAR + html;
+      return new Response(marked, { status, headers });
+    }
+  }
+  if (status === 200 && request.method === "GET" && isHtml(path) && !draft) {
     const counting = countView(env, tree.siteId, path, request);
     if (counting) ctx?.waitUntil ? ctx.waitUntil(counting) : await counting;
   }

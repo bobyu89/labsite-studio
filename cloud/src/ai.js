@@ -13,7 +13,7 @@ const BLOCK_IDS = BLOCK_CATALOG.filter((b) => !b.image).map((b) => b.id);
 
 export const AI_MODEL = "claude-opus-5-5";
 export const AI_DAILY_LIMIT = 20;
-const AI_KINDS = "('ai_theme', 'ai_assist', 'ai_photo', 'ai_news')";
+const AI_KINDS = "('ai_theme', 'ai_assist', 'ai_photo', 'ai_news', 'ai_health')";
 
 /* ------------------------------------------------------------ settings */
 // The key comes from the worker's ANTHROPIC_API_KEY secret when one is set,
@@ -617,5 +617,72 @@ export async function aiSitePlan(env, answers, fetchImpl, key) {
     skin_reason: clip(out.skin_reason, 160),
     style_words: clip(out.style_words, 80),
     fill,
+  };
+}
+
+/* ------------------------------------------------------- 網站體檢 */
+// The findings the editor made (src/site/health.js) → the five that matter
+// most for this lab, each said plainly, plus at most three clumsy English
+// sentences from the English home page with a better wording.
+const HEALTH_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["summary", "items", "english"],
+  properties: {
+    summary: text("One encouraging sentence in Traditional Chinese on the site's state, at most 40 characters."),
+    items: {
+      type: "array",
+      description: "At most five findings, most important first, chosen only from the given ids.",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["id", "why"],
+        properties: { id: { type: "string" }, why: text("Why it matters and what to do, one short sentence in Traditional Chinese for a busy professor.") },
+      },
+    },
+    english: {
+      type: "array",
+      description: "At most three sentences from the English sample that read unnaturally or have errors; empty when the English is fine.",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["quote", "better"],
+        properties: { quote: text("The sentence exactly as in the sample."), better: text("A natural academic English rewrite.") },
+      },
+    },
+  },
+};
+const HEALTH_SYSTEM = `You review the website of a university nursing research lab in Taiwan for its professor. You get findings detected by the editor and a sample of the English home page. Order the findings by what most affects how the lab is seen by students, collaborators and reviewers; word each one kindly and concretely. Only use the given ids. For English, flag only real errors or clearly unnatural phrasing; do not rewrite good sentences.`;
+
+export async function aiHealth(env, { findings = [], english = "", lab = "" }, fetchImpl, key) {
+  if (!key) throw new RepoError(503, "AI 功能尚未設定（管理者需要在「平台設定」放入 API 金鑰）。");
+  const list = (Array.isArray(findings) ? findings : []).slice(0, 20).map((f) => ({ id: clip(f.id, 40), title: clip(f.title, 80), why: clip(f.why, 160) }));
+  const ids = new Set(list.map((f) => f.id));
+  let response;
+  try {
+    response = await client(key, fetchImpl).beta.messages.create({
+      model: AI_MODEL,
+      max_tokens: 4000,
+      betas: ["server-side-fallback-2026-07-01"],
+      fallbacks: "default",
+      output_config: { effort: "low", format: { type: "json_schema", schema: HEALTH_SCHEMA } },
+      system: HEALTH_SYSTEM,
+      messages: [{ role: "user", content: `研究室：${clip(lab, 80)}\n找到的問題（JSON）：${JSON.stringify(list)}\n英文首頁的文字：${clip(english, 2500)}` }],
+    });
+  } catch (e) {
+    throw aiError(e);
+  }
+  if (response.stop_reason === "refusal") throw new RepoError(422, "AI 無法整理這次體檢。");
+  const block = response.content.find((b) => b.type === "text");
+  let out;
+  try {
+    out = JSON.parse(block?.text || "");
+  } catch {
+    throw new RepoError(502, "AI 的回應格式不正確，請再試一次。");
+  }
+  return {
+    summary: clip(out.summary, 80),
+    items: (out.items || []).filter((x) => ids.has(x.id)).slice(0, 5).map((x) => ({ id: x.id, why: clip(x.why, 160) })),
+    english: (out.english || []).slice(0, 3).map((x) => ({ quote: clip(x.quote, 300), better: clip(x.better, 300) })).filter((x) => x.quote && english.includes(x.quote.slice(0, 20))),
   };
 }

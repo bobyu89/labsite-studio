@@ -33,7 +33,7 @@ import { templateFiles, personalize, applySkin } from "./templates.js";
 import { buildWizardSite } from "../../src/site/wizard.js";
 import { enc as utf8enc, dec as utf8dec } from "./bytes.js";
 import { adminOverview } from "./overview.js";
-import { aiThemes, aiAssist, aiDescribePhoto, aiQuickNews, aiSitePlan, aiUsage, aiConfig, aiEnabledFor, aiAdminView, saveAiSettings, removeAiKey, testAiKey } from "./ai.js";
+import { aiThemes, aiAssist, aiDescribePhoto, aiQuickNews, aiSitePlan, aiHealth, aiUsage, aiConfig, aiEnabledFor, aiAdminView, saveAiSettings, removeAiKey, testAiKey } from "./ai.js";
 import {
   RepoError,
   isAdmin,
@@ -555,6 +555,82 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
     return c.json({ schedule: null });
   });
 
+  // 在頁面上留言: notes on a section for the people who edit the site.
+  // Open ones, and those resolved in the last 14 days.
+  const commentView = (x) => ({ id: x.id, page: x.page, section: x.section, anchor: x.anchor, body: x.body, author: x.author, at: x.created_at, resolvedBy: x.resolved_by, resolvedAt: x.resolved_at });
+  app.get("/api/sites/:id/comments", async (c) => {
+    const site = c.get("site");
+    const { results } = await c.env.DB.prepare("SELECT * FROM comments WHERE site_id = ? AND (resolved_at IS NULL OR resolved_at > ?) ORDER BY created_at DESC LIMIT 200")
+      .bind(site.id, Date.now() - 14 * 86400000)
+      .all();
+    return c.json({ comments: results.map(commentView) });
+  });
+  app.post("/api/sites/:id/comments", async (c) => {
+    const site = c.get("site");
+    const body = await c.req.json().catch(() => ({}));
+    const text = String(body.body || "").trim().slice(0, 1000);
+    const page = String(body.page || "").slice(0, 200);
+    if (!text) throw new RepoError(400, "留言是空的。");
+    if (!/\.html?$/i.test(page)) throw new RepoError(400, "不知道是哪一頁。");
+    const row = await c.env.DB.prepare("INSERT INTO comments (site_id, page, section, anchor, body, author, created_at) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *")
+      .bind(site.id, page, Math.max(0, Number(body.section) | 0), String(body.anchor || "").slice(0, 120), text, c.get("user").email, Date.now())
+      .first();
+    return c.json({ comment: commentView(row) }, 201);
+  });
+  app.put("/api/sites/:id/comments/:cid", async (c) => {
+    const site = c.get("site");
+    const body = await c.req.json().catch(() => ({}));
+    const done = !!body.resolved;
+    await c.env.DB.prepare("UPDATE comments SET resolved_by = ?, resolved_at = ? WHERE id = ? AND site_id = ?")
+      .bind(done ? c.get("user").email : null, done ? Date.now() : null, Number(c.req.param("cid")), site.id)
+      .run();
+    return c.json({ ok: true });
+  });
+  app.delete("/api/sites/:id/comments/:cid", async (c) => {
+    const site = c.get("site");
+    const row = await c.env.DB.prepare("SELECT author FROM comments WHERE id = ? AND site_id = ?").bind(Number(c.req.param("cid")), site.id).first();
+    if (!row) return c.json({ ok: true });
+    if (row.author !== c.get("user").email && c.get("role") !== "editor") throw new RepoError(403, "只有留言的人或老師可以刪掉留言。");
+    await c.env.DB.prepare("DELETE FROM comments WHERE id = ? AND site_id = ?").bind(Number(c.req.param("cid")), site.id).run();
+    return c.json({ ok: true });
+  });
+
+  // 草稿分享連結 (sites.js serves them): made by anyone who edits the site.
+  const linkView = (env, site, l, now = Date.now()) => ({
+    token: l.token,
+    url: publicUrl(env, site.slug) + "_draft/" + l.token + "/",
+    snapshot: !!l.commit_id,
+    by: l.created_by,
+    at: l.created_at,
+    expires: l.expires_at,
+    active: !l.revoked_at && l.expires_at > now,
+  });
+  app.get("/api/sites/:id/preview-links", async (c) => {
+    const site = c.get("site");
+    const { results } = await c.env.DB.prepare("SELECT * FROM preview_links WHERE site_id = ? AND revoked_at IS NULL ORDER BY created_at DESC LIMIT 20").bind(site.id).all();
+    return c.json({ links: results.map((l) => linkView(c.env, site, l)) });
+  });
+  app.post("/api/sites/:id/preview-links", async (c) => {
+    const site = c.get("site");
+    if (!site.draft_commit) throw new RepoError(400, "這個網站還沒有任何版本。");
+    const body = await c.req.json().catch(() => ({}));
+    const days = Math.min(Math.max(Math.round(Number(body.days) || 7), 1), 30);
+    const bytes = crypto.getRandomValues(new Uint8Array(18));
+    const token = btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    const now = Date.now();
+    const row = { token, site_id: site.id, commit_id: body.snapshot ? site.draft_commit : null, created_by: c.get("user").email, created_at: now, expires_at: now + days * 86400000 };
+    await c.env.DB.prepare("INSERT INTO preview_links (token, site_id, commit_id, created_by, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)")
+      .bind(row.token, row.site_id, row.commit_id, row.created_by, row.created_at, row.expires_at)
+      .run();
+    await logEvent(c.env, site.id, "preview_link", row.commit_id, row.created_by, `${days} 天`);
+    return c.json({ link: linkView(c.env, site, row) }, 201);
+  });
+  app.delete("/api/sites/:id/preview-links/:token", async (c) => {
+    const site = c.get("site");
+    await c.env.DB.prepare("UPDATE preview_links SET revoked_at = ? WHERE token = ? AND site_id = ?").bind(Date.now(), c.req.param("token"), site.id).run();
+    return c.json({ ok: true });
+  });
+
   // 網站造訪統計: daily views and the most visited pages (sites.js countView).
   app.get("/api/sites/:id/stats", async (c) => {
     const site = c.get("site");
@@ -611,6 +687,15 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
     if (raw && !orcid) throw new RepoError(400, "看不懂這個 ORCID。格式像 0000-0002-1825-0097，可以直接貼 ORCID 網址。");
     await setSetting(c.env, "orcid:" + c.get("site").id, orcid, c.get("user").email);
     return c.json({ orcid });
+  });
+
+  // 網站體檢: the editor's findings ordered and worded by the AI.
+  app.post("/api/sites/:id/health", async (c) => {
+    const { site, config, remaining } = await aiGate(c);
+    const body = await c.req.json().catch(() => ({}));
+    const result = await aiHealth(c.env, { ...body, lab: site.name }, fetchImpl, config.key);
+    await logEvent(c.env, site.id, "ai_health", null, c.get("user").email, null);
+    return c.json({ ...result, remaining });
   });
 
   // 活動快報: a sentence (and a photo) → a news draft in both languages.
