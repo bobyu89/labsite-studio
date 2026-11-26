@@ -493,3 +493,129 @@ export async function aiQuickNews(env, { text: sentence = "", date = "", image, 
     caption_en: clip(out.caption_en, 120),
   };
 }
+
+/* ------------------------------------------- 建立網站精靈 (site plan) */
+// The teacher's answers → a plan for a new site from the template: which
+// pages, which look (skin) and why, words for the colours, the English
+// name, and first drafts of every slot (labsite/template.json) in both
+// languages. Facts come only from the answers; nothing is invented.
+const pair = (what) => ({
+  type: "object",
+  additionalProperties: false,
+  required: ["zh", "en"],
+  properties: { zh: text(what + " — Traditional Chinese (Taiwan)."), en: text(what + " — natural academic English.") },
+});
+const PLAN_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["name_en", "pages", "skin", "skin_reason", "style_words", "content"],
+  properties: {
+    name_en: text("The lab's English name. Use the teacher's own if given; otherwise translate the Chinese name naturally (e.g. ... Nursing Research Lab)."),
+    pages: {
+      type: "array",
+      description: "One entry per page of the template: index, research, members, publications, contact.",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["page", "keep", "purpose"],
+        properties: {
+          page: { type: "string", enum: ["index", "research", "members", "publications", "contact"] },
+          keep: { type: "boolean", description: "False only for research or publications when the answers clearly show the lab does not need it yet." },
+          purpose: text("One sentence in Traditional Chinese: what this page will do for this lab's audience."),
+        },
+      },
+    },
+    skin: { type: "string", enum: ["guide", "atlas", "notebook", "journal"], description: "guide: clear wayfinding signs, colour zones, bilingual. atlas: anatomical-plate fine lines, precise. notebook: warm hand-written nursing notebook, friendly. journal: academic journal, serif, scholarly." },
+    skin_reason: text("One sentence in Traditional Chinese on why this look fits the lab and its audience."),
+    style_words: text("Up to 40 Traditional Chinese characters describing the colours and mood for a palette generator (e.g. 溫暖的陶土橘與深藍，沉穩、可信賴)."),
+    content: {
+      type: "object",
+      additionalProperties: false,
+      required: ["lede", "about_lead", "about_1", "about_2", "research_summary", "join_summary", "research_lede", "areas"],
+      properties: {
+        lede: pair("Home page one-line introduction of the lab, at most 40 characters in Chinese"),
+        about_lead: pair("About section opening sentence: what the lab believes / why it exists"),
+        about_1: pair("About paragraph 1: focus and methods, from the answers"),
+        about_2: pair("About paragraph 2: partners, settings or who benefits, from the answers; if unknown, a modest sentence about turning research into care practice"),
+        research_summary: pair("The research topics in one short line, separated by 、 in Chinese and commas in English"),
+        join_summary: pair("One short line inviting students / partners, matching the audience"),
+        research_lede: pair("Research page one-sentence introduction"),
+        areas: {
+          type: "array",
+          description: "Exactly three research areas from the teacher's topics (merge or split to make three).",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: ["title", "desc", "tags"],
+            properties: {
+              title: pair("Area title, at most 12 Chinese characters"),
+              desc: pair("One sentence on what the lab does in this area"),
+              tags: { type: "array", description: "Exactly three short keywords.", items: pair("Keyword") },
+            },
+          },
+        },
+      },
+    },
+  },
+};
+const PLAN_SYSTEM = `You help a university nursing (or health) research lab in Taiwan plan its first website, step by step: structure, look, then words. Work only from the teacher's answers. Never invent facts: no founding years, numbers, awards, partner names, people or results that the teacher did not give. When something is unknown, write modestly and generally rather than making it up. Chinese is Traditional Chinese as used in Taiwan; English is natural academic English. Keep sentences short and warm, written as the lab (本研究室 / we).`;
+
+// → { name_en, pages, skin, skin_reason, style_words, fill: { slotKey: { zh, en } } }
+export async function aiSitePlan(env, answers, fetchImpl, key) {
+  if (!key) throw new RepoError(503, "AI 功能尚未設定（管理者需要在「平台設定」放入 API 金鑰）。");
+  const a = answers || {};
+  const name = clip(a.name, 60);
+  const about = clip(a.about, 1200);
+  if (!name || about.length < 10) throw new RepoError(400, "請先填研究室名稱，並用幾句話介紹研究室在做什麼。");
+  const lines = [
+    `研究室中文名稱：${name}`,
+    a.nameEn && `英文名稱：${clip(a.nameEn, 120)}`,
+    a.pi && `主持人：${clip(a.pi, 60)}`,
+    a.dept && `系所：${clip(a.dept, 80)}`,
+    `研究室在做什麼：${about}`,
+    a.topics && `研究主題：${clip(a.topics, 600)}`,
+    a.audience?.length && `網站主要給誰看：${a.audience.map((x) => clip(x, 20)).join("、")}`,
+    a.mood && `想要的感覺：${clip(a.mood, 120)}`,
+  ].filter(Boolean);
+  let response;
+  try {
+    response = await client(key, fetchImpl).beta.messages.create({
+      model: AI_MODEL,
+      max_tokens: 16000,
+      betas: ["server-side-fallback-2026-07-01"],
+      fallbacks: "default",
+      output_config: { effort: "low", format: { type: "json_schema", schema: PLAN_SCHEMA } },
+      system: PLAN_SYSTEM,
+      messages: [{ role: "user", content: lines.join("\n") }],
+    });
+  } catch (e) {
+    throw aiError(e);
+  }
+  if (response.stop_reason === "refusal") throw new RepoError(422, "AI 無法規劃這個網站，請換個說法。");
+  if (response.stop_reason === "max_tokens") throw new RepoError(502, "AI 回應被截斷，請再試一次。");
+  const block = response.content.find((b) => b.type === "text");
+  let out;
+  try {
+    out = JSON.parse(block?.text || "");
+  } catch {
+    throw new RepoError(502, "AI 的回應格式不正確，請再試一次。");
+  }
+  const c = out.content || {};
+  const two = (x, n = 300) => ({ zh: clip(x?.zh, n), en: clip(x?.en, n * 2) });
+  const fill = {};
+  for (const k of ["lede", "about_lead", "about_1", "about_2", "research_summary", "join_summary", "research_lede"]) fill[k] = two(c[k]);
+  (c.areas || []).slice(0, 3).forEach((area, i) => {
+    fill[`area${i + 1}_title`] = two(area.title, 40);
+    fill[`area${i + 1}_desc`] = two(area.desc);
+    (area.tags || []).slice(0, 3).forEach((t, j) => (fill[`area${i + 1}_tag${j + 1}`] = two(t, 24)));
+  });
+  const SKINS = ["guide", "atlas", "notebook", "journal"];
+  return {
+    name_en: clip(out.name_en, 120),
+    pages: (out.pages || []).filter((x) => ["index", "research", "members", "publications", "contact"].includes(x.page)).map((x) => ({ page: x.page, keep: x.keep !== false || !["research", "publications"].includes(x.page), purpose: clip(x.purpose, 120) })),
+    skin: SKINS.includes(out.skin) ? out.skin : "guide",
+    skin_reason: clip(out.skin_reason, 160),
+    style_words: clip(out.style_words, 80),
+    fill,
+  };
+}

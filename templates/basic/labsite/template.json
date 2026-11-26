@@ -4,5 +4,129 @@
   "placeholder": {
     "nameZh": "知行研究室",
     "nameEn": "Zhixing Nursing Research Lab"
-  }
+  },
+  "slots": [
+    {
+      "key": "lede",
+      "zh": "以實證護理與臨床教育研究，回應病人與照護者每天面對的問題。",
+      "en": "Evidence-based nursing and clinical education research for the questions patients and carers face every day."
+    },
+    {
+      "key": "about_lead",
+      "zh": "我們相信好的照護來自好的問題。研究室從臨床現場出發，和病人、家屬與護理同仁一起找出值得研究的問題。",
+      "en": "Good care starts with good questions. We begin at the bedside and work with patients, families and nurses to find the questions worth studying."
+    },
+    {
+      "key": "about_1",
+      "zh": "研究室成立於 2018 年（範例），結合量性與質性方法，探討慢性病照護、護理教育與數位健康介入的成效。",
+      "en": "Founded in 2018 (sample), the lab combines quantitative and qualitative methods to study chronic illness care, nursing education and digital health interventions."
+    },
+    {
+      "key": "about_2",
+      "zh": "（範例）我們與醫院護理部、社區健康中心長期合作，讓研究成果回到病房與社區，成為護理師日常可用的工具。",
+      "en": "(Sample) Long-standing partnerships with hospital nursing departments and community health centres bring our findings back to wards and neighbourhoods as tools nurses can use."
+    },
+    {
+      "key": "research_summary",
+      "zh": "慢性病自我管理、護理教育、數位健康照護",
+      "en": "Chronic illness self-management, nursing education, digital health"
+    },
+    {
+      "key": "join_summary",
+      "zh": "招收碩博士生與研究助理，歡迎來信",
+      "en": "We welcome master's and PhD students and research assistants"
+    },
+    {
+      "key": "research_lede",
+      "zh": "我們關注病人與照護者在真實臨床情境中的需求，以研究支持更好的照護決策。",
+      "en": "We study what patients and carers need in real clinical settings, and turn it into evidence for better care."
+    },
+    {
+      "key": "area1_title",
+      "zh": "慢性病自我管理",
+      "en": "Chronic illness self-management"
+    },
+    {
+      "key": "area1_desc",
+      "zh": "發展並評估以護理師為主導的衛教與追蹤模式，協助糖尿病與心衰竭病人在家中維持穩定。",
+      "en": "We develop and test nurse-led education and follow-up models that help people with diabetes and heart failure stay well at home."
+    },
+    {
+      "key": "area1_tag1",
+      "zh": "第二型糖尿病",
+      "en": "Type 2 diabetes"
+    },
+    {
+      "key": "area1_tag2",
+      "zh": "心衰竭",
+      "en": "Heart failure"
+    },
+    {
+      "key": "area1_tag3",
+      "zh": "衛教介入",
+      "en": "Patient education"
+    },
+    {
+      "key": "area2_title",
+      "zh": "護理教育與臨床模擬",
+      "en": "Nursing education and simulation"
+    },
+    {
+      "key": "area2_desc",
+      "zh": "以情境模擬與回饋設計，縮短護理學生與新進護理師從課堂到臨床的落差。",
+      "en": "Scenario-based simulation and feedback design that narrow the gap between classroom and ward for students and new graduate nurses."
+    },
+    {
+      "key": "area2_tag1",
+      "zh": "情境模擬",
+      "en": "Simulation"
+    },
+    {
+      "key": "area2_tag2",
+      "zh": "臨床推理",
+      "en": "Clinical reasoning"
+    },
+    {
+      "key": "area2_tag3",
+      "zh": "新進護理師",
+      "en": "New graduates"
+    },
+    {
+      "key": "area3_title",
+      "zh": "數位健康與遠距照護",
+      "en": "Digital health and telecare"
+    },
+    {
+      "key": "area3_desc",
+      "zh": "設計病人與家屬願意使用的數位工具，並以實證檢驗其安全性與效果。",
+      "en": "Digital tools that patients and families actually want to use, tested for safety and effect."
+    },
+    {
+      "key": "area3_tag1",
+      "zh": "遠距照護",
+      "en": "Telecare"
+    },
+    {
+      "key": "area3_tag2",
+      "zh": "行動健康",
+      "en": "Mobile health"
+    },
+    {
+      "key": "area3_tag3",
+      "zh": "使用者研究",
+      "en": "User research"
+    }
+  ],
+  "optionalPages": [
+    {
+      "page": "research.html",
+      "zone": "research",
+      "zh": "研究方向"
+    },
+    {
+      "page": "publications.html",
+      "zone": "publications",
+      "zh": "論文發表"
+    }
+  ]
 }

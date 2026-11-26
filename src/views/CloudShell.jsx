@@ -19,12 +19,14 @@ import {
   Copy,
   SquaresFour,
   ChartBar,
+  Sparkle,
 } from "@phosphor-icons/react";
 import { Field } from "../components/ui";
 import Project from "./Project";
 import UiSize from "../components/UiSize";
 import DeviceLogin from "../components/DeviceLogin";
 import SiteStats from "../components/SiteStats";
+import SiteWizard from "../components/SiteWizard";
 import AdminOverview from "../components/AdminOverview";
 import { PasswordLoginForm, PasswordDialog, PasswordButton } from "../components/PasswordLogin";
 import AiSettings from "../components/AiSettings";
@@ -402,6 +404,7 @@ function HomeTabs({ view, setView }) {
 function CloudHome({ p, onSetPassword, setConfirm }) {
   const me = p.cloud.me;
   const [view, setView] = useState("sites");
+  const [wizard, setWizard] = useState(false);
   if (me.admin && view === "ai") return <AiSettings p={p} onBack={() => setView("sites")} setConfirm={setConfirm} />;
   if (me.admin && view === "overview")
     return (
@@ -430,6 +433,7 @@ function CloudHome({ p, onSetPassword, setConfirm }) {
           </p>
         </div>
         {me.admin && <HomeTabs view={view} setView={setView} />}
+        {me.admin && <SiteWizard p={p} open={wizard} onClose={() => setWizard(false)} />}
       </div>
       {me.via === "session" && !me.hasPassword && (
         <div className="message password-nudge" role="status">
@@ -467,8 +471,14 @@ function CloudHome({ p, onSetPassword, setConfirm }) {
             <span>平台設定（AI 助手、GitHub 備份）</span>
             <span className="muted">{me.ai ? "AI 已開啟" : "AI 尚未設定金鑰"}</span>
           </button>
+          <button type="button" className="admin-link wizard-open" onClick={() => setWizard(true)}>
+            <span>
+              <Sparkle size={16} /> 建立新網站：AI 精靈一步一步帶（推薦）
+            </span>
+            <span className="muted">認識研究室 → 網站結構 → 風格 → 內容初稿 → 建立</span>
+          </button>
           <details>
-            <summary>新增網站（用模板）</summary>
+            <summary>新增網站（直接用模板）</summary>
             <TemplateCard p={p} />
           </details>
           <details>

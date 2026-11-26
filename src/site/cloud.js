@@ -51,6 +51,8 @@ export function cloudApi(fetchImpl = (...a) => fetch(...a)) {
     setPassword: (password, current) => call("POST", "/password", { password, current: current || undefined }),
     passwordLogin: (email, password) => call("POST", "/login/password", { email, password }),
     importSite: (body) => call("POST", "/sites", body),
+    wizardPlan: (answers) => call("POST", "/admin/wizard/plan", answers),
+    wizardThemes: (description) => call("POST", "/admin/wizard/themes", { description }),
     site: (id) => call("GET", site(id)),
     history: (id, limit = 50) => call("GET", site(id) + "/history?limit=" + limit),
     pending: (id) => call("GET", site(id) + "/pending"),

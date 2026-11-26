@@ -118,6 +118,33 @@ const mockFetch = async (url, init) => {
   await new Promise((r) => setTimeout(r, 800));
   const body = JSON.parse(init?.body || "{}");
   const assist = !!body.output_config?.format?.schema?.properties?.changes;
+  if (body.output_config?.format?.schema?.properties?.skin_reason) {
+    const said = String(body.messages?.[0]?.content || "");
+    const name = (said.match(/研究室中文名稱：(.+)/) || [])[1] || "研究室";
+    const topics = ((said.match(/研究主題：(.+)/) || [])[1] || "照護品質、護理教育、數位健康").split(/[、,，\s]+/).filter(Boolean);
+    const p = (zh, en) => ({ zh, en });
+    const plan = {
+      name_en: "(Mock) " + name + " Lab",
+      pages: ["index", "research", "members", "publications", "contact"].map((page) => ({ page, keep: true, purpose: "（模擬）" + page + " 頁的用途" })),
+      skin: "notebook",
+      skin_reason: "（模擬）手札風格溫和親切，適合招收學生。",
+      style_words: "溫暖的陶土橘與深藍，沉穩可信賴",
+      content: {
+        lede: p("（模擬）" + name + "：從臨床問題出發的護理研究", "(Mock) Nursing research that starts at the bedside"),
+        about_lead: p("（模擬）我們相信好的照護來自好的問題。", "(Mock) Good care starts with good questions."),
+        about_1: p("（模擬）研究室關注" + topics.join("、") + "。", "(Mock) We study " + topics.join(", ") + "."),
+        about_2: p("（模擬）我們希望研究成果能回到臨床。", "(Mock) We bring findings back to care."),
+        research_summary: p(topics.slice(0, 3).join("、"), topics.slice(0, 3).join(", ")),
+        join_summary: p("（模擬）歡迎碩博士生加入", "(Mock) Students welcome"),
+        research_lede: p("（模擬）以研究支持更好的照護。", "(Mock) Research for better care."),
+        areas: [0, 1, 2].map((i) => ({ title: p(topics[i] || "主題" + (i + 1), "Topic " + (i + 1)), desc: p("（模擬）" + (topics[i] || "主題") + "的研究。", "(Mock) Research on topic " + (i + 1) + "."), tags: [1, 2, 3].map((j) => p("關鍵字" + j, "Keyword " + j)) })),
+      },
+    };
+    return new Response(
+      JSON.stringify({ id: "msg_mock", type: "message", role: "assistant", model: "claude-opus-5-5", content: [{ type: "text", text: JSON.stringify(plan) }], stop_reason: "end_turn", stop_sequence: null, usage: { input_tokens: 0, output_tokens: 0 } }),
+      { headers: { "Content-Type": "application/json" } },
+    );
+  }
   if (body.output_config?.format?.schema?.properties?.caption_en) {
     const said = String(body.messages?.[0]?.content?.find((x) => x.type === "text")?.text || "").split("老師寫的：")[1] || "";
     return new Response(

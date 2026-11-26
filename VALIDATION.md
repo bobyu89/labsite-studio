@@ -1,3 +1,23 @@
+# v4.26 建立網站精靈（AI 引導：結構 → 風格 → 內容）
+
+日期：2026-11-26。管理者要求：新手建立網站時，由提示詞工程從設計結構與風格開始，一步一步帶老師建立自己的網站。
+
+內容
+- `templates/basic/labsite/template.json`：`slots`（首頁介紹、關於我們三段、研究方向摘要與頁首介紹、招生一句話、三個研究主題的標題／說明／各三個標籤，各有中英文的範本原句）與 `optionalPages`（research、publications）。
+- `src/site/wizard.js`：`fillSlots`（只換整個元素的文字，同一個詞出現在長句裡不會被換）、`dropPages`（刪檔案、NAV、導引帶、指向它的按鈕與連結、sitemap）、`renameEnglish`、`fillSiteFields`、`applyThemeVars`、`buildWizardSite`。伺服器建立網站與瀏覽器預覽共用。
+- `cloud/src/ai.js` `aiSitePlan`：JSON schema（英文名稱、每頁用途與是否保留、版型與理由、配色描述、所有插槽的中英文初稿）；系統提示要求只用老師給的事實。`POST /api/admin/wizard/plan`、`/api/admin/wizard/themes`（沿用 `aiThemes`）；`POST /api/sites` 的 `wizard`。
+- `src/site/wizardPreview.js`：把範本頁面（版型、配色、初稿、名稱）做成單一 HTML 給預覽 iframe。
+- `SiteWizard.jsx`：五步驟、即時預覽首頁（可切英文）、可回上一步；建立後直接打開編輯器（接新手步驟、今天想改什麼、把範本變成你的網站）。我的網站 › 管理者的入口。
+
+驗證
+- `npm test` 252 pass（新增 `tests/wizard.test.js` 4 項：每個插槽在中英文頁都找得到、只換整個元素、刪頁連同 NAV／導引帶／按鈕、完整建置；`tests/cloud.test.js` 1 項：AI 規劃只限管理者、需要金鑰、送出老師的回答，建立後網站含初稿、英文名稱、研究室資料、配色，且沒有論文發表頁與連結）。
+- 本機 `--ai-mock`＋Playwright：填寫 → AI 規劃 → 取消論文發表 → 選 AI 推薦的手札版型與 AI 配色 → 改首頁介紹（預覽即時更新，導引帶只剩研究方向、團隊成員、加入我們）→ 建立 → 編輯器打開，首頁內容與預覽一致，出現「今天想改什麼」與引導清單。
+
+尚未驗證／已知
+- 真實 AI 的規劃品質要用正式金鑰試；本機是模擬回應。
+- 精靈目前只給管理者用（新網站仍由管理者建立）；要讓老師自己開站，需要另外決定權限與數量限制。
+- 模板只有一個（basic，四種版型），所以「結構」是在這五頁裡選；新增其他類型的頁面要從元件庫加。
+
 # v4.25 論文與成員總表、前 10 分鐘引導、無障礙與手機版檢查、今天想改什麼、新手步驟
 
 日期：2026-11-26。管理者同意建議的「現在」階段 1～3。
