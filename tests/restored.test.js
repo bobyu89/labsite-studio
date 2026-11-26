@@ -32,7 +32,7 @@ test("pre-publish check: sample text, placeholders, empty and broken links, miss
   assert.equal(resolveLink("en/index.html", "../members.html#x"), "members.html");
   assert.equal(resolveLink("index.html", "research/"), "research/index.html");
   assert.equal(resolveLink("index.html", "../../x.html"), null);
-  const page = `<html><head></head><body><h1>範例研究室</h1><script>const x = "範例";</script>
+  const page = `<html lang="zh-Hant"><head><meta name="viewport" content="width=device-width"></head><body><h1>範例研究室</h1><script>const x = "範例";</script>
     <img src="assets/placeholder-team.svg" alt="團隊"><img src="a/b.webp">
     <a href="#">空連結</a><a href="">也是空的</a><a href="members.html">成員</a><a href="nope.html">壞掉</a>
     <a href="https://example.org">外部</a><a href="mailto:lab@example.edu.tw">寫信</a></body></html>`;
@@ -43,13 +43,33 @@ test("pre-publish check: sample text, placeholders, empty and broken links, miss
   assert.deepEqual(found.empty, ["空連結", "也是空的"]);
   assert.deepEqual(found.broken, ["壞掉 → nope.html"]);
   const site = checkSite({
-    pages: [{ path: "index.html", html: page }, { path: "en/index.html", html: "<html><head></head><body><p>Clean.</p></body></html>" }],
+    pages: [{ path: "index.html", html: page }, { path: "en/index.html", html: '<html lang="en"><head><meta name="viewport" content="width=device-width"></head><body><h1>Lab</h1><p>Clean.</p></body></html>' }],
     files: new Set(["index.html", "members.html"]),
     siteFields: readSiteFields('const SITE = {\n  nameZh: "範例研究室",\n  tagline: "範例",\n};').fields,
   });
   assert.deepEqual(site.map((c) => [c.kind, c.total]), [["sample", 3], ["placeholder", 1], ["empty", 2], ["broken", 1], ["alt", 1]]);
   assert.equal(site[0].items[0].page, null, "site data first, unused fields skipped");
-  assert.deepEqual(checkSite({ pages: [{ path: "a.html", html: "<html><head></head><body><p>ok</p></body></html>" }] }), []);
+  assert.deepEqual(checkSite({ pages: [{ path: "a.html", html: '<html lang="zh-Hant"><head><meta name="viewport" content="width=device-width"></head><body><h1>t</h1><p>ok</p></body></html>' }] }), []);
+});
+
+test("pre-publish check: readable on phones and with screen readers", () => {
+  const page = `<html><head></head><body><h1>A</h1><h1>B</h1><h3>跳過</h3>
+    <a href="x.html"><svg></svg></a><a href="logo.html"><img src="l.png" alt="研究室首頁"></a><a href="y.html">點這裡</a><a href="z.html">下載招生簡章</a>
+    <iframe src="https://www.youtube.com/embed/x"></iframe><iframe title="地圖" src="https://maps.example"></iframe>
+    <div style="width: 960px">寬</div><img src="a.jpg" alt="a" style="width:900px"><table width="700"><tr><td>t</td></tr></table></body></html>`;
+  const found = checkPage("index.html", page, null);
+  assert.deepEqual(found.viewport.length, 1);
+  assert.deepEqual(found.a11y, [
+    "沒有標示網頁語言（lang）",
+    "有 2 個主標題（h1），建議只留一個",
+    "標題層級跳過了：「跳過」是 h3，前一個是 h1",
+    "只有圖示、沒有文字的連結（x.html）",
+    "連結文字「點這裡」看不出要去哪裡",
+    "影片或地圖沒有標題（title）",
+  ]);
+  assert.deepEqual(found.mobile, ["<div> 寬度固定 960px，手機上會超出畫面", "<table> 寬度固定 700px，手機上會超出畫面"]);
+  const site = checkSite({ pages: [{ path: "index.html", html: page }] });
+  assert.deepEqual(site.map((c) => [c.kind, c.level]).filter(([k]) => ["viewport", "mobile", "a11y"].includes(k)), [["viewport", "warn"], ["mobile", "info"], ["a11y", "info"]]);
 });
 
 test("【】 headings: one field, accents written back into their own elements", () => {

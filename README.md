@@ -97,6 +97,11 @@ npm --prefix cloud run deploy
 | 造訪統計（v4.24） | 公開網站每次打開網頁就在 D1 `page_views`（網站、日期〔台灣時間〕、頁面）加一，不用 cookie、不記訪客、排除機器人；「我的網站 › 造訪」看近 30 天（`/api/sites/:id/stats`） |
 | 預約發布（v4.24） | 老師選時間（最多 90 天內），settings `schedule:<siteId>`；cron 每 10 分鐘（`*/10 * * * *`）發布那時最新的版本；手動發布會取消預約（`cloud/src/schedule.js`） |
 | QR Code（v4.24） | 這一頁或首頁的公開網址，SVG／PNG 下載（`qrcode-generator`，MIT） |
+| 論文與成員總表（v4.25） | 「資料 › 論文與成員總表」：所有論文清單（中英文頁）整理成一張表（`src/site/contentIndex.js`），標出重複、英文頁沒有、只有英文頁有、沒有 DOI、看不出年份；可刪重複、加到英文頁、找 DOI（`/api/lookup/search`，Crossref 標題搜尋，只列標題相近的）。成員中英文與照片狀態並列。這是把內容從「網頁上的字」變成「資料」的第一步 |
+| 前 10 分鐘引導（v4.25） | 範本建立的網站在左上角顯示「把範本變成你的網站」六步驟，依發布前檢查的範例文字／範例照片自動打勾（`GettingStarted.jsx`） |
+| 今天想改什麼／新手步驟（v4.25） | 打開網站先看到大按鈕首頁（`StartScreen.jsx`，只列這個網站有的功能，並提醒待核准、未發布、中英不同步），可勾「下次直接進入」；第一次使用有逐步亮出畫面重點的新手步驟（`Tour.jsx`，localStorage `labsite.tour.v1`） |
+| 建立網站精靈（v4.26，AI） | 管理者「建立新網站：AI 精靈」：認識研究室 → 網站結構 → 風格（四種版型＋AI 配色）→ 內容初稿 → 建立。`POST /api/admin/wizard/plan`（`aiSitePlan`，只用老師給的事實）、`/api/admin/wizard/themes`；建立時 `POST /api/sites` 帶 `wizard`，由 `src/site/wizard.js` 把初稿填進 `labsite/template.json` 的 `slots`、刪掉不要的頁面（NAV、導引帶、連結一起）、改英文名稱、研究室資料與配色；`wizardPreview.js` 在瀏覽器即時預覽首頁 |
+| 發布前檢查：無障礙與手機版（v4.25） | 缺 viewport（警示）、固定寬度超過 480px、缺 lang、h1 數量、標題層級跳過、沒有文字的連結、「點這裡」類連結、iframe 沒有 title |
 | 自動存草稿（v4.18，LabSite Cloud） | 停止輸入 20 秒後自動存成草稿，版本紀錄同一輪只留一筆；外觀的修改不自動保存。發布後可按「回到上一版」讓公開網站回到發布前的樣子 |
 | 並排預覽（v4.18） | 預覽可同時顯示電腦與手機尺寸（寬螢幕預設），兩邊都可以點選 |
 | 頁面資訊 | `<title>` 與 description，同步更新 og／twitter 標籤 |

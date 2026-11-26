@@ -1748,6 +1748,7 @@ export function useProject(notify) {
     dismissSync,
     syncReport,
     others,
+    draftOf: (path) => drafts[path]?.present ?? null,
     mirror,
     setMirror,
     ensurePair,

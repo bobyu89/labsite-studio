@@ -25,13 +25,15 @@ import { zip } from "./zip.js";
 import { fetchRepoFiles, backupToGitHub, backupAll, parseRepo, githubToken, testGithubToken, backupAdminView, saveGithubToken } from "./github.js";
 import { moveSitesOffSheets } from "./sheets.js";
 import { applyPatches } from "./patches.js";
-import { lookupReference, lookupOrcid } from "./lookup.js";
+import { lookupReference, lookupOrcid, searchByTitle } from "./lookup.js";
 import { parseOrcid } from "../../src/site/bibImport.js";
 import { checkLinks } from "./links.js";
 import { setSchedule, cancelSchedule, runSchedules } from "./schedule.js";
 import { templateFiles, personalize, applySkin } from "./templates.js";
+import { buildWizardSite } from "../../src/site/wizard.js";
+import { enc as utf8enc, dec as utf8dec } from "./bytes.js";
 import { adminOverview } from "./overview.js";
-import { aiThemes, aiAssist, aiDescribePhoto, aiQuickNews, aiUsage, aiConfig, aiEnabledFor, aiAdminView, saveAiSettings, removeAiKey, testAiKey } from "./ai.js";
+import { aiThemes, aiAssist, aiDescribePhoto, aiQuickNews, aiSitePlan, aiUsage, aiConfig, aiEnabledFor, aiAdminView, saveAiSettings, removeAiKey, testAiKey } from "./ai.js";
 import {
   RepoError,
   isAdmin,
@@ -74,6 +76,21 @@ export const siteView = (env, s) => ({
   github: s.github_repo,
   backup: { status: s.backup_status, error: s.backup_error, at: s.backup_at },
 });
+
+// Applies the wizard's choices to template files (bytes ↔ text for the text ones).
+const TEXT_FILE = /\.(html?|js|css|json|svg|txt|xml|md)$/i;
+function wizardFiles(files, wizard) {
+  const meta = files.find((f) => f.path === "labsite/template.json");
+  let template = {};
+  try {
+    template = meta ? JSON.parse(utf8dec.decode(meta.bytes)) : {};
+  } catch {
+    template = {};
+  }
+  const texts = new Map(files.filter((f) => TEXT_FILE.test(f.path)).map((f) => [f.path, utf8dec.decode(f.bytes)]));
+  const out = buildWizardSite(texts, template, wizard);
+  return files.filter((f) => !TEXT_FILE.test(f.path) || out.has(f.path)).map((f) => (out.has(f.path) && out.get(f.path) !== texts.get(f.path) ? { ...f, bytes: utf8enc.encode(out.get(f.path)) } : f));
+}
 
 // An editor that has not written its presence row for this long has left.
 const PRESENCE_TTL = 90 * 1000;
@@ -213,6 +230,7 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
   // DOI / PMID → reference metadata for 新增論文 (any signed-in editor).
   app.get("/api/lookup/reference", async (c) => c.json(await lookupReference(c.req.query("q"), fetchImpl)));
   app.get("/api/lookup/orcid", async (c) => c.json(await lookupOrcid(c.req.query("id"), fetchImpl)));
+  app.get("/api/lookup/search", async (c) => c.json({ results: await searchByTitle(c.req.query("title"), c.req.query("year"), fetchImpl) }));
 
   app.post("/api/logout", async (c) => {
     await endSession(c.env, readCookie(c.req.raw, COOKIE));
@@ -304,11 +322,28 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
     return c.json(await testAiKey(c.env, body.key, fetchImpl));
   });
 
+  /* ------------------------------------------- 建立網站精靈 (AI) */
+  const wizardKey = async (c) => {
+    const config = await aiConfig(c.env);
+    if (!config.key) throw new RepoError(503, "AI 功能尚未設定（管理者需要在「平台設定」放入 API 金鑰）。");
+    return config.key;
+  };
+  app.post("/api/admin/wizard/plan", requireAdmin, async (c) => {
+    const body = await c.req.json().catch(() => ({}));
+    return c.json(await aiSitePlan(c.env, body, fetchImpl, await wizardKey(c)));
+  });
+  app.post("/api/admin/wizard/themes", requireAdmin, async (c) => {
+    const body = await c.req.json().catch(() => ({}));
+    return c.json({ themes: await aiThemes(c.env, body.description, fetchImpl, await wizardKey(c)) });
+  });
+
   /* --------------------------------------------------------- sites */
   app.post("/api/sites", requireAdmin, async (c) => {
     const body = await c.req.json().catch(() => ({}));
     if (body.template) {
-      const files = personalize(applySkin(await templateFiles(c.env, c.req.url, body.template), body.skin), { name: body.name });
+      let files = personalize(applySkin(await templateFiles(c.env, c.req.url, body.template), body.skin), { name: body.name });
+      // 建立網站精靈: the AI drafts, chosen pages, 研究室資料 and colours (wizard.js).
+      if (body.wizard) files = wizardFiles(files, body.wizard);
       const site = await createSite(c.env, {
         slug: body.slug,
         name: body.name || body.slug,

@@ -1643,3 +1643,85 @@ test("排程發布: teachers only, in the future; the cron publishes the latest 
   assert.equal(me.sites[0].schedule, null);
   assert.ok(SCHEDULE_ACTOR);
 });
+
+/* ============================================ v4.26 建立網站精靈 */
+test("建立網站精靈: AI plan from the answers (admin only), then a site built with the drafts, pages, name and colours", async () => {
+  const { readdirSync, readFileSync, statSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const root = new URL("../templates/basic/", import.meta.url).pathname;
+  const files = [];
+  const walk = (dir, rel = "") => {
+    for (const f of readdirSync(dir)) {
+      const full = join(dir, f);
+      const r = rel ? rel + "/" + f : f;
+      if (statSync(full).isDirectory()) walk(full, r);
+      else if (/\.(html|js|css|json|xml|svg)$/.test(f)) files.push({ path: r, text: readFileSync(full, "utf8") });
+    }
+  };
+  walk(root);
+  const env = fakeEnv();
+  env.ASSETS = {
+    async fetch(req) {
+      return new URL(req.url).pathname === "/templates/basic.json"
+        ? new Response(JSON.stringify({ id: "basic", name: "導引", files }), { headers: { "Content-Type": "application/json" } })
+        : new Response("<!doctype html>", { headers: { "Content-Type": "text/html" } });
+    },
+  };
+  let sent = null;
+  const pair = (zh, en) => ({ zh, en });
+  const plan = {
+    name_en: "Elder Care Nursing Lab",
+    pages: ["index", "research", "members", "publications", "contact"].map((page) => ({ page, keep: page !== "publications", purpose: "用途" })),
+    skin: "journal",
+    skin_reason: "學術感。",
+    style_words: "沉穩深藍",
+    content: {
+      lede: pair("讓長輩被好好照顧", "Good care for older people"),
+      about_lead: pair("我們關心長輩。", "We care for older people."),
+      about_1: pair("一", "One"),
+      about_2: pair("二", "Two"),
+      research_summary: pair("失智症照護、認知訓練、照顧者支持", "Dementia care, cognitive training, carer support"),
+      join_summary: pair("歡迎加入", "Join us"),
+      research_lede: pair("研究介紹", "Research intro"),
+      areas: [1, 2, 3].map((i) => ({ title: pair("主題" + i, "Area " + i), desc: pair("說明" + i, "About " + i), tags: [1, 2, 3].map((j) => pair(`標籤${i}${j}`, `Tag ${i}${j}`)) })),
+    },
+  };
+  const app = createApp({
+    fetchImpl: scriptedFetch([
+      [
+        "api.anthropic.com/v1/messages",
+        (u, init) => {
+          sent = JSON.parse(init.body);
+          return { json: { id: "m", type: "message", role: "assistant", model: "claude-opus-5-5", content: [{ type: "text", text: JSON.stringify(plan) }], stop_reason: "end_turn", stop_sequence: null, usage: { input_tokens: 1, output_tokens: 1 } } };
+        },
+      ],
+    ]),
+  });
+  const as = (email) => ({ ...env, DEV_USER_EMAIL: email });
+  const answers = { name: "高齡照護研究室", about: "我們研究高齡者的認知訓練與照顧者支持。", topics: "失智症照護\n認知訓練", audience: ["想來念研究所的學生"] };
+  assert.equal((await app.request("http://localhost/api/admin/wizard/plan", jsonReq("POST", answers), env)).status, 503, "no AI key yet");
+  await app.request("http://localhost/api/admin/ai", jsonReq("PUT", { key: TEST_KEY }), env);
+  assert.equal((await app.request("http://localhost/api/admin/wizard/plan", jsonReq("POST", answers), as("teacher@lab.tw"))).status, 403);
+  assert.equal((await app.request("http://localhost/api/admin/wizard/plan", jsonReq("POST", { name: "x", about: "短" }), env)).status, 400);
+  const got = await (await app.request("http://localhost/api/admin/wizard/plan", jsonReq("POST", answers), env)).json();
+  assert.match(sent.messages[0].content, /研究室中文名稱：高齡照護研究室[\s\S]*研究主題：失智症照護/);
+  assert.deepEqual([got.name_en, got.skin, got.fill.lede.zh, got.fill.area2_tag3.en], ["Elder Care Nursing Lab", "journal", "讓長輩被好好照顧", "Tag 23"]);
+  assert.equal(got.pages.find((x) => x.page === "publications").keep, false);
+
+  const res = await app.request(
+    "http://localhost/api/sites",
+    jsonReq("POST", { template: "basic", skin: "journal", slug: "elder-care", name: "高齡照護研究室", wizard: { fill: got.fill, drop: ["publications.html"], fields: { nameEn: got.name_en, email: "lab@elder.edu.tw" }, theme: { vars: { "--zone-research": "#123456" } } } }),
+    env,
+  );
+  assert.equal(res.status, 201);
+  const site = await getSite(env, "elder-care");
+  const index = await text(env, site, "index.html");
+  assert.match(index, /高齡照護研究室/);
+  assert.match(index, />讓長輩被好好照顧</);
+  assert.match(index, /Elder Care Nursing Lab/);
+  assert.doesNotMatch(index, /publications\.html/);
+  assert.equal(await text(env, site, "publications.html").catch(() => null), null);
+  assert.match(await text(env, site, "en/research.html"), /<h3 class="area__title">Area 1<\/h3>/);
+  assert.match(await text(env, site, "js/data.js"), /lab@elder\.edu\.tw/);
+  assert.match(await text(env, site, "css/theme.css"), /--zone-research:\s*#123456/);
+});

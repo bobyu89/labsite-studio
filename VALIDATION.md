@@ -1,3 +1,45 @@
+# v4.26 建立網站精靈（AI 引導：結構 → 風格 → 內容）
+
+日期：2026-11-26。管理者要求：新手建立網站時，由提示詞工程從設計結構與風格開始，一步一步帶老師建立自己的網站。
+
+內容
+- `templates/basic/labsite/template.json`：`slots`（首頁介紹、關於我們三段、研究方向摘要與頁首介紹、招生一句話、三個研究主題的標題／說明／各三個標籤，各有中英文的範本原句）與 `optionalPages`（research、publications）。
+- `src/site/wizard.js`：`fillSlots`（只換整個元素的文字，同一個詞出現在長句裡不會被換）、`dropPages`（刪檔案、NAV、導引帶、指向它的按鈕與連結、sitemap）、`renameEnglish`、`fillSiteFields`、`applyThemeVars`、`buildWizardSite`。伺服器建立網站與瀏覽器預覽共用。
+- `cloud/src/ai.js` `aiSitePlan`：JSON schema（英文名稱、每頁用途與是否保留、版型與理由、配色描述、所有插槽的中英文初稿）；系統提示要求只用老師給的事實。`POST /api/admin/wizard/plan`、`/api/admin/wizard/themes`（沿用 `aiThemes`）；`POST /api/sites` 的 `wizard`。
+- `src/site/wizardPreview.js`：把範本頁面（版型、配色、初稿、名稱）做成單一 HTML 給預覽 iframe。
+- `SiteWizard.jsx`：五步驟、即時預覽首頁（可切英文）、可回上一步；建立後直接打開編輯器（接新手步驟、今天想改什麼、把範本變成你的網站）。我的網站 › 管理者的入口。
+
+驗證
+- `npm test` 252 pass（新增 `tests/wizard.test.js` 4 項：每個插槽在中英文頁都找得到、只換整個元素、刪頁連同 NAV／導引帶／按鈕、完整建置；`tests/cloud.test.js` 1 項：AI 規劃只限管理者、需要金鑰、送出老師的回答，建立後網站含初稿、英文名稱、研究室資料、配色，且沒有論文發表頁與連結）。
+- 本機 `--ai-mock`＋Playwright：填寫 → AI 規劃 → 取消論文發表 → 選 AI 推薦的手札版型與 AI 配色 → 改首頁介紹（預覽即時更新，導引帶只剩研究方向、團隊成員、加入我們）→ 建立 → 編輯器打開，首頁內容與預覽一致，出現「今天想改什麼」與引導清單。
+
+尚未驗證／已知
+- 真實 AI 的規劃品質要用正式金鑰試；本機是模擬回應。
+- 精靈目前只給管理者用（新網站仍由管理者建立）；要讓老師自己開站，需要另外決定權限與數量限制。
+- 模板只有一個（basic，四種版型），所以「結構」是在這五頁裡選；新增其他類型的頁面要從元件庫加。
+
+# v4.25 論文與成員總表、前 10 分鐘引導、無障礙與手機版檢查、今天想改什麼、新手步驟
+
+日期：2026-11-26。管理者同意建議的「現在」階段 1～3。
+
+內容
+- `src/site/contentIndex.js`：`paperIndex`（每篇論文的年份、標題、期刊、DOI，以及出現在哪一頁哪個清單第幾筆；中英文頁先用 DOI／標題配對，清單長度相同時用位置配對；旗標 duplicate、no-en、no-zh、no-doi、no-year）、`peopleIndex`（成員中英文並列、照片狀態）、`titleIn`、`doiIn`。`pubExport.publicationEntries` 多帶清單位置與每筆的索引。
+- `ContentTables.jsx`（資料 › 論文與成員總表）：篩選、搜尋、去看、刪掉重複的、加到英文頁、找 DOI（`searchByTitle` → Crossref `query.bibliographic`，用字詞重疊 ≥ 0.6 篩掉不像的）；`quickAdd.addLinkToItem`。
+- `GettingStarted.jsx`：以 `prepublishCheck` 的範例文字／範例照片判斷六個步驟。
+- `publishCheck.js`：`viewport`（warn）、`mobile`、`a11y`（info）三類。
+- 管理者追加：新手步驟與「今天想改什麼」大按鈕。`StartScreen.jsx`（最多 11 個大按鈕，依網站有的功能顯示；待核准、未發布、中英不同步的提醒；「下次直接進入編輯畫面」）、`Tour.jsx`（亮出畫面區塊、上一步／下一步／跳過、鍵盤左右與 Esc；選擇器依序嘗試）。LabSite Cloud 上第一次打開：新手步驟 → 今天想改什麼；原本的三步驟說明卡改成只從「使用說明」打開。上方新增「今天想改什麼」按鈕。
+
+驗證
+- `npm test` 247 pass（新增 `tests/content.test.js` 4 項；`tests/restored.test.js` 新增無障礙／手機版 1 項，原測試的範例頁補上 viewport 與 lang）。
+- 真實資料（宋老師網站的 GitHub 備份）：56 篇論文；找到 2 篇重複、1 篇英文頁沒有、33 篇沒有 DOI。瀏覽器裡「刪掉重複的」「加到英文頁」後，要處理的從 3 篇變 1 篇；「找 DOI」對一篇沒有 DOI 的論文只列出標題相近的候選。
+- 無障礙檢查的雜訊：範本 10 頁 0 處；宋老師網站 25 頁、賀老師網站 19 頁各 2 處（標題層級跳過）。
+- 引導卡片：範本網站顯示 6 步、點第一步打開研究室資料、可收起；宋老師網站（沒有範例內容）不顯示。
+- 新手步驟：宋老師網站第一次打開，6 步依序亮出（今天想改什麼、左邊、預覽、右邊、AI 助手、發布），舊說明卡不再自動出現；結束後出現「今天想改什麼？」11 個大按鈕；「加論文」打開新增論文、「改電話、地址、Email」打開研究室資料；上方按鈕可再打開；手機版兩欄。
+
+尚未驗證／已知
+- 總表目前是「從網頁讀出來的資料」，修改仍寫回網頁；之後的系所總覽、評鑑匯出會用同一份索引。
+- 找 DOI 依賴 Crossref 的標題搜尋，研討會摘要和中文期刊常找不到。
+
 # v4.24 活動快報、學期更新、論文匯出、造訪統計、預約發布、QR Code
 
 日期：2026-11-25。管理者要求：#9 先上線，然後做 1～6。
