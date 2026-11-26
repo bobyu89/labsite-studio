@@ -39,7 +39,7 @@ export default function GettingStarted({ p, onGo }) {
     if (hidden || !siteId) return;
     let alive = true;
     const t = setTimeout(() => {
-      p.prepublishCheck([])
+      p.prepublishCheck([], { withDesign: false })
         .then((checks) => alive && setSteps(startSteps(checks || [], { published: p.cloudSite?.published, unpublished: p.cloudSite?.unpublished })))
         .catch(() => {});
     }, 800);

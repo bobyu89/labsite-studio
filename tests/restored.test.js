@@ -59,14 +59,11 @@ test("pre-publish check: readable on phones and with screen readers", () => {
     <div style="width: 960px">寬</div><img src="a.jpg" alt="a" style="width:900px"><table width="700"><tr><td>t</td></tr></table></body></html>`;
   const found = checkPage("index.html", page, null);
   assert.deepEqual(found.viewport.length, 1);
-  assert.deepEqual(found.a11y, [
-    "沒有標示網頁語言（lang）",
-    "有 2 個主標題（h1），建議只留一個",
-    "標題層級跳過了：「跳過」是 h3，前一個是 h1",
-    "只有圖示、沒有文字的連結（x.html）",
-    "連結文字「點這裡」看不出要去哪裡",
-    "影片或地圖沒有標題（title）",
-  ]);
+  assert.deepEqual(found.a11y, ["沒有標示網頁語言（lang）", "只有圖示、沒有文字的連結（x.html）", "影片或地圖沒有標題（title）"]);
+  // Headings and vague links are 設計規範 AP-21 and AP-16 since v4.28.
+  const design = checkSite({ pages: [{ path: "index.html", html: page }], design: { styles: [], sizes: [] } });
+  assert.deepEqual(design.find((c) => c.kind === "AP-21").items[0].examples, ["有 2 個主標題（h1）", "「跳過」是 h3，前一個是 h1"]);
+  assert.deepEqual(design.find((c) => c.kind === "AP-16").items[0].examples, ["「點這裡」"]);
   assert.deepEqual(found.mobile, ["<div> 寬度固定 960px，手機上會超出畫面", "<table> 寬度固定 700px，手機上會超出畫面"]);
   const site = checkSite({ pages: [{ path: "index.html", html: page }] });
   assert.deepEqual(site.map((c) => [c.kind, c.level]).filter(([k]) => ["viewport", "mobile", "a11y"].includes(k)), [["viewport", "warn"], ["mobile", "info"], ["a11y", "info"]]);

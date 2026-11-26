@@ -31,6 +31,8 @@ import { checkLinks } from "./links.js";
 import { setSchedule, cancelSchedule, runSchedules } from "./schedule.js";
 import { templateFiles, personalize, applySkin } from "./templates.js";
 import { buildWizardSite } from "../../src/site/wizard.js";
+import { cleanProfile, profileText } from "../../src/site/labProfile.js";
+import { packById } from "../../src/site/stylePacks.js";
 import { enc as utf8enc, dec as utf8dec } from "./bytes.js";
 import { adminOverview } from "./overview.js";
 import { aiThemes, aiAssist, aiDescribePhoto, aiQuickNews, aiSitePlan, aiHealth, aiUsage, aiConfig, aiEnabledFor, aiAdminView, saveAiSettings, removeAiKey, testAiKey } from "./ai.js";
@@ -353,6 +355,10 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
         live: false,
         source: "template:" + body.template,
       });
+      if (body.wizard?.profile) {
+        const profile = cleanProfile(body.wizard.profile);
+        if (Object.keys(profile).length) await setSetting(c.env, "lab:" + site.id, JSON.stringify(profile), c.get("user").email);
+      }
       return c.json({ site: siteView(c.env, site), files: files.length }, 201);
     }
     const { owner, repo } = parseRepo(body.github);
@@ -487,6 +493,28 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
     return c.json({ commit: commitView(result.commit, fresh), changed: result.changed, noop: result.noop, site: siteView(c.env, fresh) });
   });
 
+  // 研究室檔案 (labProfile.js): the lab in its own words, read by every AI request.
+  const labProfile = async (env, siteId) => {
+    const raw = (await getSettings(env, ["lab:" + siteId]))["lab:" + siteId];
+    try {
+      return cleanProfile(JSON.parse(raw || "{}"));
+    } catch {
+      return {};
+    }
+  };
+  const labText = async (env, site) => {
+    const profile = await labProfile(env, site.id);
+    return profileText(profile, { name: site.name, packName: packById(profile.pack)?.name });
+  };
+  app.get("/api/sites/:id/lab", async (c) => c.json({ profile: await labProfile(c.env, c.get("site").id) }));
+  app.put("/api/sites/:id/lab", async (c) => {
+    if (c.get("role") !== "editor") throw new RepoError(403, "只有老師可以改研究室檔案。");
+    const body = await c.req.json().catch(() => ({}));
+    const profile = cleanProfile(body.profile);
+    await setSetting(c.env, "lab:" + c.get("site").id, Object.keys(profile).length ? JSON.stringify(profile) : null, c.get("user").email);
+    return c.json({ profile });
+  });
+
   // Both AI features share one key, one daily cap per site and one on/off
   // switch per site (the admin's 「AI 助手設定」 page).
   const aiGate = async (c) => {
@@ -513,8 +541,8 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
   app.post("/api/sites/:id/assistant", async (c) => {
     const { site, config, remaining } = await aiGate(c);
     const body = await c.req.json().catch(() => ({}));
-    const result = await aiAssist(c.env, body, fetchImpl, config.key);
-    await logEvent(c.env, site.id, "ai_assist", null, c.get("user").email, String(body.message || "").slice(0, 300));
+    const result = await aiAssist(c.env, body, fetchImpl, config.key, Date.now(), await labText(c.env, site));
+    await logEvent(c.env, site.id, "ai_assist", null, c.get("user").email, (body.command ? "[" + String(body.command).slice(0, 20) + "] " : "") + String(body.message || "").slice(0, 300));
     return c.json({ ...result, remaining });
   });
 
@@ -693,7 +721,7 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
   app.post("/api/sites/:id/health", async (c) => {
     const { site, config, remaining } = await aiGate(c);
     const body = await c.req.json().catch(() => ({}));
-    const result = await aiHealth(c.env, { ...body, lab: site.name }, fetchImpl, config.key);
+    const result = await aiHealth(c.env, { ...body, lab: site.name, profile: await labText(c.env, site) }, fetchImpl, config.key);
     await logEvent(c.env, site.id, "ai_health", null, c.get("user").email, null);
     return c.json({ ...result, remaining });
   });
@@ -702,7 +730,7 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
   app.post("/api/sites/:id/quick-news", async (c) => {
     const { site, config, remaining } = await aiGate(c);
     const body = await c.req.json().catch(() => ({}));
-    const result = await aiQuickNews(c.env, body, fetchImpl, config.key);
+    const result = await aiQuickNews(c.env, body, fetchImpl, config.key, await labText(c.env, site));
     await logEvent(c.env, site.id, "ai_news", null, c.get("user").email, String(body.text || "").slice(0, 200));
     return c.json({ ...result, remaining });
   });
@@ -711,7 +739,7 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
   app.post("/api/sites/:id/describe-photo", async (c) => {
     const { site, config, remaining } = await aiGate(c);
     const body = await c.req.json().catch(() => ({}));
-    const result = await aiDescribePhoto(c.env, body, fetchImpl, config.key);
+    const result = await aiDescribePhoto(c.env, body, fetchImpl, config.key, await labText(c.env, site));
     await logEvent(c.env, site.id, "ai_photo", null, c.get("user").email, String(body.note || "").slice(0, 200));
     return c.json({ ...result, remaining });
   });

@@ -72,6 +72,8 @@ export function cloudApi(fetchImpl = (...a) => fetch(...a)) {
     revokePreviewLink: (id, token) => call("DELETE", site(id) + "/preview-links/" + encodeURIComponent(token)),
     presence: (id, page, leave = false) => call("POST", site(id) + "/presence", leave ? { leave: true } : { page }),
     setOrcid: (id, orcid) => call("PUT", site(id) + "/orcid", { orcid }),
+    getLab: (id) => call("GET", site(id) + "/lab"),
+    setLab: (id, profile) => call("PUT", site(id) + "/lab", { profile }),
     // A file as it is in one version (a commit id, "published" or "draft"); null when absent.
     readAt: async (id, path, ref) => {
       const res = await fetchImpl("/api" + site(id) + "/files/" + path.split("/").map(encodeURIComponent).join("/") + "?ref=" + encodeURIComponent(ref), { credentials: "same-origin" });

@@ -57,6 +57,12 @@ Cloudflare 帳號、GitHub 帳號、Anthropic 帳號都是管理者（bobyu89）
 - 建立或更換 API 金鑰、GitHub 權杖（貼在「平台設定」，不要傳到聊天或 Email）。
 - 決定網域、費用與合作。
 
+## 5.5 設計規範（v4.28）
+
+- 規則、反模式、指令都在 `src/site/design.js`；AI 讀的是這份程式。改規則後執行 `npm test`（`tests/design.test.js` 會檢查 `docs/DESIGN-STANDARD.md` 有沒有跟上）。
+- 風格包在 `src/site/stylePacks.js`；新增一包要通過對比檢查，且套到版型後設計檢查要是零（測試會擋）。
+- 每個網站的研究室檔案存在 D1 `settings` 的 `lab:<siteId>`（JSON）；老師在「今天想改什麼 › 研究室檔案」修改。
+
 ## 6. 定期檢查（建議每月一次）
 
 - 「總覽」看各網站最後修改與發布時間，太久沒動的可以提醒老師。

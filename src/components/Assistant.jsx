@@ -11,6 +11,7 @@ import { editHtml } from "../site/page.js";
 import { previewCitation } from "../site/quickAdd.js";
 import { readNews } from "../site/news.js";
 import { blanksIn } from "../site/promptBank.js";
+import { COMMANDS } from "../site/design.js";
 import { buildContext, resolveChanges, applyTextChange, applyPublication, applyAddItem, fillBlock, newsItem, turnSummary } from "../site/assistant.js";
 
 const same = (a, b) => String(a).replace(/\s+/g, " ").trim() === String(b).replace(/\s+/g, " ").trim();
@@ -24,6 +25,19 @@ function Value({ label, value, onChange, disabled, rows = 2, lang }) {
       <textarea value={value} rows={rows} lang={lang} disabled={disabled} onChange={(e) => onChange(e.target.value)} />
     </label>
   );
+}
+
+const MOTION = { none: "不動", subtle: "輕微", lively: "活潑" };
+function ThemeValue({ value }) {
+  const v = String(value || "").trim();
+  if (/^#[0-9a-f]{3,8}$/i.test(v))
+    return (
+      <span className="ai-swatch">
+        <i style={{ background: v }} />
+        {v}
+      </span>
+    );
+  return <span className="ai-swatch">{MOTION[v] || v}</span>;
 }
 
 function Card({ card, onChange, onApply, onDismiss, busy }) {
@@ -115,6 +129,21 @@ function Card({ card, onChange, onApply, onDismiss, busy }) {
             ))}
           </>
         )}
+        {card.type === "set_theme" && (
+          <>
+            {card.reason && <p className="ai-reason">{card.reason}</p>}
+            <ul className="ai-theme-rows">
+              {(card.rows || []).map((r) => (
+                <li key={r.key}>
+                  <span>{r.label}</span>
+                  <ThemeValue value={r.before} />
+                  <span aria-hidden="true">→</span>
+                  <ThemeValue value={r.after} />
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
         {pub && (
           <div className="ai-before">
             <span>網站上會顯示成</span>
@@ -151,7 +180,7 @@ function Card({ card, onChange, onApply, onDismiss, busy }) {
   );
 }
 
-export default function Assistant({ p, selected, sectionCount = 0, open, onOpen, seed }) {
+export default function Assistant({ p, selected, sectionCount = 0, open, onOpen, seed, onAudit }) {
   const [turns, setTurns] = useState([]);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -191,10 +220,27 @@ export default function Assistant({ p, selected, sectionCount = 0, open, onOpen,
   ].filter(Boolean);
 
   const [blankWarn, setBlankWarn] = useState(false);
-  async function send(message) {
+  const [commandsOpen, setCommandsOpen] = useState(() => {
+    try {
+      return localStorage.getItem("labsite.ai.commands") !== "closed";
+    } catch {
+      return true;
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem("labsite.ai.commands", commandsOpen ? "open" : "closed");
+    } catch {
+      /* private mode */
+    }
+  }, [commandsOpen]);
+  // command: a 設計規範 command id (design.js COMMANDS); the typed text, if
+  // any, goes with it as the teacher's own note.
+  async function send(message, command = null) {
     const ask = message.trim();
-    if (ask.length < 2 || busy) return;
-    if (blanksIn(ask) && !blankWarn) {
+    if ((!command && ask.length < 2) || busy) return;
+    const cmd = command ? COMMANDS.find((c) => c.id === command) : null;
+    if (!cmd && blanksIn(ask) && !blankWarn) {
       setBlankWarn(true);
       return;
     }
@@ -203,13 +249,14 @@ export default function Assistant({ p, selected, sectionCount = 0, open, onOpen,
     setText("");
     setBusy(true);
     const history = turns.slice(-8).map((t) => ({ role: t.role, text: turnSummary(t) }));
-    setTurns((t) => [...t, { id: nextId.current++, role: "user", text: ask }]);
+    const said = cmd ? `【${cmd.name}】${ask ? " " + ask : ""}` : ask;
+    setTurns((t) => [...t, { id: nextId.current++, role: "user", text: said, command: cmd?.id }]);
     try {
       const pairHtml = p.pair ? await p.ensureLoaded(p.pair) : null;
       const siteText = p.siteData?.text ?? null;
       const { context, index } = buildContext({ path: p.current, html: p.html, pairPath: p.pair, pairHtml, siteText, pages: p.pages, labelOf: p.labelOf, selected });
-      const r = await p.ai.ask({ message: ask, history, context });
-      const cards = resolveChanges(r.changes, index, { siteText, labelOf: p.labelOf }).map((c) => ({ ...c, id: nextId.current++, state: null }));
+      const r = await p.ai.ask({ message: ask, history, context, ...(cmd ? { command: cmd.id } : {}) });
+      const cards = resolveChanges(r.changes, index, { siteText, labelOf: p.labelOf, theme: p.theme }).map((c) => ({ ...c, id: nextId.current++, state: null }));
       setRemaining(r.remaining ?? null);
       setTurns((t) => [...t, { id: nextId.current++, role: "assistant", text: r.reply, cards }]);
     } catch (e) {
@@ -268,6 +315,10 @@ export default function Assistant({ p, selected, sectionCount = 0, open, onOpen,
       if (card.after >= sectionCount) return stale("這一頁的區塊在助手讀過之後變少了，請再說一次要放在哪裡。");
       await p.insertBlock(card.after, "catalog", { id: card.block, fill: (section) => fillBlock(section, card), quiet: true });
       return patchCard(turnId, { ...card, state: "applied", undo: true });
+    }
+    if (card.type === "set_theme") {
+      p.setTheme({ vars: Object.fromEntries(card.rows.map((r) => [r.key, r.after])) });
+      return patchCard(turnId, { ...card, state: "applied" });
     }
     if (card.type === "set_site") {
       try {
@@ -375,6 +426,27 @@ export default function Assistant({ p, selected, sectionCount = 0, open, onOpen,
         <span ref={end} />
       </div>
       <div className="ai-foot">
+        <details className="ai-commands" open={commandsOpen} onToggle={(e) => setCommandsOpen(e.currentTarget.open)}>
+          <summary>設計規範指令</summary>
+          <div className="ai-command-grid">
+            {COMMANDS.map((c) => (
+              <button
+                type="button"
+                key={c.id}
+                disabled={busy || (c.local && !onAudit)}
+                title={`${c.does}${c.dont ? "（" + c.dont + "）" : ""}`}
+                onClick={() => {
+                  if (c.local) return onAudit?.();
+                  send(text, c.id);
+                }}
+              >
+                <strong>{c.name}</strong>
+                <span>{c.does}</span>
+              </button>
+            ))}
+          </div>
+          <p className="small-note">按一個指令，助手就照設計規範看這一頁；輸入框裡寫的字會一起送出當補充。</p>
+        </details>
         <div className="ai-prompts">
           {prompts.map((x) => (
             <button

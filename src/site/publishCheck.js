@@ -2,6 +2,8 @@
 // left in, links without an address or to a page that does not exist, photos
 // without alt text. Nothing here blocks publishing; it is a list to look at.
 import { SITE_FIELDS, isSampleValue } from "./siteData.js";
+import { ANTI_PATTERNS } from "./design.js";
+import { designSite } from "./designCheck.js";
 
 const SKIP = new Set(["script", "style", "noscript", "template", "svg"]);
 const SAMPLE_TEXT = /範例|\(sample\b[^)]*\)|lorem ipsum|Zhixing/i;
@@ -31,7 +33,6 @@ export function resolveLink(page, href) {
 }
 
 // → { sample, placeholder, alt, empty, broken }: short examples for one page.
-const VAGUE = /^(點這裡|按這裡|這裡|點此|更多|看更多|詳見|click here|here|more|read more|link|連結)$/i;
 const FIXED = /(?:^|;)\s*(?:min-)?width\s*:\s*(\d{3,4})px/i;
 
 // 無障礙與手機版: what makes a page hard to read with a screen reader or on a
@@ -40,23 +41,13 @@ function readability(doc, found) {
   if (!doc.querySelector('meta[name="viewport"]')) found.viewport.push("缺少 viewport 設定，手機會顯示成縮小的電腦版");
   if (!doc.documentElement) return;
   if (!doc.documentElement.getAttribute("lang")) found.a11y.push("沒有標示網頁語言（lang）");
-  const h1 = doc.querySelectorAll("body h1").length;
-  if (h1 === 0) found.a11y.push("沒有主標題（h1）");
-  else if (h1 > 1) found.a11y.push(`有 ${h1} 個主標題（h1），建議只留一個`);
-  let last = 0;
-  for (const h of doc.querySelectorAll("body h1, body h2, body h3, body h4, body h5, body h6")) {
-    const level = Number(h.tagName[1]);
-    if (last && level > last + 1) {
-      found.a11y.push(`標題層級跳過了：「${short(h.textContent)}」是 h${level}，前一個是 h${last}`);
-      break;
-    }
-    last = level;
-  }
+  // Several h1 and skipped levels are 設計規範 AP-21 (designCheck.js).
+  if (doc.querySelectorAll("body h1").length === 0) found.a11y.push("沒有主標題（h1）");
   for (const a of doc.querySelectorAll("body a[href]")) {
     const words = short(a.textContent);
     const label = a.getAttribute("aria-label") || a.getAttribute("title") || [...a.querySelectorAll("img[alt]")].map((i) => i.getAttribute("alt")).join("").trim();
+    // Vague link words (點這裡、more) are 設計規範 AP-16 (designCheck.js).
     if (!words && !label) found.a11y.push("只有圖示、沒有文字的連結（" + (a.getAttribute("href") || "").slice(0, 30) + "）");
-    else if (words && VAGUE.test(words)) found.a11y.push(`連結文字「${words}」看不出要去哪裡`);
   }
   for (const f of doc.querySelectorAll("body iframe")) if (!f.getAttribute("title")) found.a11y.push("影片或地圖沒有標題（title）");
   for (const el of doc.querySelectorAll("body [style], body table[width]")) {
@@ -103,6 +94,9 @@ export function checkPage(page, html, files) {
   return found;
 }
 
+// The anti-patterns designCheck.js finds (the rest map to older kinds).
+export const DESIGN_KINDS = ["AP-01", "AP-02", "AP-03", "AP-04", "AP-05", "AP-06", "AP-07", "AP-08", "AP-11", "AP-12", "AP-14", "AP-15", "AP-16", "AP-19", "AP-21", "AP-24", "AP-25", "AP-29"];
+
 export const CHECKS = [
   { kind: "sample", level: "warn", title: "還有範本的範例文字", hint: "把「範例」的內容換成研究室自己的資料，或刪掉用不到的段落。" },
   { kind: "placeholder", level: "warn", title: "還在用範本的示意圖", hint: "點預覽裡的圖片，按「換一張照片」放上真的照片。" },
@@ -114,6 +108,11 @@ export const CHECKS = [
   { kind: "mobile", level: "info", title: "手機上可能超出畫面", hint: "有固定寬度的區塊，手機的畫面比較窄，可能要左右滑。可以改用相簿、影片等元件，或請管理者調整。" },
   { kind: "a11y", level: "info", title: "無障礙：看不到畫面的讀者會卡住", hint: "用螢幕報讀軟體的讀者靠標題和連結文字瀏覽。連結文字請寫出要去哪裡（例如「下載招生簡章」），標題按層級排列。" },
   { kind: "alt", level: "info", title: "照片沒有替代文字", hint: "用一句話描述照片內容，看不到圖的讀者和搜尋引擎會讀這段文字。" },
+  // 設計規範 (design.js): the anti-patterns the editor can find on its own.
+  ...DESIGN_KINDS.map((id) => {
+    const ap = ANTI_PATTERNS.find((x) => x.id === id);
+    return { kind: id, level: ["AP-19", "AP-21", "AP-12"].includes(id) ? "warn" : "info", title: ap.title, hint: ap.fix + `（設計規範 ${ap.rule}）`, rule: ap.rule, design: true };
+  }),
 ];
 
 // pages: [{ path, html }]; files: Set of the site's paths (null skips broken
@@ -121,8 +120,11 @@ export const CHECKS = [
 // something, each with { items: [{ page, count, examples }], total }.
 // extra: { kind: [{ page, count, examples }] } found elsewhere (中英不同步,
 // outside links checked by the server).
-export function checkSite({ pages, files = null, siteFields = null, extra = {} }) {
+// design: { styles: [{ path, text }], sizes: [{ path, size }], members } for
+// the 設計規範 checks; leave it out to skip them.
+export function checkSite({ pages, files = null, siteFields = null, extra = {}, design = null }) {
   const byKind = Object.fromEntries(CHECKS.map((c) => [c.kind, [...(extra[c.kind] || [])]]));
+  if (design) for (const [id, items] of Object.entries(designSite({ pages, styles: design.styles, files: design.sizes, members: design.members }))) if (byKind[id]) byKind[id].push(...items);
   for (const { path, html } of pages) {
     if (!html) continue;
     for (const [kind, list] of Object.entries(checkPage(path, html, files)))

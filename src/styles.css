@@ -8601,3 +8601,180 @@ mark.diff-out {
   margin-left: 10px;
   font-size: 13px;
 }
+
+/* 設計規範: rule ids next to a finding (AP-xx, T-01 …). */
+.rule-id {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 4px;
+  background: var(--soft);
+  color: var(--muted);
+  font: 500 11px/18px ui-monospace, "SFMono-Regular", Menlo, monospace;
+  vertical-align: 1px;
+  white-space: nowrap;
+}
+
+/* 設計規範指令 in the assistant: twelve commands, two columns. */
+.ai-commands {
+  margin-bottom: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.ai-commands > summary {
+  cursor: pointer;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.ai-commands[open] > summary {
+  border-bottom: 1px solid var(--line);
+}
+.ai-command-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  padding: 6px;
+  max-height: 210px;
+  overflow: auto;
+}
+.ai-command-grid button {
+  display: grid;
+  gap: 1px;
+  text-align: left;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: var(--soft);
+  cursor: pointer;
+  font: inherit;
+  color: var(--ink);
+  min-width: 0;
+}
+.ai-command-grid button:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: #fff7ef;
+}
+.ai-command-grid button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.ai-command-grid strong {
+  font-size: 13px;
+}
+.ai-command-grid span {
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--muted, #5a636b);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.ai-commands .small-note {
+  margin: 0;
+  padding: 0 10px 8px;
+}
+.ai-reason {
+  margin: 0 0 6px;
+  font-size: 13px;
+}
+.ai-theme-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+}
+.ai-theme-rows li {
+  display: grid;
+  grid-template-columns: 7em auto auto auto;
+  align-items: center;
+  gap: 6px;
+  justify-content: start;
+}
+.ai-swatch {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 12px;
+}
+.ai-swatch i {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+/* 建立網站精靈: style packs and the lab-profile questions. */
+.wizard-packs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 10px;
+}
+.wizard-pack {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  padding: 12px 14px;
+  border: 1.5px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.wizard-pack > span:last-child {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.wizard-pack-fits {
+  font-size: 12px;
+  color: var(--accent);
+}
+.wizard-pack.on {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(194, 65, 12, 0.15);
+}
+.wizard-pack.on.custom {
+  border-style: dashed;
+}
+.wizard-colors > summary {
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+}
+.wizard-colors[open] {
+  gap: 10px;
+}
+.wizard-more > summary {
+  cursor: pointer;
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+.wizard-more {
+  display: grid;
+  gap: 8px;
+}
+.wizard-oneline {
+  margin-bottom: 12px;
+}
+.wizard-oneline small {
+  display: block;
+  margin-top: 4px;
+}
+.lab-profile {
+  display: grid;
+  gap: 10px;
+}
+.lab-profile-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}

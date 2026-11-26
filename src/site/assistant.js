@@ -10,6 +10,7 @@ import { BLOCK_CATALOG } from "./blockCatalog.js";
 import { publicationLists, addCitation, matchingList, previewCitation } from "./quickAdd.js";
 import { readNews, normalizeDate, NEWS_CATEGORIES } from "./news.js";
 import { readSiteFields, SITE_FIELDS } from "./siteData.js";
+import { contrastIssues } from "./themes.js";
 
 // Keeps the request a size the model answers quickly; a publications page
 // with hundreds of references still fits.
@@ -168,7 +169,7 @@ const same = (a, b) => String(a).replace(/\s+/g, " ").trim() === String(b).repla
 // whether it can still be applied. → [{ ...change, ok, title, where, before?, after, problem? }]
 const sectionTitle = (index, i) => index.sectionTitles?.[i] || "";
 
-export function resolveChanges(changes, index, { siteText = null, labelOf = (x) => x } = {}) {
+export function resolveChanges(changes, index, { siteText = null, labelOf = (x) => x, theme = null } = {}) {
   return (changes || []).map((c) => {
     if (c.type === "set_text") {
       const f = index.fields.get(c.field);
@@ -224,9 +225,35 @@ export function resolveChanges(changes, index, { siteText = null, labelOf = (x) 
         rows: items,
       };
     }
+    if (c.type === "set_theme") {
+      const base = { ...c, title: "調整外觀", where: "整個網站" };
+      if (!theme?.vars) return { ...base, ok: false, problem: "這個網站沒有可以調整的外觀設定（css/theme.css）。" };
+      const rows = Object.entries(c.vars || {})
+        .filter(([k]) => Object.hasOwn(theme.vars, k))
+        .map(([k, v]) => ({ key: k, label: THEME_LABELS[k] || k, before: theme.vars[k], after: v }))
+        .filter((r) => String(r.before).trim().toLowerCase() !== String(r.after).trim().toLowerCase());
+      if (!rows.length) return { ...base, rows, ok: false, problem: "和現在的外觀一樣，不需要修改。" };
+      const next = { "--on-zone": "#ffffff", "--on-join": "#ffffff", ...theme.vars, ...Object.fromEntries(rows.map((r) => [r.key, r.after])) };
+      const bad = contrastIssues(next);
+      if (bad.length) return { ...base, rows, ok: false, problem: `這樣改「${bad[0].label}」會不夠清楚（${bad[0].ratio}:1，要 4.5:1 以上），所以不套用。` };
+      return { ...base, rows, ok: true };
+    }
     return { ...c, ok: false, title: "無法辨識的修改", problem: "這個版本的編輯器不支援這種修改。" };
   });
 }
+
+const THEME_LABELS = {
+  "--zone-research": "研究的顏色",
+  "--zone-team": "成員的顏色",
+  "--zone-publications": "論文的顏色",
+  "--zone-join": "加入我們的顏色",
+  "--mark": "標示色",
+  "--ink": "文字顏色",
+  "--ink-soft": "次要文字",
+  "--wall": "底色",
+  "--motion": "動態",
+  "--radius": "圓角",
+};
 
 // What the page-editing proposals do to a document. Each returns a mutate
 // function for editPage, which reports false when the page has moved on

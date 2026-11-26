@@ -3,6 +3,8 @@
 // 中英不同步, visits). Each finding says why and where to go; the AI only
 // orders them and words them for the teacher (cloud/src/ai.js aiHealth).
 
+import { antiPattern } from "./design.js";
+
 const DAY = 86400000;
 const daysSince = (date, now) => {
   const t = Date.parse(String(date || "").replace(/\./g, "-"));
@@ -44,6 +46,14 @@ export function healthFindings(signals, now = Date.now()) {
   if (check("broken") || check("empty")) add("links", 60, `${check("broken") + check("empty")} 個連結點了沒反應`, "連到不存在的頁面，或還沒填網址。", "publish");
   if (check("viewport")) add("mobile", 70, "有頁面在手機上會跑版", "大部分訪客用手機看網站。", "publish");
   if (check("alt") + check("a11y") > 5) add("a11y", 20, "有幾處對看不到畫面的讀者不友善", "照片的替代文字、連結文字可以再補。", "publish");
+  // 設計規範 anti-patterns the checks found (publishCheck DESIGN_KINDS).
+  const DESIGN_WEIGHT = { "AP-19": 60, "AP-12": 50, "AP-08": 40, "AP-11": 35, "AP-01": 35, "AP-02": 30, "AP-16": 25, "AP-21": 25 };
+  for (const c of s.checks || []) {
+    const ap = /^AP-\d+$/.test(c.kind) ? antiPattern(c.kind) : null;
+    if (ap && c.total) {
+      out.push({ id: ap.id, weight: DESIGN_WEIGHT[ap.id] || 20, title: ap.title + (c.total > 1 ? `（${c.total} 處）` : ""), why: ap.fix, action: "publish", rule: ap.rule });
+    }
+  }
   if (s.sync) add("sync", 55, `${s.sync} 段中英文沒有一起更新`, "中文改了、英文還是舊的。", "sync");
   if (s.unpublishedDays !== null && s.unpublishedDays !== undefined && s.unpublishedDays > 7)
     add("unpublished", 65, `有修改放了 ${s.unpublishedDays} 天還沒發布`, "訪客看到的還是舊的網站。", "publish");

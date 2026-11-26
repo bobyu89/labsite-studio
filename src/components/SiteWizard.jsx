@@ -1,7 +1,9 @@
 // 建立網站精靈: a new lab's site in five steps, the AI planning alongside —
-//   1 認識研究室  answers about the lab (the prompt the AI works from)
-//   2 網站結構    which pages, and what each will do for this lab
-//   3 風格        a look (skin) the AI recommends, and colours from the mood
+//   1 認識研究室  answers about the lab (the prompt the AI works from), which
+//                 also become the lab profile (研究室檔案, labProfile.js)
+//   2 網站結構    the lab in one sentence, which pages, what each will do
+//   3 風格        one of six style packs (stylePacks.js), the AI's pick first;
+//                 other colours on request
 //   4 內容初稿    every sentence of the template rewritten for this lab
 //   5 建立        the site is made, opened, and the tour takes over
 // A live preview of the home page follows every choice.
@@ -9,9 +11,12 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Button } from "@radix-ui/themes";
 import { Sparkle, ArrowLeft, ArrowRight, Check } from "@phosphor-icons/react";
 import { previewHtml } from "../site/wizardPreview.js";
+import { STYLE_PACKS, packById, packTheme } from "../site/stylePacks.js";
+import { profileFromWizard } from "../site/labProfile.js";
 
 const STEPS = ["認識研究室", "網站結構", "風格", "內容初稿", "建立"];
 const AUDIENCE = ["想來念研究所的學生", "合作的醫院與學者", "一般民眾與病人", "評鑑與計畫審查"];
+const TONES = ["正式、學術，每段一個主張", "親切、口語，用「我們」", "溫柔、安靜，短句", "精確、量化，寫出數字"];
 const PAGE_NAMES = { index: "首頁", research: "研究方向", members: "團隊成員", publications: "論文發表", contact: "加入與聯絡" };
 const SLOT_LABELS = [
   ["lede", "首頁一句話介紹"],
@@ -33,7 +38,9 @@ const slugify = (s) =>
 
 export default function SiteWizard({ p, open, onClose }) {
   const [step, setStep] = useState(0);
-  const [a, setA] = useState({ name: "", nameEn: "", pi: "", dept: "", email: "", phone: "", about: "", topics: "", audience: [AUDIENCE[0]], mood: "" });
+  const [a, setA] = useState({ name: "", nameEn: "", pi: "", dept: "", email: "", phone: "", about: "", topics: "", audience: [AUDIENCE[0]], mood: "", tone: "", mustUse: "", avoid: "" });
+  const [pack, setPack] = useState(null);
+  const [oneLine, setOneLine] = useState("");
   const [plan, setPlan] = useState(null);
   const [keep, setKeep] = useState({});
   const [skin, setSkin] = useState("guide");
@@ -76,6 +83,8 @@ export default function SiteWizard({ p, open, onClose }) {
       setPlan(r);
       setKeep(Object.fromEntries(r.pages.map((x) => [x.page, x.keep])));
       setSkin(r.skin);
+      setPack(packById(r.pack) || null);
+      setOneLine(r.one_line || "");
       setFill(r.fill);
       setSlug((s) => s || slugify(a.nameEn || r.name_en));
       setThemes(null);
@@ -87,6 +96,13 @@ export default function SiteWizard({ p, open, onClose }) {
       const r = await p.cloudCalls.wizardThemes(a.mood.trim() || plan?.style_words || "溫和、專業、可信賴");
       setThemes(r.themes);
     });
+  const look = theme ? { vars: theme.vars, fontUrl: theme.fontUrl } : pack ? packTheme(pack) : null;
+  const profile = () => profileFromWizard({ ...a, oneLine, pack: pack?.id, tone: a.tone || pack?.tone || "", avoid: a.avoid || "" });
+  const choosePack = (x) => {
+    setPack(x);
+    setSkin(x.skin);
+    setTheme(null);
+  };
   const create = () =>
     run("正在建立網站…", async () => {
       const drop = Object.entries(keep)
@@ -100,8 +116,9 @@ export default function SiteWizard({ p, open, onClose }) {
         wizard: {
           fill,
           drop,
-          theme: theme ? { vars: theme.vars, fontUrl: theme.fontUrl } : null,
+          theme: look ? { vars: look.vars, fontUrl: look.fontUrl } : null,
           fields: { nameEn: a.nameEn || plan?.name_en, pi: a.pi, dept: a.dept, email: a.email, phone: a.phone },
+          profile: profile(),
         },
       });
       await p.refreshCloud();
@@ -116,10 +133,11 @@ export default function SiteWizard({ p, open, onClose }) {
       drop: Object.entries(keep)
         .filter(([, v]) => !v)
         .map(([k]) => k + ".html"),
-      theme: theme ? { vars: theme.vars, fontUrl: theme.fontUrl } : null,
+      theme: look ? { vars: look.vars, fontUrl: look.fontUrl } : null,
       fields: { nameEn: a.nameEn || plan?.name_en },
     }),
-    [fill, keep, theme, a.nameEn, plan],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [fill, keep, theme, pack, a.nameEn, plan],
   );
   const preview = useMemo(() => (bundle && step > 0 ? previewHtml(bundle, { page: lang === "en" ? "en/index.html" : "index.html", skin, name: a.name, wizard }) : null), [bundle, step, skin, a.name, wizard, lang]);
 
@@ -202,14 +220,44 @@ export default function SiteWizard({ p, open, onClose }) {
                   ))}
                 </fieldset>
                 <label className="field">
-                  <span>想要的感覺（選填）</span>
+                  <span>想給人的印象（選填）</span>
                   <input value={a.mood} onChange={set("mood")} placeholder="例如：溫暖、可信賴，有一點科技感" />
                 </label>
+                <fieldset className="wizard-checks wizard-tones">
+                  <legend>網站的文字語氣</legend>
+                  {TONES.map((x) => (
+                    <label key={x}>
+                      <input type="radio" name="wizard-tone" checked={a.tone === x} onChange={() => setA((v) => ({ ...v, tone: x }))} />
+                      {x}
+                    </label>
+                  ))}
+                  <label>
+                    <input type="radio" name="wizard-tone" checked={!a.tone} onChange={() => setA((v) => ({ ...v, tone: "" }))} />
+                    照風格包
+                  </label>
+                </fieldset>
+                <details className="wizard-more">
+                  <summary>用詞（選填）：一定要用的詞、不要出現的東西</summary>
+                  <label className="field">
+                    <span>一定要用的詞</span>
+                    <input value={a.mustUse} onChange={set("mustUse")} placeholder="例如：家庭照顧者（不用「看護」）" />
+                  </label>
+                  <label className="field">
+                    <span>不要出現</span>
+                    <input value={a.avoid} onChange={set("avoid")} placeholder="例如：病人正臉照片、驚嘆號" />
+                  </label>
+                </details>
+                <p className="small-note">這些回答會存成「研究室檔案」，之後 AI 幫忙寫字時都會照著寫，建立後也可以再改。</p>
               </div>
             )}
 
             {step === 1 && plan && (
               <div className="wizard-structure">
+                <label className="field wizard-oneline">
+                  <span>研究室的一句話（存進研究室檔案）</span>
+                  <input value={oneLine} maxLength={120} onChange={(e) => setOneLine(e.target.value)} />
+                  <small className="small-note">照「我們研究［誰］的［什麼問題］，用［什麼方法］，讓［什麼改變］」寫，訪客最先讀到的就是這種句子。</small>
+                </label>
                 <p className="wizard-hint">AI 依你的介紹排出網站的頁面。每一頁都有中文和英文版；「研究方向」和「論文發表」可以先不放，之後再加。</p>
                 <ul className="wizard-pages">
                   {plan.pages.map((x) => {
@@ -232,30 +280,42 @@ export default function SiteWizard({ p, open, onClose }) {
             {step === 2 && (
               <div className="wizard-style">
                 <p className="wizard-hint">
-                  先選版型（整體的樣子），再選配色。<strong>AI 推薦「{skins.find((s) => s.id === plan?.skin)?.name || plan?.skin}」</strong>：{plan?.skin_reason}
+                  挑一個風格包：版型、配色、字體和文字語氣一次決定，之後都還能再調。
+                  {pack && plan?.pack && (
+                    <>
+                      {" "}
+                      <strong>AI 推薦「{packById(plan.pack)?.name}」</strong>：{plan.pack_reason}
+                    </>
+                  )}
                 </p>
-                <div className="wizard-skins">
-                  {skins.map((s) => (
-                    <button key={s.id} type="button" className={"wizard-skin" + (skin === s.id ? " on" : "")} onClick={() => setSkin(s.id)}>
+                <div className="wizard-packs">
+                  {STYLE_PACKS.map((x) => (
+                    <button key={x.id} type="button" className={"wizard-pack" + (pack?.id === x.id && !theme ? " on" : pack?.id === x.id ? " on custom" : "")} onClick={() => choosePack(x)} aria-pressed={pack?.id === x.id}>
+                      <span className="wizard-swatches">
+                        {["--zone-research", "--zone-team", "--zone-publications", "--zone-join", "--mark"].map((k) => (
+                          <i key={k} style={{ background: x.vars[k] }} />
+                        ))}
+                      </span>
                       <strong>
-                        {s.name}
-                        {plan?.skin === s.id && <span className="wizard-badge">AI 推薦</span>}
+                        {x.name}
+                        {plan?.pack === x.id && <span className="wizard-badge">AI 推薦</span>}
                       </strong>
-                      <span>{s.description}</span>
+                      <span className="wizard-pack-fits">{x.fits}</span>
+                      <span>{x.tagline}</span>
                     </button>
                   ))}
                 </div>
-                <div className="wizard-colors">
+                <details className="wizard-colors">
+                  <summary>想要別的顏色？</summary>
                   <div className="wizard-colors-head">
-                    <strong>配色</strong>
-                    <span className="muted">依「{a.mood.trim() || plan?.style_words}」</span>
+                    <span className="muted">保留「{pack?.name || skins.find((k) => k.id === skin)?.name}」的版型，依「{a.mood.trim() || plan?.style_words}」配色</span>
                     <Button size="1" variant="soft" color="orange" disabled={!!busy} onClick={askThemes}>
                       <Sparkle size={14} /> {themes ? "再配三組" : "請 AI 配三組顏色"}
                     </Button>
                   </div>
                   <div className="wizard-themes">
                     <button type="button" className={"wizard-theme" + (!theme ? " on" : "")} onClick={() => setTheme(null)}>
-                      <span className="wizard-swatches muted">版型原本的顏色</span>
+                      <span className="wizard-swatches muted">風格包的顏色</span>
                     </button>
                     {(themes || []).map((t) => (
                       <button key={t.name} type="button" className={"wizard-theme" + (theme === t ? " on" : "")} onClick={() => setTheme(t)} title={t.rationale}>
@@ -268,7 +328,7 @@ export default function SiteWizard({ p, open, onClose }) {
                       </button>
                     ))}
                   </div>
-                </div>
+                </details>
               </div>
             )}
 
@@ -305,10 +365,14 @@ export default function SiteWizard({ p, open, onClose }) {
                   </dd>
                   <dt>頁面</dt>
                   <dd>{Object.entries(keep).filter(([, v]) => v).map(([k]) => PAGE_NAMES[k]).join("、")}（中英文）</dd>
-                  <dt>版型</dt>
-                  <dd>{skins.find((s) => s.id === skin)?.name || skin}</dd>
+                  <dt>風格包</dt>
+                  <dd>
+                    {pack ? pack.name : "（沒有）"}（版型：{skins.find((s) => s.id === skin)?.name || skin}）
+                  </dd>
                   <dt>配色</dt>
-                  <dd>{theme ? theme.name : "版型原本的顏色"}</dd>
+                  <dd>{theme ? theme.name : pack ? "風格包的顏色" : "版型原本的顏色"}</dd>
+                  <dt>一句話</dt>
+                  <dd>{oneLine || "（沒有）"}</dd>
                 </dl>
                 <label className="field">
                   <span>網址代稱（英文小寫、數字、連字號）</span>
