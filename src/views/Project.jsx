@@ -25,6 +25,8 @@ import {
   Sparkle,
   ListChecks,
   ClockCounterClockwise,
+  LinkSimple,
+  Heartbeat,
 } from "@phosphor-icons/react";
 import { IconButton, Field, Modal, download } from "../components/ui";
 import ProjectOpen from "../components/ProjectOpen";
@@ -48,6 +50,9 @@ import QuickPost from "../components/QuickPost";
 import ScheduleDialog, { scheduleText } from "../components/ScheduleDialog";
 import SemesterWizard from "../components/SemesterWizard";
 import ContentTables from "../components/ContentTables";
+import ShareDraft from "../components/ShareDraft";
+import Comments, { sectionOf } from "../components/Comments";
+import HealthCheck from "../components/HealthCheck";
 import GettingStarted from "../components/GettingStarted";
 import StartScreen, { startSkipped } from "../components/StartScreen";
 import Tour, { tourDone } from "../components/Tour";
@@ -128,6 +133,8 @@ export default function Project({ p, device, setDevice, setConfirm }) {
   const [quickPost, setQuickPost] = useState(false);
   const [scheduling, setScheduling] = useState(false);
   const [semester, setSemester] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [health, setHealth] = useState(false);
   // The side columns stick right under the bar, whatever height it wraps to.
   const studioRef = useRef(null);
   const barRef = useRef(null);
@@ -442,6 +449,13 @@ export default function Project({ p, device, setDevice, setConfirm }) {
   for (const x of p.sync || [])
     if (x.section !== null) syncMarks[x.section] = x.reason === "untranslated" ? "還有中文沒翻" : x.behind === "en" ? "英文未更新" : "中文未更新";
   const syncHere = (p.sync || []).filter((x) => x.section === selected || x.section === null);
+  // Open notes per section of this page, and where the first open note is.
+  const openComments = (p.comments?.list || []).filter((c) => !c.resolvedAt);
+  const commentCounts = {};
+  for (const c of openComments.filter((c) => c.page === p.current)) {
+    const at = sectionOf(c, sections);
+    if (at !== null) commentCounts[at] = (commentCounts[at] || 0) + 1;
+  }
   const askAi = (text) => {
     setAiSeed({ text, n: Date.now(), send: true });
     setAiOpen(true);
@@ -453,6 +467,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
   };
   const homePage = p.pages.includes("index.html") ? "index.html" : p.pages[0];
   const startTiles = [
+    { id: "health", icon: <Heartbeat size={30} />, title: "網站體檢", text: "看一遍全站，列出最該先處理的事", run: go(() => setHealth(true)), tone: "ai" },
     hasNews && p.news?.ok && !p.news.sheetId && { id: "news", icon: <Newspaper size={30} />, title: "加一則最新消息", text: "公告、獲獎、活動，日期自動排序", run: go(() => setTab("news")) },
     hasNews && aiOn && p.news?.ok && !p.news.sheetId && { id: "quick", icon: <Camera size={30} />, title: "活動快報", text: "照片＋一句話，AI 寫好中英文消息", run: go(() => setQuickPost(true)), tone: "ai" },
     (p.album?.ok || p.canListAssets) && { id: "photos", icon: <Images size={30} />, title: "放活動照片", text: "一次加很多張，自動縮小", run: go(openPhotos) },
@@ -469,6 +484,15 @@ export default function Project({ p, device, setDevice, setConfirm }) {
   const startNotices = [
     p.cloudSite?.review?.status === "waiting" && !contributor && { id: "review", text: `${p.cloudSite.review.by.split("@")[0]} 請你看看並發布 →`, run: go(onPublish) },
     p.cloudSite?.unpublished && !contributor && { id: "publish", text: "看看改了什麼，然後發布 →", run: go(onPublish) },
+    openComments.length > 0 && {
+      id: "comments",
+      text: `有 ${openComments.length} 則留言還沒處理 →`,
+      run: go(() => {
+        const c = openComments[openComments.length - 1];
+        enter("blocks", c.page);
+        setTimeout(() => p.setSelected(c.section), 400);
+      }),
+    },
     (p.sync || []).length > 0 && { id: "sync", text: `這一頁有 ${p.sync.length} 段中英文沒有一起更新 →`, run: go(() => setTab("blocks")) },
   ].filter(Boolean);
   const close = async () => {
@@ -537,6 +561,12 @@ export default function Project({ p, device, setDevice, setConfirm }) {
           <Button variant="surface" color="gray" onClick={() => window.open(p.cloudSite.url, "_blank", "noopener")} title={"在新分頁打開 " + p.cloudSite.url}>
             <ArrowSquareOut size={18} />
             看網站
+          </Button>
+        )}
+        {isCloud && (
+          <Button variant="surface" color="gray" className="share-open" onClick={() => setSharing(true)} title="給沒有帳號的人看還沒發布的網站">
+            <LinkSimple size={18} />
+            分享草稿
           </Button>
         )}
         {isCloud && p.cloudSite?.url && (
@@ -632,6 +662,31 @@ export default function Project({ p, device, setDevice, setConfirm }) {
         />
       )}
       {isCloud && <ScheduleDialog p={p} open={scheduling} onClose={() => setScheduling(false)} />}
+      {isCloud && <ShareDraft p={p} open={sharing} onClose={() => setSharing(false)} />}
+      {isCloud && (
+        <HealthCheck
+          p={p}
+          open={health}
+          onClose={() => setHealth(false)}
+          onAction={(action) => {
+            setHealth(false);
+            const first = openComments[openComments.length - 1];
+            const actions = {
+              news: () => setTab("news"),
+              data: () => setTab("data"),
+              papers: () => setAddPub(true),
+              members: () => membersPage && enter("blocks", membersPage),
+              start: () => enter("blocks", homePage),
+              publish: () => onPublish(),
+              sync: () => setTab("blocks"),
+              comments: () => first && (enter("blocks", first.page), setTimeout(() => p.setSelected(first.section), 400)),
+              share: () => setQrOpen(true),
+              english: () => p.pages.includes("en/index.html") && enter("blocks", "en/index.html"),
+            };
+            (actions[action] || (() => {}))();
+          }}
+        />
+      )}
       <SemesterWizard
         p={p}
         open={semester}
@@ -795,6 +850,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
                         <SectionList
                           sections={sections}
                           marks={syncMarks}
+                          notes={commentCounts}
                           selected={selected}
                           onSelect={(i) => {
                             p.setSelected(i);
@@ -871,6 +927,13 @@ export default function Project({ p, device, setDevice, setConfirm }) {
                 <li>
                   <button type="button" className={tab === "album" ? "active" : ""} onClick={openPhotos}>
                     活動照片 <span className="tree-count">{p.album?.ok ? p.album.photos.length : ""}</span>
+                  </button>
+                </li>
+              )}
+              {isCloud && (
+                <li>
+                  <button type="button" onClick={() => setHealth(true)}>
+                    網站體檢
                   </button>
                 </li>
               )}
@@ -1032,6 +1095,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
                   {sections[selected]?.title}
                   <span className="muted">{sections[selected]?.kind}</span>
                 </h3>
+                {isCloud && <Comments p={p} page={p.current} sections={sections} selected={selected} me={p.cloud.me?.email} teacher={!contributor} />}
                 {writable && <SyncNote items={syncHere} onAsk={askAi} onDismiss={p.dismissSync} onOpenPage={(path) => enter("blocks", path)} aiOn={aiOn} inEnglish={!!p.current?.startsWith("en/")} />}
                 {!p.theme?.vars["--motion"] && parsed && sections[selected] && (
                   <EntrancePicker section={sectionElements(parsed.doc)[selected]} disabled={!writable} onChange={(v) => p.setEntrance(selected, v)} />

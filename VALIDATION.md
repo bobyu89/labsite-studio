@@ -1,3 +1,25 @@
+# v4.27 分享草稿、在頁面上留言、網站體檢
+
+日期：2026-11-26。管理者選的 1、2、3。
+
+內容
+- migration `0007_preview_links_and_comments.sql`：`preview_links`、`comments`。
+- 分享草稿：`cloud/src/sites.js` 的 `draftTree`（token、網站、到期、收回、版本屬於這個網站）；HTML 插入「草稿預覽」標示、`Cache-Control: no-store`、`X-Robots-Tag`、不計入造訪。`GET/POST/DELETE /api/sites/:id/preview-links`；`ShareDraft.jsx`（上方「分享草稿」）。
+- 留言：`GET/POST/PUT/DELETE /api/sites/:id/comments`（近 14 天內已處理的也列出）；`useProject` 每 60 秒更新；`Comments.jsx`（`sectionOf` 依標題找回移動過的段落）、段落清單藍色數字、今天想改什麼提醒。
+- 網站體檢：`src/site/health.js`（`healthFindings`、`healthScore`）、`HealthCheck.jsx`（收集：最新消息、論文與成員總表、發布前檢查、中英不同步、待發布、造訪、留言、英文首頁文字）、`aiHealth`＋`POST /api/sites/:id/health`（只接受給定 id、英文錯句必須出自原文）；今天想改什麼第一個大按鈕、資料 › 網站體檢。
+
+驗證
+- `npm test` 257 pass（新增 `tests/health.test.js` 2 項；`tests/cloud.test.js` 分享連結、留言、體檢 3 項）。
+- 本機 Playwright：
+  - 老師產生分享連結 → 無痕視窗打開看到草稿與「草稿預覽」；API 測試收回後 404。
+  - 老師在「關於我們」留言 → 段落清單出現 1；學生帳號看到同一則、按已處理後數字消失。
+  - 宋老師網站副本體檢：63 分，前 5 件為論文重複 2 篇、英文頁缺 1 篇、最新消息 3 個月沒更新、英文頁成員少、33 篇沒有 DOI；「去處理」打開論文與成員總表。
+- 真實資料另外發現：宋老師的英文成員頁只有 3 位，且「Yen-Hsin Lee」重複一次（中文頁 4 位）。
+
+尚未驗證／已知
+- 留言不會即時推送，打開的編輯器每 60 秒更新一次。
+- 草稿分享連結是「拿到就能看」，請只傳給需要的人。
+
 # v4.26 建立網站精靈（AI 引導：結構 → 風格 → 內容）
 
 日期：2026-11-26。管理者要求：新手建立網站時，由提示詞工程從設計結構與風格開始，一步一步帶老師建立自己的網站。

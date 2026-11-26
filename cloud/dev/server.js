@@ -118,6 +118,12 @@ const mockFetch = async (url, init) => {
   await new Promise((r) => setTimeout(r, 800));
   const body = JSON.parse(init?.body || "{}");
   const assist = !!body.output_config?.format?.schema?.properties?.changes;
+  if (body.output_config?.format?.schema?.properties?.english) {
+    const said = String(body.messages?.[0]?.content || "");
+    const list = JSON.parse((said.match(/找到的問題（JSON）：(\[.*?\])\n/) || [])[1] || "[]");
+    const out = { summary: "（模擬）網站大致完整，先處理下面幾件事就更好了。", items: list.slice(0, 5).map((f) => ({ id: f.id, why: "（模擬）" + f.why })), english: [] };
+    return new Response(JSON.stringify({ id: "msg_mock", type: "message", role: "assistant", model: "claude-opus-5-5", content: [{ type: "text", text: JSON.stringify(out) }], stop_reason: "end_turn", stop_sequence: null, usage: { input_tokens: 0, output_tokens: 0 } }), { headers: { "Content-Type": "application/json" } });
+  }
   if (body.output_config?.format?.schema?.properties?.skin_reason) {
     const said = String(body.messages?.[0]?.content || "");
     const name = (said.match(/研究室中文名稱：(.+)/) || [])[1] || "研究室";

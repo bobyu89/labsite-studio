@@ -8353,3 +8353,251 @@ mark.diff-out {
     grid-template-columns: 1fr;
   }
 }
+
+/* v4.27 分享草稿 (ShareDraft.jsx) */
+.share-draft {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+  justify-items: start;
+}
+.share-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+}
+.share-mode {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font-size: 14px;
+}
+.share-mode legend {
+  margin-bottom: 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.share-list {
+  width: 100%;
+  display: grid;
+  gap: 6px;
+}
+.share-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.share-list li {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  background: var(--paper);
+  border-radius: 4px;
+  font-size: 13px;
+}
+.share-list code {
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+.share-actions {
+  display: flex;
+  gap: 14px;
+}
+
+/* v4.27 留言 (Comments.jsx) */
+.comments {
+  display: grid;
+  gap: 8px;
+  margin: 4px 0 14px;
+  padding: 10px 12px;
+  background: #fff;
+  box-shadow: 0 0 0 1px var(--line);
+}
+.comments-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+}
+.comments-count,
+.note-tag {
+  min-width: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #2563eb;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+.note-tag {
+  margin-left: auto;
+  flex: none;
+}
+.comment {
+  padding: 8px 10px;
+  border-left: 3px solid #2563eb;
+  background: #f5f8ff;
+  font-size: 14px;
+}
+.comment.done {
+  border-left-color: var(--rule);
+  background: var(--paper);
+  color: var(--muted);
+}
+.comment p {
+  margin: 0;
+}
+.comment-meta {
+  font-size: 12px;
+}
+.comment-body {
+  margin-top: 2px !important;
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+.comment-actions {
+  display: flex;
+  gap: 14px;
+  margin-top: 4px;
+}
+.comment-actions .text-link,
+.comments-done-toggle {
+  font-size: 13px;
+}
+.comment-form {
+  display: grid;
+  gap: 4px;
+  justify-items: end;
+}
+.comment-form textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  font: inherit;
+  font-size: 14px;
+  resize: vertical;
+}
+
+/* v4.27 網站體檢 (HealthCheck.jsx) */
+.health-wait {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0;
+}
+.health {
+  display: grid;
+  gap: 14px;
+  margin-top: 12px;
+}
+.health-top {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.health-top p {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.6;
+}
+.health-score {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  border: 6px solid #f59e0b;
+  line-height: 1;
+}
+.health-score.ok {
+  border-color: #eab308;
+}
+.health-score.good {
+  border-color: #16a34a;
+}
+.health-score strong {
+  font-family: var(--serif);
+  font-size: 28px;
+}
+.health-score span {
+  font-size: 12px;
+  color: var(--muted);
+}
+.health-ai {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--accent);
+}
+.health-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: h;
+  display: grid;
+  gap: 8px;
+}
+.health-list li {
+  counter-increment: h;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.health-list li::before {
+  content: counter(h);
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}
+.health-list li > div {
+  flex: 1;
+  display: grid;
+  gap: 2px;
+}
+.health-list li span {
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+.health-english {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  background: var(--paper);
+  border-radius: 6px;
+}
+.health-en p {
+  margin: 0;
+  font-size: 14px;
+}
+.health-rest ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+  font-size: 14px;
+}
+.health-rest .text-link {
+  margin-left: 10px;
+  font-size: 13px;
+}
