@@ -79,6 +79,15 @@ function mockAssist(body) {
     /* answer without proposals */
   }
   const fields = context.page?.fields || [];
+  // 設計規範 commands (design.js): the request starts with 【指令名】.
+  const read = /<design_standard>/.test(String(body.system || "")) ? "（已讀設計規範）" : "";
+  const cmd = (ask.match(/^【(.+?)】/) || [])[1];
+  if (cmd === "評一評")
+    return { reply: `（模擬回應）${read}第一印象：標題清楚，但首頁那一句沒有說研究誰 [W-01]。最值得先改：1. 首頁一句話 [W-01] 2. 研究主題寫成問題 [W-02] 3. 連結文字寫出目的地 [I-01]。`, changes: [] };
+  if (cmd === "更沉穩")
+    return { reply: `（模擬回應）${read}我準備把動態改成「不動」、圓角收小，確認後按套用。`, changes: [{ type: "set_theme", vars: [{ name: "--motion", value: "none" }, { name: "--radius", value: "2px" }], reason: "減少動態與裝飾，讓頁面安靜 [M-03]。" }] };
+  if (cmd && fields.length)
+    return { reply: `（模擬回應）${read}依「${cmd}」我找到一處可以改，確認後按套用。`, changes: [{ type: "set_text", field: fields[0].id, text: fields[0].text + "（" + cmd + "示範）" }, { type: "set_theme", vars: [{ name: "--motion", value: "none" }], reason: "（這一項不在這個指令的範圍，伺服器會拿掉）" }] };
   const today = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
   const block = (context.blocks || []).find((b) => ask.includes("「" + b.name + "」"));
   if (block)
@@ -124,7 +133,7 @@ const mockFetch = async (url, init) => {
     const out = { summary: "（模擬）網站大致完整，先處理下面幾件事就更好了。", items: list.slice(0, 5).map((f) => ({ id: f.id, why: "（模擬）" + f.why })), english: [] };
     return new Response(JSON.stringify({ id: "msg_mock", type: "message", role: "assistant", model: "claude-opus-5-5", content: [{ type: "text", text: JSON.stringify(out) }], stop_reason: "end_turn", stop_sequence: null, usage: { input_tokens: 0, output_tokens: 0 } }), { headers: { "Content-Type": "application/json" } });
   }
-  if (body.output_config?.format?.schema?.properties?.skin_reason) {
+  if (body.output_config?.format?.schema?.properties?.pack_reason) {
     const said = String(body.messages?.[0]?.content || "");
     const name = (said.match(/研究室中文名稱：(.+)/) || [])[1] || "研究室";
     const topics = ((said.match(/研究主題：(.+)/) || [])[1] || "照護品質、護理教育、數位健康").split(/[、,，\s]+/).filter(Boolean);
@@ -132,8 +141,9 @@ const mockFetch = async (url, init) => {
     const plan = {
       name_en: "(Mock) " + name + " Lab",
       pages: ["index", "research", "members", "publications", "contact"].map((page) => ({ page, keep: true, purpose: "（模擬）" + page + " 頁的用途" })),
-      skin: "notebook",
-      skin_reason: "（模擬）手札風格溫和親切，適合招收學生。",
+      pack: "community",
+      pack_reason: "（模擬）社區溫度的語氣親切，適合在社區做研究、招收學生。",
+      one_line: "（模擬）我們研究" + topics[0] + "，讓照護更貼近需要的人。",
       style_words: "溫暖的陶土橘與深藍，沉穩可信賴",
       content: {
         lede: p("（模擬）" + name + "：從臨床問題出發的護理研究", "(Mock) Nursing research that starts at the bedside"),

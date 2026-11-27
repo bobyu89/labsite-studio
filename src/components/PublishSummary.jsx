@@ -95,6 +95,7 @@ export function PublishChecks({ checks, onOpen, typoPages, onTypos }) {
             {c.level === "warn" ? <Warning size={17} /> : <Info size={17} />}
             <span>
               {c.title}
+              {c.design && <code className="rule-id">{c.kind}</code>}
               <b>{c.total} 處</b>
             </span>
           </summary>

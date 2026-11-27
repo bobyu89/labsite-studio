@@ -130,7 +130,10 @@ export default function HealthCheck({ p, open, onClose, onAction }) {
               {shown.map((f) => (
                 <li key={f.id}>
                   <div>
-                    <strong>{f.title}</strong>
+                    <strong>
+                      {f.title}
+                      {f.rule && <code className="rule-id">{f.id}・{f.rule}</code>}
+                    </strong>
                     <span>{f.why}</span>
                   </div>
                   <Button size="2" variant="soft" onClick={() => onAction(f.action)}>

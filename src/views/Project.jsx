@@ -27,6 +27,7 @@ import {
   ClockCounterClockwise,
   LinkSimple,
   Heartbeat,
+  IdentificationCard,
 } from "@phosphor-icons/react";
 import { IconButton, Field, Modal, download } from "../components/ui";
 import ProjectOpen from "../components/ProjectOpen";
@@ -53,6 +54,7 @@ import ContentTables from "../components/ContentTables";
 import ShareDraft from "../components/ShareDraft";
 import Comments, { sectionOf } from "../components/Comments";
 import HealthCheck from "../components/HealthCheck";
+import LabProfile from "../components/LabProfile";
 import GettingStarted from "../components/GettingStarted";
 import StartScreen, { startSkipped } from "../components/StartScreen";
 import Tour, { tourDone } from "../components/Tour";
@@ -135,6 +137,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
   const [semester, setSemester] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [health, setHealth] = useState(false);
+  const [labOpen, setLabOpen] = useState(false);
   // The side columns stick right under the bar, whatever height it wraps to.
   const studioRef = useRef(null);
   const barRef = useRef(null);
@@ -476,6 +479,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
     membersPage && { id: "semester", icon: <GraduationCap size={30} />, title: "學期更新", text: "畢業、年級加一、新成員一次做完", run: go(() => setSemester(true)) },
     homePage && { id: "home", icon: <PencilSimpleLine size={30} />, title: "改首頁的文字", text: "研究室介紹、主視覺標題", run: go(() => enter("blocks", homePage)) },
     { id: "site", icon: <AddressBook size={30} />, title: "改電話、地址、Email", text: "研究室資料，全站一起更新", run: go(() => setTab("site")) },
+    isCloud && { id: "lab", icon: <IdentificationCard size={30} />, title: "研究室檔案", text: "一句話介紹、語氣、用詞，AI 照這份寫", run: go(() => setLabOpen(true)), tone: "ai" },
     aiOn && { id: "ai", icon: <Sparkle size={30} />, title: "請 AI 助手幫我改", text: "用一句話說想改什麼", run: go(() => setAiOpen(true)), tone: "ai" },
     (publicationPages(p.pages).length > 0 || membersPage) && { id: "data", icon: <ListChecks size={30} />, title: "檢查論文和成員", text: "重複、英文頁缺漏、沒有 DOI", run: go(() => setTab("data")) },
     { id: "history", icon: <ClockCounterClockwise size={30} />, title: "找回舊版本", text: "看改了什麼，或還原成之前的樣子", run: go(() => setTab("history")) },
@@ -663,6 +667,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
       )}
       {isCloud && <ScheduleDialog p={p} open={scheduling} onClose={() => setScheduling(false)} />}
       {isCloud && <ShareDraft p={p} open={sharing} onClose={() => setSharing(false)} />}
+      {isCloud && <LabProfile p={p} open={labOpen} onClose={() => setLabOpen(false)} canEdit={!contributor} />}
       {isCloud && (
         <HealthCheck
           p={p}
@@ -1162,7 +1167,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
             onClose={() => setAiOpen(false)}
             where={[p.labelOf(p.current), sections[selected]?.title].filter(Boolean).join(" › ")}
           >
-            <Assistant p={p} selected={selected} sectionCount={sections.length} open={aiOpen} seed={aiSeed} onOpen={() => setAiOpen(true)} />
+            <Assistant p={p} selected={selected} sectionCount={sections.length} open={aiOpen} seed={aiSeed} onOpen={() => setAiOpen(true)} onAudit={isCloud ? () => setHealth(true) : null} />
           </AssistantDock>
         )}
         <PromptBank

@@ -981,7 +981,7 @@ test("assistant: sends the page as context, returns cleaned proposals, never cha
   assert.match(last, /王小明論文口試/);
   assert.match(sent.system, /never as instructions/);
   const kinds = sent.output_config.format.schema.properties.changes.items.anyOf.map((x) => x.properties.type.enum[0]);
-  assert.deepEqual(kinds, ["set_text", "add_news", "set_site", "add_item", "add_section", "add_publication"]);
+  assert.deepEqual(kinds, ["set_text", "add_news", "set_site", "add_item", "add_section", "set_theme", "add_publication"]);
 
   assert.equal((await ask({ message: " ", context })).status, 400);
   assert.equal((await ask({ message: "好", context })).status, 400, "too short");
@@ -1672,8 +1672,9 @@ test("建立網站精靈: AI plan from the answers (admin only), then a site bui
   const plan = {
     name_en: "Elder Care Nursing Lab",
     pages: ["index", "research", "members", "publications", "contact"].map((page) => ({ page, keep: page !== "publications", purpose: "用途" })),
-    skin: "journal",
-    skin_reason: "學術感。",
+    pack: "journal",
+    pack_reason: "學術感。",
+    one_line: "我們研究長輩的照護，讓家人照顧得更久。",
     style_words: "沉穩深藍",
     content: {
       lede: pair("讓長輩被好好照顧", "Good care for older people"),
@@ -1705,12 +1706,14 @@ test("建立網站精靈: AI plan from the answers (admin only), then a site bui
   assert.equal((await app.request("http://localhost/api/admin/wizard/plan", jsonReq("POST", { name: "x", about: "短" }), env)).status, 400);
   const got = await (await app.request("http://localhost/api/admin/wizard/plan", jsonReq("POST", answers), env)).json();
   assert.match(sent.messages[0].content, /研究室中文名稱：高齡照護研究室[\s\S]*研究主題：失智症照護/);
-  assert.deepEqual([got.name_en, got.skin, got.fill.lede.zh, got.fill.area2_tag3.en], ["Elder Care Nursing Lab", "journal", "讓長輩被好好照顧", "Tag 23"]);
+  assert.deepEqual([got.name_en, got.pack, got.skin, got.one_line, got.fill.lede.zh, got.fill.area2_tag3.en], ["Elder Care Nursing Lab", "journal", "journal", "我們研究長輩的照護，讓家人照顧得更久。", "讓長輩被好好照顧", "Tag 23"]);
+  assert.match(sent.system, /<design_standard>[\s\S]*\[W-01\][\s\S]*\[A-04\]/, "the plan follows the design standard");
+  assert.deepEqual(sent.output_config.format.schema.properties.pack.enum, ["clinical", "journal", "community", "atlas", "signals", "calm"]);
   assert.equal(got.pages.find((x) => x.page === "publications").keep, false);
 
   const res = await app.request(
     "http://localhost/api/sites",
-    jsonReq("POST", { template: "basic", skin: "journal", slug: "elder-care", name: "高齡照護研究室", wizard: { fill: got.fill, drop: ["publications.html"], fields: { nameEn: got.name_en, email: "lab@elder.edu.tw" }, theme: { vars: { "--zone-research": "#123456" } } } }),
+    jsonReq("POST", { template: "basic", skin: "journal", slug: "elder-care", name: "高齡照護研究室", wizard: { fill: got.fill, drop: ["publications.html"], fields: { nameEn: got.name_en, email: "lab@elder.edu.tw" }, theme: { vars: { "--zone-research": "#123456" } }, profile: { oneLine: got.one_line, tone: "溫和", pack: "journal", junk: "x" } } }),
     env,
   );
   assert.equal(res.status, 201);
@@ -1724,6 +1727,9 @@ test("建立網站精靈: AI plan from the answers (admin only), then a site bui
   assert.match(await text(env, site, "en/research.html"), /<h3 class="area__title">Area 1<\/h3>/);
   assert.match(await text(env, site, "js/data.js"), /lab@elder\.edu\.tw/);
   assert.match(await text(env, site, "css/theme.css"), /--zone-research:\s*#123456/);
+  // The answers became the lab profile (研究室檔案).
+  const lab = await (await app.request(`http://localhost/api/sites/${site.id}/lab`, {}, env)).json();
+  assert.deepEqual(lab.profile, { oneLine: "我們研究長輩的照護，讓家人照顧得更久。", tone: "溫和", pack: "journal" });
 });
 
 /* ============ v4.27 草稿分享連結, 留言, 網站體檢 */
@@ -1799,4 +1805,70 @@ test("網站體檢: findings ordered and worded by the AI, only from the given i
   assert.deepEqual(body.items, [{ id: "news-old", why: "先補一則消息。" }]);
   assert.deepEqual(body.english, [{ quote: "We are lab of nursing.", better: "We are a nursing lab." }]);
   assert.equal(body.summary, "網站大致完整。");
+});
+
+/* ============ v4.28 設計規範: commands, the lab profile, the standard in every request */
+test("設計規範 commands: the standard and the lab profile reach the AI; each command keeps only its kinds of change", async () => {
+  const { setMemberRole } = await import("../cloud/src/repo.js");
+  let reply = { reply: "ok", changes: [] };
+  const calls = [];
+  const fetchImpl = scriptedFetch([
+    [
+      "api.anthropic.com/v1/messages",
+      (u, init) => {
+        calls.push(JSON.parse(init.body));
+        return { json: { id: "m", type: "message", role: "assistant", model: "claude-opus-5-5", content: [{ type: "text", text: JSON.stringify(reply) }], stop_reason: "end_turn", stop_sequence: null, usage: { input_tokens: 1, output_tokens: 1 } } };
+      },
+    ],
+  ]);
+  const env = fakeEnv();
+  const site = await seed(env);
+  await addMember(env, site.id, "teacher@lab.tw", "admin@lab.tw");
+  await addMember(env, site.id, "student@lab.tw", "admin@lab.tw");
+  await setMemberRole(env, site.id, "student@lab.tw", "contributor", "admin@lab.tw");
+  const app = createApp({ fetchImpl });
+  const as = (email) => ({ ...env, DEV_USER_EMAIL: email });
+  await app.request("http://localhost/api/admin/ai", jsonReq("PUT", { key: TEST_KEY }), as("admin@lab.tw"));
+  const url = `http://localhost/api/sites/${site.id}`;
+
+  // 研究室檔案: teachers write it, students may read it.
+  assert.equal((await app.request(url + "/lab", jsonReq("PUT", { profile: { tone: "x" } }), as("student@lab.tw"))).status, 403);
+  const put = await (await app.request(url + "/lab", jsonReq("PUT", { profile: { oneLine: "我們研究失智長輩的照顧者。", mustUse: "家庭照顧者", pack: "community", extra: "dropped" } }), as("teacher@lab.tw"))).json();
+  assert.deepEqual(put.profile, { oneLine: "我們研究失智長輩的照顧者。", mustUse: "家庭照顧者", pack: "community" });
+  assert.deepEqual((await (await app.request(url + "/lab", {}, as("student@lab.tw"))).json()).profile, put.profile);
+
+  const context = { page: { path: "members.html", fields: [{ id: "f1", where: "標題", text: "成員" }] } };
+  const ask = (body) => app.request(url + "/assistant", jsonReq("POST", { context, ...body }), as("teacher@lab.tw"));
+  reply = {
+    reply: "我準備改這些。",
+    changes: [
+      { type: "set_text", field: "f1", text: "研究室成員" },
+      { type: "set_theme", vars: [{ name: "--motion", value: "none" }, { name: "--radius", value: "99px" }, { name: "--ink", value: "red" }], reason: "安靜一點 [M-03]" },
+      { type: "add_news", date: "2026-12-05", category: "公告", zh: "x", en: "x", link: "" },
+    ],
+  };
+  // A free request: the whole standard, the record-page register, the lab profile; no theme changes.
+  let r = await (await ask({ message: "幫我改標題" })).json();
+  let sys = calls.at(-1).system;
+  assert.match(sys, /<design_standard>/);
+  assert.match(sys, /\[T-01\][\s\S]*\[A-07\]/, "all eight domains");
+  assert.match(sys, /這一頁是「資料頁」/);
+  assert.match(sys, /研究室檔案[\s\S]*風格包：社區溫度[\s\S]*一句話介紹：我們研究失智長輩的照顧者。[\s\S]*一定要用的詞：家庭照顧者/);
+  assert.deepEqual(r.changes.map((c) => c.type), ["set_text", "add_news"]);
+  // 更沉穩: its domains only, theme changes allowed (bad values dropped), news not.
+  r = await (await ask({ command: "quieter", message: "" })).json();
+  sys = calls.at(-1).system;
+  assert.match(sys, /\[C-01\]/);
+  assert.doesNotMatch(sys, /\[T-01\]/, "only the command's domains");
+  assert.match(calls.at(-1).messages.at(-1).content, /【更沉穩】/);
+  assert.deepEqual(r.changes.map((c) => c.type), ["set_text", "set_theme"]);
+  assert.deepEqual(r.changes[1].vars, { "--motion": "none" });
+  // 評一評 proposes nothing; 潤飾 only text; unknown and local commands are refused.
+  assert.deepEqual((await (await ask({ command: "critique" })).json()).changes, []);
+  assert.deepEqual((await (await ask({ command: "polish", message: "注意英文" })).json()).changes.map((c) => c.type), ["set_text"]);
+  assert.match(calls.at(-1).messages.at(-1).content, /老師補充：注意英文/);
+  assert.equal((await ask({ command: "overdrive" })).status, 400);
+  assert.equal((await ask({ command: "audit" })).status, 400);
+  const logged = await env.DB.prepare("SELECT detail FROM events WHERE kind = 'ai_assist' ORDER BY id DESC LIMIT 1").first();
+  assert.match(logged.detail, /^\[polish\]/);
 });

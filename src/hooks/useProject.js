@@ -30,7 +30,9 @@ import { readSiteFields, patchSiteField } from "../site/siteData.js";
 import { readAlbum, writeAlbum, defaultCaption, albumPath } from "../site/album.js";
 import { readNews, writeNews, detachSheet } from "../site/news.js";
 import { moveOffSheets } from "../site/sheets.js";
-import { checkSite, externalLinks } from "../site/publishCheck.js";
+import { checkSite, externalLinks, resolveLink } from "../site/publishCheck.js";
+import { imageSize } from "../site/designCheck.js";
+import { memberLists } from "../site/semester.js";
 import { outOfSync } from "../site/pairSync.js";
 import { TEXT_FILE, planRelocation } from "../site/relocate.js";
 import { TEXT_SIZE_FILES, readTextSize, writeTextSize, carryTextSize } from "../site/textSize.js";
@@ -1314,17 +1316,24 @@ export function useProject(notify) {
   // template leftovers and broken links (publishCheck.js).
   // changed: paths changed since the last publish (待發布) plus unsaved
   // pages; those also get the 中英不同步 and outside-link checks.
-  async function prepublishCheck(changed = []) {
+  // withDesign: false skips the 設計規範 checks (the getting-started list,
+  // which re-runs on every edit, does not need them).
+  async function prepublishCheck(changed = [], { withDesign = true } = {}) {
     const source = project?.source;
     if (!source) return [];
     const pages = await Promise.all(
       project.pages.map(async (path) => ({ path, html: draftsRef.current[path]?.present ?? (await source.readText(path).catch(() => "")) })),
     );
     let files = null;
+    let listed = [];
     if (source.listFiles) {
       const list = await source.listFiles("").catch(() => null);
-      if (list?.length) files = new Set(list.map((f) => f.path));
+      if (list?.length) {
+        files = new Set(list.map((f) => f.path));
+        listed = list;
+      }
     }
+    const design = withDesign ? await designInputs(source, pages, listed).catch(() => null) : null;
     const extra = {};
     if (cloudSiteId && changed.length) {
       const touched = new Set(changed);
@@ -1364,7 +1373,39 @@ export function useProject(notify) {
         );
       if (dead.length) extra.deadlink = group(dead, (x) => x.page, (x) => x.text + "（" + x.reason + "）");
     }
-    return checkSite({ pages, files, siteFields: siteData?.fields || null, extra });
+    return checkSite({ pages, files, siteFields: siteData?.fields || null, extra, design });
+  }
+
+  // What the 設計規範 checks read besides the pages: the site's CSS (unsaved
+  // theme edits included), file sizes, and the members page's roles and
+  // photo shapes (read from the image headers, at most 24 photos).
+  const imageDims = useRef(new Map()); // path:size → { w, h } (photos do not change in place)
+  async function designInputs(source, pages, listed) {
+    const cssPaths = listed.filter((f) => /\.css$/i.test(f.path) && !/(^|\/)(vendor|lib|node_modules)\//.test(f.path)).map((f) => f.path).slice(0, 12);
+    const styles = await Promise.all(cssPaths.map(async (path) => ({ path, text: draftsRef.current[path]?.present ?? (await source.readText(path).catch(() => "")) })));
+    let members = null;
+    const mp = pages.find((x) => !x.path.startsWith("en/") && /(^|\/)(members?|team|people)\.html?$/i.test(x.path));
+    if (mp?.html) {
+      const doc = parsePage(mp.html).doc;
+      const roles = memberLists(doc).current.flatMap((l) => l.items.map((i) => i.role).filter(Boolean));
+      const srcs = [...new Set([...doc.querySelectorAll("section img")].map((img) => img.getAttribute("src") || "").filter((x) => x && !/^(data:|https?:)/.test(x)))].slice(0, 24);
+      const dims = source.readBlob
+        ? await Promise.all(
+            srcs.map(async (src) => {
+              const path = resolveLink(mp.path, src);
+              if (!path) return null;
+              const key = path + ":" + (listed.find((f) => f.path === path)?.size ?? "");
+              if (imageDims.current.has(key)) return imageDims.current.get(key);
+              const blob = await source.readBlob(path).catch(() => null);
+              const dims = blob ? imageSize(new Uint8Array(await blob.slice(0, 65536).arrayBuffer())) : null;
+              imageDims.current.set(key, dims);
+              return dims;
+            }),
+          )
+        : [];
+      members = { page: mp.path, roles, dims: dims.filter(Boolean) };
+    }
+    return { styles, sizes: listed, members };
   }
 
   /* --------------------------------------------------------------- news */

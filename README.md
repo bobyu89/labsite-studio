@@ -104,6 +104,11 @@ npm --prefix cloud run deploy
 | 分享草稿（v4.27） | `preview_links`（migration 0007）；公開網站 `/<slug>/_draft/<token>/` 顯示最新草稿或固定版本，頁面標示「草稿預覽」、`X-Robots-Tag: noindex`、不計入造訪；1～30 天到期、可收回（`/api/sites/:id/preview-links`） |
 | 在頁面上留言（v4.27） | `comments`（migration 0007）；每段可留言、已處理、刪除（留言的人或老師）；段落清單數字、今天想改什麼提醒；段落移動後依標題找回（`Comments.jsx`） |
 | 網站體檢（v4.27） | `src/site/health.js` 依最新消息日期、論文與成員總表、發布前檢查、中英不同步、未發布天數、留言、造訪找出問題並加權排序；開啟 AI 時 `/api/sites/:id/health`（`aiHealth`）挑 5 件、白話說明、指出英文首頁的錯句（只接受原文裡有的句子） |
+| 設計規範（v4.28） | `src/site/design.js`：8 個領域規則、兩種頁面語域、34 條反模式、12 個指令；`designBrief` 由 `cloud/src/ai.js` 的 `withDesign` 放進每個 AI 請求的系統提示；全文 `docs/DESIGN-STANDARD.md` |
+| 自動設計檢查（v4.28） | `src/site/designCheck.js` 18 條（漸層、卡片、emoji、置中、灰字、動畫、空詞、輪播、計數器、PDF、字體、連結文字、對比、標題、字級、照片大小、成員照片比例與職稱）；讀頁面、CSS、檔案大小與圖片檔頭，不用 AI；四種版型與六個風格包本身都是零 |
+| 設計規範指令（v4.28） | AI 助手 12 個按鈕；`/api/sites/:id/assistant` 接 `command`，只帶該指令的規則領域、伺服器端只保留它允許的修改種類；更沉穩／更醒目可提出 `set_theme`（編輯器先檢查對比） |
+| 研究室檔案（v4.28） | `src/site/labProfile.js`；`GET/PUT /api/sites/:id/lab`（老師可改），存在 `settings` 的 `lab:<siteId>`；精靈的回答自動成為第一版；所有 AI 請求帶入 |
+| 學術風格包（v4.28） | `src/site/stylePacks.js` 六包（版型＋色彩變數＋字體＋語氣）；精靈的風格步驟改成挑風格包，AI 依研究主題推薦（`aiSitePlan` 的 `pack`、`one_line`） |
 | 發布前檢查：無障礙與手機版（v4.25） | 缺 viewport（警示）、固定寬度超過 480px、缺 lang、h1 數量、標題層級跳過、沒有文字的連結、「點這裡」類連結、iframe 沒有 title |
 | 自動存草稿（v4.18，LabSite Cloud） | 停止輸入 20 秒後自動存成草稿，版本紀錄同一輪只留一筆；外觀的修改不自動保存。發布後可按「回到上一版」讓公開網站回到發布前的樣子 |
 | 並排預覽（v4.18） | 預覽可同時顯示電腦與手機尺寸（寬螢幕預設），兩邊都可以點選 |
