@@ -103,6 +103,7 @@ export function cloudApi(fetchImpl = (...a) => fetch(...a)) {
     health: (id, body) => call("POST", site(id) + "/health", body),
     saveHealthReport: (id, report) => call("PUT", site(id) + "/health-report", report),
     importProfile: (id, body) => call("POST", site(id) + "/import-profile", body),
+    findTeacher: (id, body) => call("POST", site(id) + "/find-teacher", body),
     aiSettings: () => call("GET", "/admin/ai"),
     saveAiSettings: (patch) => call("PUT", "/admin/ai", patch),
     removeAiKey: () => call("DELETE", "/admin/ai"),
