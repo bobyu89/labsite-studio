@@ -3,7 +3,10 @@
 // matter most, words them, and points out clumsy English on the home page.
 import React, { useEffect, useState } from "react";
 import { Button } from "@radix-ui/themes";
-import { Heartbeat, Sparkle } from "@phosphor-icons/react";
+import { Heartbeat, Sparkle, MagicWand } from "@phosphor-icons/react";
+
+// Findings 一鍵修正 (AutoFix.jsx) can fix.
+const FIXABLE = new Set(["AP-14", "AP-25", "AP-29", "a11y"]);
 import { Modal } from "./ui";
 import { pairOf } from "../site/page.js";
 import { paperIndex, peopleIndex } from "../site/contentIndex.js";
@@ -76,17 +79,31 @@ async function gather(p) {
   };
 }
 
-export default function HealthCheck({ p, open, onClose, onAction }) {
+// 每月體檢: the same look, without the AI, run by the editor on its own when
+// the last one is more than 30 days old; the score and top three are kept.
+export const HEALTH_EVERY = 30 * 86400000;
+export async function runHealth(p) {
+  const { signals, enHome } = await gather(p);
+  const findings = healthFindings(signals);
+  return { findings, score: healthScore(findings), enHome };
+}
+export function saveHealth(p, findings, score) {
+  const siteId = p.cloudSite?.id;
+  if (!siteId) return Promise.resolve(null);
+  return p.cloudCalls.saveHealthReport(siteId, { score, count: findings.length, top: findings.slice(0, 3).map(({ id, title }) => ({ id, title })) }).catch(() => null);
+}
+
+export default function HealthCheck({ p, open, onClose, onAction, onSaved }) {
   const [state, setState] = useState(null); // { findings, score, ai?, aiBusy, error }
   useEffect(() => {
     if (!open) return;
     let alive = true;
     setState(null);
     (async () => {
-      const { signals, enHome } = await gather(p);
-      const findings = healthFindings(signals);
+      const { findings, score, enHome } = await runHealth(p);
       if (!alive) return;
-      setState({ findings, score: healthScore(findings), aiBusy: !!p.ai?.available && findings.length > 0 });
+      setState({ findings, score, aiBusy: !!p.ai?.available && findings.length > 0 });
+      saveHealth(p, findings, score).then((r) => r && onSaved?.(r.report));
       if (!p.ai?.available || !findings.length) return;
       try {
         const ai = await p.cloudCalls.health(p.cloudSite.id, { findings: findings.map(({ id, title, why }) => ({ id, title, why })), english: enHome });
@@ -173,6 +190,14 @@ export default function HealthCheck({ p, open, onClose, onAction }) {
                 ))}
               </ul>
             </details>
+          )}
+          {(state.findings || []).some((f) => FIXABLE.has(f.id)) && (
+            <div className="health-fix">
+              <span>其中幾件平台可以直接幫你改（間距、標點、PDF 標示、照片大小與形狀、替代文字）。</span>
+              <Button size="2" color="orange" variant="soft" onClick={() => onAction("autofix")}>
+                <MagicWand size={16} /> 一鍵修正
+              </Button>
+            </div>
           )}
           <p className="small-note">分數只是讓你看到進度，不是評分。體檢只讀網站，不會改任何東西。</p>
         </div>

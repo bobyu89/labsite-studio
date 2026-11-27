@@ -28,6 +28,8 @@ import {
   LinkSimple,
   Heartbeat,
   IdentificationCard,
+  MagicWand,
+  UserPlus,
 } from "@phosphor-icons/react";
 import { IconButton, Field, Modal, download } from "../components/ui";
 import ProjectOpen from "../components/ProjectOpen";
@@ -53,8 +55,10 @@ import SemesterWizard from "../components/SemesterWizard";
 import ContentTables from "../components/ContentTables";
 import ShareDraft from "../components/ShareDraft";
 import Comments, { sectionOf } from "../components/Comments";
-import HealthCheck from "../components/HealthCheck";
+import HealthCheck, { runHealth, saveHealth, HEALTH_EVERY } from "../components/HealthCheck";
 import LabProfile from "../components/LabProfile";
+import AutoFix from "../components/AutoFix";
+import TeamDialog from "../components/TeamDialog";
 import GettingStarted from "../components/GettingStarted";
 import StartScreen, { startSkipped } from "../components/StartScreen";
 import Tour, { tourDone } from "../components/Tour";
@@ -138,6 +142,34 @@ export default function Project({ p, device, setDevice, setConfirm }) {
   const [sharing, setSharing] = useState(false);
   const [health, setHealth] = useState(false);
   const [labOpen, setLabOpen] = useState(false);
+  const [fixOpen, setFixOpen] = useState(false);
+  const [teamOpen, setTeamOpen] = useState(false);
+  // 每月體檢: the last report (from the site list); when it is more than 30
+  // days old the editor runs one on its own, a few seconds after opening.
+  const [healthReport, setHealthReport] = useState(null);
+  const healthTried = useRef(null);
+  const siteKey = p.cloudSite?.id || null;
+  useEffect(() => {
+    setHealthReport(p.cloudSite?.health || null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [siteKey]);
+  useEffect(() => {
+    if (!siteKey || !p.pages?.length || healthTried.current === siteKey) return;
+    const last = p.cloudSite?.health;
+    if (last && Date.now() - last.at < HEALTH_EVERY) return;
+    const t = setTimeout(async () => {
+      healthTried.current = siteKey;
+      try {
+        const { findings, score } = await runHealth(p);
+        const saved = await saveHealth(p, findings, score);
+        if (saved?.report) setHealthReport(saved.report);
+      } catch {
+        /* quiet: the teacher can still run 網站體檢 by hand */
+      }
+    }, 5000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [siteKey, p.pages?.length]);
   // The side columns stick right under the bar, whatever height it wraps to.
   const studioRef = useRef(null);
   const barRef = useRef(null);
@@ -471,6 +503,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
   const homePage = p.pages.includes("index.html") ? "index.html" : p.pages[0];
   const startTiles = [
     { id: "health", icon: <Heartbeat size={30} />, title: "網站體檢", text: "看一遍全站，列出最該先處理的事", run: go(() => setHealth(true)), tone: "ai" },
+    p.project?.source.writable && { id: "autofix", icon: <MagicWand size={30} />, title: "一鍵修正", text: "間距、標點、太大的照片，平台直接改", run: go(() => setFixOpen(true)) },
     hasNews && p.news?.ok && !p.news.sheetId && { id: "news", icon: <Newspaper size={30} />, title: "加一則最新消息", text: "公告、獲獎、活動，日期自動排序", run: go(() => setTab("news")) },
     hasNews && aiOn && p.news?.ok && !p.news.sheetId && { id: "quick", icon: <Camera size={30} />, title: "活動快報", text: "照片＋一句話，AI 寫好中英文消息", run: go(() => setQuickPost(true)), tone: "ai" },
     (p.album?.ok || p.canListAssets) && { id: "photos", icon: <Images size={30} />, title: "放活動照片", text: "一次加很多張，自動縮小", run: go(openPhotos) },
@@ -479,13 +512,21 @@ export default function Project({ p, device, setDevice, setConfirm }) {
     membersPage && { id: "semester", icon: <GraduationCap size={30} />, title: "學期更新", text: "畢業、年級加一、新成員一次做完", run: go(() => setSemester(true)) },
     homePage && { id: "home", icon: <PencilSimpleLine size={30} />, title: "改首頁的文字", text: "研究室介紹、主視覺標題", run: go(() => enter("blocks", homePage)) },
     { id: "site", icon: <AddressBook size={30} />, title: "改電話、地址、Email", text: "研究室資料，全站一起更新", run: go(() => setTab("site")) },
+    isCloud && !contributor && { id: "team", icon: <UserPlus size={30} />, title: "邀請學生、助理", text: "加入後由你核准發布", run: go(() => setTeamOpen(true)) },
     isCloud && { id: "lab", icon: <IdentificationCard size={30} />, title: "研究室檔案", text: "一句話介紹、語氣、用詞，AI 照這份寫", run: go(() => setLabOpen(true)), tone: "ai" },
     aiOn && { id: "ai", icon: <Sparkle size={30} />, title: "請 AI 助手幫我改", text: "用一句話說想改什麼", run: go(() => setAiOpen(true)), tone: "ai" },
     (publicationPages(p.pages).length > 0 || membersPage) && { id: "data", icon: <ListChecks size={30} />, title: "檢查論文和成員", text: "重複、英文頁缺漏、沒有 DOI", run: go(() => setTab("data")) },
     { id: "history", icon: <ClockCounterClockwise size={30} />, title: "找回舊版本", text: "看改了什麼，或還原成之前的樣子", run: go(() => setTab("history")) },
   ].filter(Boolean);
   const startStatus = p.cloudSite?.unpublished ? "有修改還沒發布，訪客看到的還是舊的網站。" : "網站是最新的。";
+  const monthly = healthReport && Date.now() - healthReport.at < HEALTH_EVERY ? healthReport : null;
   const startNotices = [
+    monthly &&
+      monthly.top.length > 0 && {
+        id: "monthly",
+        text: `本月體檢 ${monthly.score} 分：先處理「${monthly.top[0].title}」${monthly.count > 1 ? `等 ${monthly.count} 件` : ""} →`,
+        run: go(() => setHealth(true)),
+      },
     p.cloudSite?.review?.status === "waiting" && !contributor && { id: "review", text: `${p.cloudSite.review.by.split("@")[0]} 請你看看並發布 →`, run: go(onPublish) },
     p.cloudSite?.unpublished && !contributor && { id: "publish", text: "看看改了什麼，然後發布 →", run: go(onPublish) },
     openComments.length > 0 && {
@@ -668,11 +709,14 @@ export default function Project({ p, device, setDevice, setConfirm }) {
       {isCloud && <ScheduleDialog p={p} open={scheduling} onClose={() => setScheduling(false)} />}
       {isCloud && <ShareDraft p={p} open={sharing} onClose={() => setSharing(false)} />}
       {isCloud && <LabProfile p={p} open={labOpen} onClose={() => setLabOpen(false)} canEdit={!contributor} />}
+      {isCloud && !contributor && <TeamDialog p={p} open={teamOpen} onClose={() => setTeamOpen(false)} me={p.cloud?.me?.email} />}
+      {p.project?.source.writable && <AutoFix p={p} open={fixOpen} onClose={() => setFixOpen(false)} />}
       {isCloud && (
         <HealthCheck
           p={p}
           open={health}
           onClose={() => setHealth(false)}
+          onSaved={setHealthReport}
           onAction={(action) => {
             setHealth(false);
             const first = openComments[openComments.length - 1];
@@ -687,6 +731,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
               comments: () => first && (enter("blocks", first.page), setTimeout(() => p.setSelected(first.section), 400)),
               share: () => setQrOpen(true),
               english: () => p.pages.includes("en/index.html") && enter("blocks", "en/index.html"),
+              autofix: () => setFixOpen(true),
             };
             (actions[action] || (() => {}))();
           }}

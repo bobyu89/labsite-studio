@@ -203,6 +203,13 @@ function SiteCard({ p, site, admin }) {
               </>
             )}
           </p>
+          {site.health && (
+            <p className={"site-health" + (site.health.score >= 85 ? " good" : site.health.score >= 60 ? " ok" : "")}>
+              體檢 {site.health.score} 分（{new Intl.DateTimeFormat("zh-TW", { month: "numeric", day: "numeric" }).format(site.health.at)}）
+              {site.health.top?.[0] && <span>・先處理：{site.health.top[0].title}</span>}
+              {Date.now() - site.health.at > 30 * 86400000 && <span className="muted">・超過一個月沒體檢</span>}
+            </p>
+          )}
           {admin && (
             <p className={"cloud-backup" + (backup.status === "error" ? " error-text" : "")}>
               <GithubLogo size={14} /> 備份{site.github ? "到 " + site.github : ""}：

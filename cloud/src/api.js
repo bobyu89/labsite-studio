@@ -52,6 +52,7 @@ import {
   addMember,
   removeMember,
   membersOf,
+  membershipsOf,
   loadTree,
   getCommit,
   diffTrees,
@@ -217,13 +218,14 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
       ai: !!ai.key,
       aiOff: sites.filter((s) => ai.off.has(s.id)).map((s) => s.id),
       sites: await (async () => {
-        const keys = sites.flatMap((s) => ["review:" + s.id, "schedule:" + s.id]);
+        const keys = sites.flatMap((s) => ["review:" + s.id, "schedule:" + s.id, "health:" + s.id]);
         const extra = keys.length ? await getSettings(c.env, keys) : {};
         return sites.map((s) => ({
           ...siteView(c.env, s),
           role: ROLES.includes(s.role) ? s.role : "editor",
           review: JSON.parse(extra["review:" + s.id] || "null"),
           schedule: JSON.parse(extra["schedule:" + s.id] || "null"),
+          health: JSON.parse(extra["health:" + s.id] || "null"),
         }));
       })(),
     });
@@ -717,6 +719,18 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
     return c.json({ orcid });
   });
 
+  // 每月體檢: the last health check's score and top findings, kept so the
+  // editor knows when the next one is due and the site list can show it.
+  app.put("/api/sites/:id/health-report", async (c) => {
+    const body = await c.req.json().catch(() => ({}));
+    const score = Math.round(Number(body.score));
+    if (!Number.isFinite(score) || score < 0 || score > 100) throw new RepoError(400, "體檢分數不正確。");
+    const top = (Array.isArray(body.top) ? body.top : []).slice(0, 3).map((x) => ({ id: String(x?.id || "").slice(0, 40), title: String(x?.title || "").slice(0, 80) })).filter((x) => x.id && x.title);
+    const report = { at: Date.now(), score, count: Math.max(0, Math.min(999, Number(body.count) || top.length)), top, by: c.get("user").email };
+    await setSetting(c.env, "health:" + c.get("site").id, JSON.stringify(report), c.get("user").email);
+    return c.json({ report });
+  });
+
   // 網站體檢: the editor's findings ordered and worded by the AI.
   app.post("/api/sites/:id/health", async (c) => {
     const { site, config, remaining } = await aiGate(c);
@@ -756,6 +770,64 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
         "Content-Disposition": `attachment; filename="${name}"`,
       },
     });
+  });
+
+  /* ---------------------------------- 學生與助理: teachers invite their own */
+  // A teacher (editor) adds students and assistants to their own site, only
+  // as contributors (they ask the teacher to publish), and makes their
+  // one-time sign-in links. A link is only made for someone whose only
+  // membership is this site, so no teacher can sign in as a colleague.
+  const TEAM_MAX = 40;
+  const LINKS_PER_DAY = 30;
+  const teacherOnly = async (c, next) => {
+    if (c.get("role") !== "editor") throw new RepoError(403, "只有老師可以邀請學生和助理。");
+    await next();
+  };
+  const teamView = async (env, siteId) => {
+    const members = await membersOf(env, siteId);
+    return members.map((m) => ({ email: m.email, role: m.role === "contributor" ? "contributor" : "editor", addedAt: m.added_at }));
+  };
+  app.get("/api/sites/:id/team", teacherOnly, async (c) => c.json({ members: await teamView(c.env, c.get("site").id), max: TEAM_MAX }));
+  app.post("/api/sites/:id/team", teacherOnly, async (c) => {
+    const site = c.get("site");
+    const body = await c.req.json().catch(() => ({}));
+    const email = String(body.email || "").trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new RepoError(400, "Email 格式不正確：" + (body.email || ""));
+    if (isAdmin(c.env, email)) throw new RepoError(400, "這是管理者的帳號，不需要邀請。");
+    const members = await membersOf(c.env, site.id);
+    const already = members.find((m) => m.email === email);
+    if (already && already.role !== "contributor") throw new RepoError(400, "這位已經是這個網站的老師。");
+    if (!already) {
+      if (members.length >= TEAM_MAX) throw new RepoError(400, `一個網站最多 ${TEAM_MAX} 位成員，請先移除畢業的學生。`);
+      await addMember(c.env, site.id, email, c.get("user").email);
+      await setMemberRole(c.env, site.id, email, "contributor", c.get("user").email);
+    }
+    return c.json({ members: await teamView(c.env, site.id) });
+  });
+  app.delete("/api/sites/:id/team/:email", teacherOnly, async (c) => {
+    const site = c.get("site");
+    const email = decodeURIComponent(c.req.param("email")).trim().toLowerCase();
+    const m = (await membersOf(c.env, site.id)).find((x) => x.email === email);
+    if (!m) throw new RepoError(404, "這個人不是網站成員。");
+    if (m.role !== "contributor") throw new RepoError(403, "老師只能移除學生和助理；要移除其他老師，請找管理者。");
+    await removeMember(c.env, site.id, email, c.get("user").email);
+    return c.json({ members: await teamView(c.env, site.id) });
+  });
+  app.post("/api/sites/:id/team/:email/link", teacherOnly, async (c) => {
+    const site = c.get("site");
+    const email = decodeURIComponent(c.req.param("email")).trim().toLowerCase();
+    if (c.get("user").via === "access") throw new RepoError(400, "這個平台用 Cloudflare Access 登入，學生直接用 Email 登入即可。");
+    const mine = await membershipsOf(c.env, email);
+    if (!mine.some((m) => m.site_id === site.id && m.role === "contributor")) throw new RepoError(404, "請先把這位加成這個網站的學生或助理。");
+    if (isAdmin(c.env, email) || mine.some((m) => m.site_id !== site.id))
+      throw new RepoError(403, "這位同時是其他網站的成員，登入連結要請管理者產生；或請他在已登入的裝置按「其他裝置登入」。");
+    const today = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM events WHERE site_id = ? AND kind = 'team_link' AND created_at > ?")
+      .bind(site.id, Date.now() - 24 * 3600 * 1000)
+      .first();
+    if (Number(today?.n || 0) >= LINKS_PER_DAY) throw new RepoError(429, "今天產生的登入連結太多了，明天再試，或請管理者協助。");
+    const { token, expiresAt } = await createInvite(c.env, email, c.get("user").email);
+    await logEvent(c.env, site.id, "team_link", null, c.get("user").email, email);
+    return c.json({ email, url: new URL(c.req.url).origin + "/?invite=" + token, expiresAt });
   });
 
   /* ------------------------------------------------- admin per site */

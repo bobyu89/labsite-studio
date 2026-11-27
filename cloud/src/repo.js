@@ -319,6 +319,11 @@ export async function removeMember(env, siteId, email, actor, now) {
   await logEvent(env, siteId, "member_remove", null, actor, e, now);
 }
 
+// Every site an email belongs to: [{ site_id, role }].
+export async function membershipsOf(env, email) {
+  return (await env.DB.prepare("SELECT site_id, role FROM members WHERE email = ?").bind(String(email || "").trim().toLowerCase()).all()).results;
+}
+
 export async function membersOf(env, siteId) {
   return (await env.DB.prepare("SELECT email, role, added_at FROM members WHERE site_id = ? ORDER BY email").bind(siteId).all())
     .results;

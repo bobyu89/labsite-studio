@@ -252,13 +252,15 @@ const ROLE_GROUP = [
   ["碩士", /碩|master/i],
   ["博士", /博(?!士後)|ph\.?d|doctoral/i],
   ["博士後", /博士後|post-?doc/i],
-  ["助理", /助理|assistant|\bRA\b/i],
+  ["助理", /(?<!教授)助理(?!教授)|research assistant|\bRA\b/i],
 ];
 // Roles of one kind written in more than one way ("碩一" next to "碩士班二年級").
 export function roleSpellings(roles) {
   const out = [];
   for (const [name, re] of ROLE_GROUP) {
-    const forms = new Set(roles.filter((r) => re.test(r) && !(name === "博士" && /博士後|post-?doc/i.test(r))).map((r) => r.replace(/[一二三四五六七1-7]/g, "N").replace(/\s+/g, "")));
+    // Notes in brackets (共同指導, co-advised) are not a different title.
+    const bare = (r) => r.replace(/[（(][^）)]*[）)]/g, "").trim();
+    const forms = new Set(roles.map(bare).filter((r) => re.test(r) && !(name === "博士" && /博士後|post-?doc/i.test(r))).map((r) => r.replace(/[一二三四五六七1-7]/g, "N").replace(/\s+/g, "")));
     if (forms.size > 1) out.push(`${name}寫成 ${forms.size} 種：${[...forms].slice(0, 3).map((f) => f.replace(/N/g, "一")).join("／")}`);
   }
   return out;

@@ -73,6 +73,10 @@ export function cloudApi(fetchImpl = (...a) => fetch(...a)) {
     presence: (id, page, leave = false) => call("POST", site(id) + "/presence", leave ? { leave: true } : { page }),
     setOrcid: (id, orcid) => call("PUT", site(id) + "/orcid", { orcid }),
     getLab: (id) => call("GET", site(id) + "/lab"),
+    team: (id) => call("GET", site(id) + "/team"),
+    addToTeam: (id, email) => call("POST", site(id) + "/team", { email }),
+    removeFromTeam: (id, email) => call("DELETE", site(id) + "/team/" + encodeURIComponent(email)),
+    teamLink: (id, email) => call("POST", site(id) + "/team/" + encodeURIComponent(email) + "/link", {}),
     setLab: (id, profile) => call("PUT", site(id) + "/lab", { profile }),
     // A file as it is in one version (a commit id, "published" or "draft"); null when absent.
     readAt: async (id, path, ref) => {
@@ -97,6 +101,7 @@ export function cloudApi(fetchImpl = (...a) => fetch(...a)) {
     describePhoto: (id, body) => call("POST", site(id) + "/describe-photo", body),
     quickNews: (id, body) => call("POST", site(id) + "/quick-news", body),
     health: (id, body) => call("POST", site(id) + "/health", body),
+    saveHealthReport: (id, report) => call("PUT", site(id) + "/health-report", report),
     aiSettings: () => call("GET", "/admin/ai"),
     saveAiSettings: (patch) => call("PUT", "/admin/ai", patch),
     removeAiKey: () => call("DELETE", "/admin/ai"),

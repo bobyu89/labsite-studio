@@ -1872,3 +1872,66 @@ test("設計規範 commands: the standard and the lab profile reach the AI; each
   const logged = await env.DB.prepare("SELECT detail FROM events WHERE kind = 'ai_assist' ORDER BY id DESC LIMIT 1").first();
   assert.match(logged.detail, /^\[polish\]/);
 });
+
+/* ============ v4.29 老師邀請學生、每月體檢 */
+test("學生與助理: teachers add students as contributors and make their links; never a colleague's", async () => {
+  const { setMemberRole } = await import("../cloud/src/repo.js");
+  const s = await import("../cloud/src/sessions.js");
+  const env = fakeEnv();
+  const site = await seed(env);
+  const other = await seed(env, { slug: "ycho", name: "卓老師研究室" });
+  await addMember(env, site.id, "teacher@lab.tw", "admin@lab.tw");
+  await addMember(env, other.id, "colleague@lab.tw", "admin@lab.tw");
+  const app = createApp({ fetchImpl: scriptedFetch([]) });
+  const as = (email) => ({ ...env, DEV_USER_EMAIL: email });
+  const url = `http://localhost/api/sites/${site.id}/team`;
+  const req = (method, path, body, email = "teacher@lab.tw") => app.request(url + path, body === undefined ? { method } : jsonReq(method, body), as(email));
+
+  // Add a student: a contributor, listed.
+  let r = await req("POST", "", { email: " Student@Lab.TW " });
+  assert.equal(r.status, 200);
+  assert.deepEqual((await r.json()).members.map((m) => [m.email, m.role]), [["student@lab.tw", "contributor"], ["teacher@lab.tw", "editor"]]);
+  // Students cannot use any of it.
+  assert.equal((await req("GET", "", undefined, "student@lab.tw")).status, 403);
+  assert.equal((await req("POST", "", { email: "x@lab.tw" }, "student@lab.tw")).status, 403);
+  // A teacher cannot demote or remove a teacher, nor add the admin.
+  assert.equal((await req("POST", "", { email: "teacher@lab.tw" })).status, 400);
+  assert.equal((await req("POST", "", { email: "admin@lab.tw" })).status, 400);
+  assert.equal((await req("DELETE", "/" + encodeURIComponent("teacher@lab.tw"))).status, 403);
+  assert.equal((await req("POST", "", { email: "not-an-email" })).status, 400);
+
+  // The student's link signs the student in.
+  r = await req("POST", "/" + encodeURIComponent("student@lab.tw") + "/link", {});
+  assert.equal(r.status, 200);
+  const link = await r.json();
+  const token = new URL(link.url).searchParams.get("invite");
+  assert.equal((await s.redeemInvite(env, token)).email, "student@lab.tw");
+  // No link for someone who is not a student here, or who belongs to another site too.
+  assert.equal((await req("POST", "/" + encodeURIComponent("stranger@lab.tw") + "/link", {})).status, 404);
+  await addMember(env, site.id, "colleague@lab.tw", "admin@lab.tw");
+  await setMemberRole(env, site.id, "colleague@lab.tw", "contributor", "admin@lab.tw");
+  assert.equal((await req("POST", "/" + encodeURIComponent("colleague@lab.tw") + "/link", {})).status, 403, "would sign in as a teacher of another site");
+  assert.equal((await req("POST", "/" + encodeURIComponent("teacher@lab.tw") + "/link", {})).status, 404, "teachers are not students");
+  // Graduated: removed.
+  r = await req("DELETE", "/" + encodeURIComponent("student@lab.tw"));
+  assert.deepEqual((await r.json()).members.map((m) => m.email), ["colleague@lab.tw", "teacher@lab.tw"]);
+  // At most 30 links a day per site.
+  await req("POST", "", { email: "s2@lab.tw" });
+  for (let i = 0; i < 29; i++) await req("POST", "/" + encodeURIComponent("s2@lab.tw") + "/link", {});
+  assert.equal((await req("POST", "/" + encodeURIComponent("s2@lab.tw") + "/link", {})).status, 429);
+});
+
+test("每月體檢: the last report is kept per site and comes with the site list", async () => {
+  const env = fakeEnv();
+  const site = await seed(env);
+  await addMember(env, site.id, "teacher@lab.tw", "admin@lab.tw");
+  const app = createApp({ fetchImpl: scriptedFetch([]) });
+  const as = (email) => ({ ...env, DEV_USER_EMAIL: email });
+  const put = (body) => app.request(`http://localhost/api/sites/${site.id}/health-report`, jsonReq("PUT", body), as("teacher@lab.tw"));
+  assert.equal((await put({ score: 140 })).status, 400);
+  const r = await (await put({ score: 72.4, count: 6, top: [{ id: "news-old", title: "最新消息已經 7 個月沒更新" }, { id: "", title: "x" }, { id: "AP-19", title: "對比不足" }, { id: "a", title: "b" }] })).json();
+  assert.deepEqual([r.report.score, r.report.count, r.report.top.map((x) => x.id), r.report.by], [72, 6, ["news-old", "AP-19"], "teacher@lab.tw"]);
+  const me = await (await app.request("http://localhost/api/me", {}, as("teacher@lab.tw"))).json();
+  assert.equal(me.sites.find((x) => x.id === site.id).health.score, 72);
+  assert.equal((await app.request(`http://localhost/api/sites/${site.id}/health-report`, jsonReq("PUT", { score: 50 }), as("stranger@lab.tw"))).status, 403);
+});
