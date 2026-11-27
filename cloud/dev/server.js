@@ -133,6 +133,25 @@ const mockFetch = async (url, init) => {
     const out = { summary: "（模擬）網站大致完整，先處理下面幾件事就更好了。", items: list.slice(0, 5).map((f) => ({ id: f.id, why: "（模擬）" + f.why })), english: [] };
     return new Response(JSON.stringify({ id: "msg_mock", type: "message", role: "assistant", model: "claude-opus-5-5", content: [{ type: "text", text: JSON.stringify(out) }], stop_reason: "end_turn", stop_sequence: null, usage: { input_tokens: 0, output_tokens: 0 } }), { headers: { "Content-Type": "application/json" } });
   }
+  if (body.output_config?.format?.schema?.properties?.positions) {
+    const p = (zh, en) => ({ zh, en });
+    const out = {
+      person: { name_zh: "王小明", name_en: "Xiao-Ming Wang", title: p("副教授", "Associate Professor"), department: p("某某大學護理學系", "School of Nursing, Example University") },
+      bio: p("（模擬）王小明副教授專長為高齡照護與家庭照顧者支持。", "(Mock) Dr. Wang studies care for older adults and family caregivers."),
+      education: [p("2015 某某大學護理學博士", "2015 PhD in Nursing, Example University")],
+      positions: [p("2020– 某某大學護理學系副教授", "2020– Associate Professor, Example University")],
+      topics: [{ title: p("讓失智長輩在家住得更久", "Ageing in place with dementia"), desc: p("社區介入研究。", "Community-based interventions.") }, { title: p("支持家庭照顧者", "Supporting family caregivers"), desc: p("照顧者負荷與喘息服務。", "Caregiver burden and respite care.") }],
+      projects: [{ title: "（模擬）失智家庭照顧者支持方案", funder: "國科會 NSTC 113-2314-B-000-001", years: "2024–2026", role: "主持人" }],
+      awards: ["2023 （模擬）優良教師"],
+      publications: [
+        { authors: ["Wang, X.-M.", "Lin, Y.-T."], year: 2025, title: "(Mock) Caregiver burden in dementia home care", journal: "Journal of Advanced Nursing", volume: "81", issue: "2", pages: "100-110", doi: "" },
+        { authors: ["王小明"], year: 2024, title: "（模擬）社區據點的長者健康促進", journal: "護理雜誌", volume: "71", issue: "3", pages: "20-30", doi: "" },
+      ],
+      contact: { email: "wang@example.edu.tw", phone: "02-1234-5678", office: "護理館 301 室" },
+      notes: "（模擬）論文清單只到 2025 年。",
+    };
+    return new Response(JSON.stringify({ id: "msg_mock", type: "message", role: "assistant", model: "claude-opus-5-5", content: [{ type: "text", text: JSON.stringify(out) }], stop_reason: "end_turn", stop_sequence: null, usage: { input_tokens: 0, output_tokens: 0 } }), { headers: { "Content-Type": "application/json" } });
+  }
   if (body.output_config?.format?.schema?.properties?.pack_reason) {
     const said = String(body.messages?.[0]?.content || "");
     const name = (said.match(/研究室中文名稱：(.+)/) || [])[1] || "研究室";

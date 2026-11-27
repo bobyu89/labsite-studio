@@ -77,9 +77,14 @@ export default function ImportPublications({ p, open, onClose, onAdded, start })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // Opened from the ORCID reminder: go straight to the new papers.
+  // Opened from the ORCID reminder (works) or 從我的資料帶入 (entries: papers
+  // read from a CV): go straight to the list.
   useEffect(() => {
-    if (!open || !start?.works || !index) return;
+    if (!open || !(start?.works || start?.entries) || !index) return;
+    if (start.entries) {
+      complete(start.entries);
+      return;
+    }
     setSource("orcid");
     if (start.orcid) setOrcid(start.orcid);
     complete(start.works.map((w) => ({ work: w })));
@@ -103,11 +108,22 @@ export default function ImportPublications({ p, open, onClose, onAdded, start })
   // [{ id } | { meta } | { work }] → full metadata, looking up DOIs / PMIDs.
   async function complete(entries) {
     setError(null);
-    const todo = entries.filter((e) => e.id || (e.work && (e.work.doi || e.work.pmid)));
+    const todo = entries.filter((e) => e.id || (e.work && (e.work.doi || e.work.pmid)) || (e.meta && e.meta.doi));
     setBusy({ done: 0, total: todo.length });
     const done = [];
     let n = 0;
     await eachLimited(entries, 3, async (e) => {
+      // A paper read from a CV: its DOI gives the full record; if that fails, keep what the CV said.
+      if (e.meta && e.meta.doi) {
+        try {
+          const meta = await calls.lookupReference(e.meta.doi);
+          done.push({ meta: meta.year ? meta : { ...meta, year: e.meta.year } });
+        } catch {
+          done.push({ meta: e.meta, note: "DOI 查不到，先用履歷上的寫法" });
+        }
+        setBusy({ done: ++n, total: todo.length });
+        return;
+      }
       if (e.meta) return done.push({ meta: e.meta });
       const id = e.id ? e.id.id : e.work.doi || (e.work.pmid ? "PMID " + e.work.pmid : "");
       if (!id) return done.push({ meta: emptyMeta(e.work) });

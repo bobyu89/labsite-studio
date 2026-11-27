@@ -35,7 +35,8 @@ import { cleanProfile, profileText } from "../../src/site/labProfile.js";
 import { packById } from "../../src/site/stylePacks.js";
 import { enc as utf8enc, dec as utf8dec } from "./bytes.js";
 import { adminOverview } from "./overview.js";
-import { aiThemes, aiAssist, aiDescribePhoto, aiQuickNews, aiSitePlan, aiHealth, aiUsage, aiConfig, aiEnabledFor, aiAdminView, saveAiSettings, removeAiKey, testAiKey } from "./ai.js";
+import { oldSiteText } from "./webText.js";
+import { aiProfileImport, aiThemes, aiAssist, aiDescribePhoto, aiQuickNews, aiSitePlan, aiHealth, aiUsage, aiConfig, aiEnabledFor, aiAdminView, saveAiSettings, removeAiKey, testAiKey } from "./ai.js";
 import {
   RepoError,
   isAdmin,
@@ -738,6 +739,28 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
     const result = await aiHealth(c.env, { ...body, lab: site.name, profile: await labText(c.env, site) }, fetchImpl, config.key);
     await logEvent(c.env, site.id, "ai_health", null, c.get("user").email, null);
     return c.json({ ...result, remaining });
+  });
+
+  // 從我的資料帶入: a CV (PDF, or the text of a Word file) or an old website →
+  // the teacher's details sorted for the site. Nothing is written here.
+  app.post("/api/sites/:id/import-profile", async (c) => {
+    const { site, config, remaining } = await aiGate(c);
+    const body = await c.req.json().catch(() => ({}));
+    let source;
+    let pages = [];
+    if (body.pdf) source = { pdf: body.pdf };
+    else if (body.url) {
+      try {
+        const got = await oldSiteText(body.url, fetchImpl);
+        source = { text: got.text, kind: "web", url: body.url };
+        pages = got.pages;
+      } catch (e) {
+        throw new RepoError(e.status || 400, e.message);
+      }
+    } else source = { text: body.text, kind: "word" };
+    const result = await aiProfileImport(c.env, source, fetchImpl, config.key, await labText(c.env, site));
+    await logEvent(c.env, site.id, "ai_import", null, c.get("user").email, body.url ? String(body.url).slice(0, 200) : body.pdf ? "PDF" : "Word");
+    return c.json({ ...result, pages, remaining });
   });
 
   // 活動快報: a sentence (and a photo) → a news draft in both languages.

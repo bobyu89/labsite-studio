@@ -1935,3 +1935,59 @@ test("每月體檢: the last report is kept per site and comes with the site lis
   assert.equal(me.sites.find((x) => x.id === site.id).health.score, 72);
   assert.equal((await app.request(`http://localhost/api/sites/${site.id}/health-report`, jsonReq("PUT", { score: 50 }), as("stranger@lab.tw"))).status, 403);
 });
+
+/* ============ v4.30 從我的資料帶入 */
+test("從我的資料帶入: a CV PDF goes to the AI as a document, an old website as its text; the answer is cleaned", async () => {
+  const sent = [];
+  const answer = {
+    person: { name_zh: "王小明", name_en: "Xiao-Ming Wang", title: { zh: "副教授", en: "Associate Professor" }, department: { zh: "", en: "" } },
+    bio: { zh: "簡介", en: "Bio" },
+    education: [{ zh: "博士", en: "PhD" }, { zh: "", en: "" }],
+    positions: [],
+    topics: [{ title: { zh: "高齡照護", en: "Ageing" }, desc: { zh: "說明", en: "About" } }],
+    projects: [],
+    awards: [],
+    publications: [
+      { authors: ["Wang, X."], year: 2025, title: "A", journal: "J", volume: "", issue: "", pages: "", doi: "https://doi.org/10.1111/jan.15599" },
+      { authors: [], year: 3000, title: "B", journal: "", volume: "", issue: "", pages: "", doi: "not a doi" },
+      { authors: [], year: 2020, title: "", journal: "", volume: "", issue: "", pages: "", doi: "" },
+    ],
+    contact: { email: "w@x.edu.tw", phone: "", office: "" },
+    notes: "",
+  };
+  const fetchImpl = scriptedFetch([
+    [
+      "api.anthropic.com/v1/messages",
+      (u, init) => {
+        sent.push(JSON.parse(init.body));
+        return { json: { id: "m", type: "message", role: "assistant", model: "claude-opus-5-5", content: [{ type: "text", text: JSON.stringify(answer) }], stop_reason: "end_turn", stop_sequence: null, usage: { input_tokens: 1, output_tokens: 1 } } };
+      },
+    ],
+    ["www.example.edu.tw/~wang/", () => ({ body: "<h1>王小明 Wang</h1><p>" + "研究高齡照護。".repeat(20) + "</p>", headers: { "Content-Type": "text/html" } })],
+  ]);
+  const env = fakeEnv();
+  const site = await seed(env);
+  await addMember(env, site.id, "teacher@lab.tw", "admin@lab.tw");
+  const app = createApp({ fetchImpl });
+  const as = (email) => ({ ...env, DEV_USER_EMAIL: email });
+  const post = (body) => app.request(`http://localhost/api/sites/${site.id}/import-profile`, jsonReq("POST", body), as("teacher@lab.tw"));
+  assert.equal((await post({ text: "x".repeat(100) })).status, 503, "no AI key yet");
+  await app.request("http://localhost/api/admin/ai", jsonReq("PUT", { key: TEST_KEY }), as("admin@lab.tw"));
+
+  const pdf = Buffer.from("%PDF-1.4 " + "x".repeat(300)).toString("base64");
+  const r = await (await post({ pdf })).json();
+  assert.equal(sent[0].messages[0].content[0].type, "document");
+  assert.equal(sent[0].messages[0].content[0].source.media_type, "application/pdf");
+  assert.match(sent[0].system, /<design_standard>/);
+  assert.deepEqual(r.education, [{ zh: "博士", en: "PhD" }], "empty entries dropped");
+  assert.deepEqual(r.publications.map((x) => [x.title, x.year, x.doi]), [["A", 2025, "10.1111/jan.15599"], ["B", null, ""]], "bad years and DOIs cleared, untitled dropped");
+  assert.equal(r.remaining, 19);
+
+  const w = await (await post({ url: "https://www.example.edu.tw/~wang/" })).json();
+  assert.deepEqual(w.pages, ["https://www.example.edu.tw/~wang/"]);
+  assert.match(sent[1].messages[0].content[0].text, /<source kind="old website" url="https:\/\/www\.example\.edu\.tw\/~wang\/">[\s\S]*王小明 Wang[\s\S]*研究高齡照護/);
+  assert.equal((await post({ url: "http://localhost/admin" })).status, 400);
+  assert.equal((await post({ text: "短" })).status, 400);
+  const logged = await env.DB.prepare("SELECT COUNT(*) AS n FROM events WHERE kind = 'ai_import'").first();
+  assert.equal(logged.n, 2, "each read counts toward the daily AI limit");
+});

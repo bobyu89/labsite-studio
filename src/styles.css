@@ -8928,3 +8928,170 @@ mark.diff-out {
 .site-health.good {
   color: #1f6b3a;
 }
+
+/* 從我的資料帶入 */
+.pi-sources {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+.pi-source {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+  align-content: start;
+  padding: 16px;
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  font: inherit;
+  text-align: left;
+  color: var(--ink);
+  cursor: pointer;
+}
+button.pi-source:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+.pi-source span {
+  font-size: 13px;
+  color: var(--muted);
+}
+.pi-url {
+  cursor: default;
+}
+.pi-url input {
+  width: 100%;
+  min-width: 0;
+}
+.pi-orcid {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+.pi-review {
+  display: grid;
+  gap: 10px;
+}
+.pi-review > p {
+  margin: 0;
+}
+.pi-parts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.pi-parts li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.pi-parts li > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.pi-parts li span {
+  font-size: 13px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.pi-parts li.done {
+  background: #f3f8f4;
+}
+
+/* 第一次使用: three steps on the start screen */
+.first-steps {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.first-steps li {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.first-steps li.now {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(194, 65, 12, 0.12);
+}
+.first-steps li.done {
+  opacity: 0.75;
+}
+.first-num {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  background: var(--soft);
+}
+.first-steps li.now .first-num {
+  background: var(--accent);
+  color: #fff;
+}
+.first-steps li.done .first-num {
+  background: #1f6b3a;
+  color: #fff;
+}
+.first-steps li > div {
+  display: grid;
+  gap: 3px;
+}
+.first-steps li > div > span {
+  color: var(--muted);
+  font-size: 14px;
+}
+.first-actions {
+  display: flex !important;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+  margin-top: 6px;
+}
+.first-primary {
+  font: inherit;
+  font-weight: 700;
+  padding: 8px 16px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+}
+.start-more-title {
+  margin: 4px 0 8px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.start-more {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: transparent;
+  font: inherit;
+  color: var(--ink);
+  cursor: pointer;
+}
+.start-more:hover {
+  background: var(--soft);
+}
+.start-less {
+  display: block;
+  margin-top: 8px;
+}
