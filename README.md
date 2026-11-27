@@ -117,6 +117,7 @@ npm --prefix cloud run deploy
 | 新手畫面（v4.30） | 「今天想改什麼」前五次只顯示 6 個常用按鈕，其他收進「更多功能」；對話框的關閉鈕不再自動跳出提示，Esc 一次就關 |
 | 整站讀取（v4.31） | `cloud/src/webText.js` `crawlSite`：從給的網址（或勾選的多個網址）出發，同主機、同資料夾（`scopeOf`，例如 `/~wang/`）最多 20 頁，論文／簡歷頁優先，每批 4 頁並行；連到的履歷 PDF 最多 2 份一起交給 `aiProfileImport` |
 | AI 上網找老師（v4.31） | `POST /api/sites/:id/find-teacher`：`aiFindTeacher` 用 `web_search_20260209`＋`web_fetch_20260209`（各限 6、5 次，處理 `pause_turn`），只保留搜尋／讀取結果裡出現過的網址（`seenUrls`、`readFindResult`），附原因與可信度；老師勾選後交給整站讀取；找到 ORCID 時論文走一次匯入；算一次 AI（`ai_search`） |
+| AI 助手選模型（v4.32） | `src/site/aiModels.js`：標準（Claude Opus 5.5）、省錢（Claude Sonnet 5.5）、最省（Claude Haiku 5.5）。管理者在「平台設定」勾選開放哪些與預設（D1 `settings` 的 `ai_assist_models`）；老師在助手視窗切換（記在瀏覽器 `labsite.ai.model`），`/api/sites/:id/assistant` 接 `model`，不在開放清單就用預設；最省不帶伺服器端 fallback。紀錄寫成「〔模型〕…」。其他 AI 功能固定用標準 |
 | 發布前檢查：無障礙與手機版（v4.25） | 缺 viewport（警示）、固定寬度超過 480px、缺 lang、h1 數量、標題層級跳過、沒有文字的連結、「點這裡」類連結、iframe 沒有 title |
 | 自動存草稿（v4.18，LabSite Cloud） | 停止輸入 20 秒後自動存成草稿，版本紀錄同一輪只留一筆；外觀的修改不自動保存。發布後可按「回到上一版」讓公開網站回到發布前的樣子 |
 | 並排預覽（v4.18） | 預覽可同時顯示電腦與手機尺寸（寬螢幕預設），兩邊都可以點選 |

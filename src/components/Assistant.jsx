@@ -12,6 +12,7 @@ import { previewCitation } from "../site/quickAdd.js";
 import { readNews } from "../site/news.js";
 import { blanksIn } from "../site/promptBank.js";
 import { COMMANDS } from "../site/design.js";
+import { ASSIST_MODELS, cleanModelChoice, pickModel, perCallTwd } from "../site/aiModels.js";
 import { buildContext, resolveChanges, applyTextChange, applyPublication, applyAddItem, fillBlock, newsItem, turnSummary } from "../site/assistant.js";
 
 const same = (a, b) => String(a).replace(/\s+/g, " ").trim() === String(b).replace(/\s+/g, " ").trim();
@@ -220,6 +221,24 @@ export default function Assistant({ p, selected, sectionCount = 0, open, onOpen,
   ].filter(Boolean);
 
   const [blankWarn, setBlankWarn] = useState(false);
+  // 模型: what the admin allows (平台設定); the teacher's pick is remembered in this browser.
+  const choice = cleanModelChoice(p.cloud?.me?.aiModels);
+  const [modelPick, setModelPick] = useState(() => {
+    try {
+      return localStorage.getItem("labsite.ai.model") || "";
+    } catch {
+      return "";
+    }
+  });
+  const model = pickModel(modelPick, choice);
+  const chooseModel = (k) => {
+    setModelPick(k);
+    try {
+      localStorage.setItem("labsite.ai.model", k);
+    } catch {
+      /* private window */
+    }
+  };
   const [commandsOpen, setCommandsOpen] = useState(() => {
     try {
       return localStorage.getItem("labsite.ai.commands") !== "closed";
@@ -255,10 +274,10 @@ export default function Assistant({ p, selected, sectionCount = 0, open, onOpen,
       const pairHtml = p.pair ? await p.ensureLoaded(p.pair) : null;
       const siteText = p.siteData?.text ?? null;
       const { context, index } = buildContext({ path: p.current, html: p.html, pairPath: p.pair, pairHtml, siteText, pages: p.pages, labelOf: p.labelOf, selected });
-      const r = await p.ai.ask({ message: ask, history, context, ...(cmd ? { command: cmd.id } : {}) });
+      const r = await p.ai.ask({ message: ask, history, context, model, ...(cmd ? { command: cmd.id } : {}) });
       const cards = resolveChanges(r.changes, index, { siteText, labelOf: p.labelOf, theme: p.theme }).map((c) => ({ ...c, id: nextId.current++, state: null }));
       setRemaining(r.remaining ?? null);
-      setTurns((t) => [...t, { id: nextId.current++, role: "assistant", text: r.reply, cards }]);
+      setTurns((t) => [...t, { id: nextId.current++, role: "assistant", text: r.reply, cards, model: r.model }]);
     } catch (e) {
       setTurns((t) => [...t, { id: nextId.current++, role: "assistant", text: e.message, error: true, cards: [] }]);
     } finally {
@@ -400,6 +419,7 @@ export default function Assistant({ p, selected, sectionCount = 0, open, onOpen,
           ) : (
             <div key={turn.id} className="ai-answer">
               {turn.text && <p className={turn.error ? "ai-error" : ""}>{turn.text}</p>}
+              {turn.model && choice.allowed.length > 1 && <span className="ai-model-tag">{ASSIST_MODELS[turn.model]?.name}</span>}
               {turn.cards.map((card) => (
                 <Card
                   key={card.id}
@@ -447,6 +467,26 @@ export default function Assistant({ p, selected, sectionCount = 0, open, onOpen,
           </div>
           <p className="small-note">按一個指令，助手就照設計規範看這一頁；輸入框裡寫的字會一起送出當補充。</p>
         </details>
+        {choice.allowed.length > 1 && (
+          <div className="ai-model" role="radiogroup" aria-label="AI 助手用哪個模型">
+            <span>模型</span>
+            {choice.allowed.map((k) => (
+              <button
+                type="button"
+                key={k}
+                role="radio"
+                aria-checked={model === k}
+                className={model === k ? "on" : ""}
+                disabled={busy}
+                title={`${ASSIST_MODELS[k].model}：${ASSIST_MODELS[k].note}`}
+                onClick={() => chooseModel(k)}
+              >
+                {ASSIST_MODELS[k].name}
+                <small>{perCallTwd(k)}</small>
+              </button>
+            ))}
+          </div>
+        )}
         <div className="ai-prompts">
           {prompts.map((x) => (
             <button

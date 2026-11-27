@@ -1870,7 +1870,7 @@ test("設計規範 commands: the standard and the lab profile reach the AI; each
   assert.equal((await ask({ command: "overdrive" })).status, 400);
   assert.equal((await ask({ command: "audit" })).status, 400);
   const logged = await env.DB.prepare("SELECT detail FROM events WHERE kind = 'ai_assist' ORDER BY id DESC LIMIT 1").first();
-  assert.match(logged.detail, /^\[polish\]/);
+  assert.match(logged.detail, /^〔opus〕\[polish\]/);
 });
 
 /* ============ v4.29 老師邀請學生、每月體檢 */
@@ -2028,4 +2028,51 @@ test("AI 上網找老師: web search and fetch tools, pause_turn continued, resu
   assert.equal(r.searches, 1);
   const logged = await env.DB.prepare("SELECT kind, detail FROM events WHERE kind = 'ai_search'").first();
   assert.match(logged.detail, /王小明 \/ 某某大學護理學系（搜尋 1 次）/);
+});
+
+/* ============ v4.32 AI 助手選模型 */
+test("AI 助手的模型: the admin allows models and a default; the teacher's pick is honoured only if allowed", async () => {
+  const sent = [];
+  const fetchImpl = scriptedFetch([
+    [
+      "api.anthropic.com/v1/messages",
+      (u, init) => {
+        sent.push(JSON.parse(init.body));
+        return { json: { id: "m", type: "message", role: "assistant", model: "x", content: [{ type: "text", text: JSON.stringify({ reply: "好", changes: [] }) }], stop_reason: "end_turn", stop_sequence: null, usage: { input_tokens: 1, output_tokens: 1 } } };
+      },
+    ],
+  ]);
+  const env = fakeEnv();
+  const site = await seed(env);
+  await addMember(env, site.id, "teacher@lab.tw", "admin@lab.tw");
+  const app = createApp({ fetchImpl });
+  const as = (email) => ({ ...env, DEV_USER_EMAIL: email });
+  await app.request("http://localhost/api/admin/ai", jsonReq("PUT", { key: TEST_KEY }), as("admin@lab.tw"));
+  const ask = (model) => app.request(`http://localhost/api/sites/${site.id}/assistant`, jsonReq("POST", { message: "改一下", context: { page: { path: "index.html", fields: [] } }, model }), as("teacher@lab.tw"));
+
+  // Out of the box: all three, the standard one by default.
+  let me = await (await app.request("http://localhost/api/me", {}, as("teacher@lab.tw"))).json();
+  assert.deepEqual(me.aiModels, { allowed: ["opus", "sonnet", "haiku"], default: "opus" });
+  let r = await (await ask()).json();
+  assert.equal(sent.at(-1).model, "claude-opus-5-5");
+  assert.equal(sent.at(-1).fallbacks, "default");
+  assert.equal(r.model, "opus");
+  r = await (await ask("sonnet")).json();
+  assert.deepEqual([sent.at(-1).model, sent.at(-1).fallbacks, r.model], ["claude-sonnet-5-5", "default", "sonnet"]);
+  await ask("haiku");
+  assert.equal(sent.at(-1).model, "claude-haiku-5-5");
+  assert.equal(sent.at(-1).fallbacks, undefined, "Haiku has no server-side fallback");
+  assert.equal(sent.at(-1).betas, undefined);
+  assert.match(sent.at(-1).system, /<design_standard>/, "every model gets the design standard");
+
+  // The admin narrows it: only the cheaper two, Sonnet by default.
+  assert.equal((await app.request("http://localhost/api/admin/ai", jsonReq("PUT", { models: { allowed: [] } }), as("admin@lab.tw"))).status, 400);
+  assert.equal((await app.request("http://localhost/api/admin/ai", jsonReq("PUT", { models: { allowed: ["sonnet", "haiku"], default: "sonnet" } }), as("teacher@lab.tw"))).status, 403);
+  await app.request("http://localhost/api/admin/ai", jsonReq("PUT", { models: { allowed: ["haiku", "sonnet", "gpt"], default: "opus" } }), as("admin@lab.tw"));
+  me = await (await app.request("http://localhost/api/me", {}, as("teacher@lab.tw"))).json();
+  assert.deepEqual(me.aiModels, { allowed: ["sonnet", "haiku"], default: "sonnet" }, "unknown models dropped, default falls back to an allowed one");
+  r = await (await ask("opus")).json();
+  assert.deepEqual([sent.at(-1).model, r.model], ["claude-sonnet-5-5", "sonnet"], "a model that is not allowed falls back to the default");
+  const logged = await env.DB.prepare("SELECT detail FROM events WHERE kind = 'ai_assist' ORDER BY id DESC LIMIT 1").first();
+  assert.match(logged.detail, /^〔sonnet〕/);
 });

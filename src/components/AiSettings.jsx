@@ -7,6 +7,7 @@ import React, { useEffect, useState } from "react";
 import { Button } from "@radix-ui/themes";
 import { WarningCircle, CaretLeft } from "@phosphor-icons/react";
 import BackupSettings from "./BackupSettings";
+import { ASSIST_MODELS, MODEL_KEYS, perCallTwd } from "../site/aiModels.js";
 
 export default function AiSettings({ p, onBack, setConfirm }) {
   const [view, setView] = useState(null);
@@ -64,6 +65,12 @@ export default function AiSettings({ p, onBack, setConfirm }) {
     run(async () => {
       show(await p.cloudCalls.saveAiSettings({ dailyLimit: Number(limit) }));
       setNote({ ok: true, text: "已更新每天的次數。" });
+    });
+  const saveModels = (models) =>
+    run(async () => {
+      show(await p.cloudCalls.saveAiSettings({ models }));
+      setNote({ ok: true, text: "已更新 AI 助手可以用的模型。" });
+      p.refreshCloud();
     });
   const toggle = (id, enabled) =>
     run(async () => {
@@ -169,6 +176,41 @@ export default function AiSettings({ p, onBack, setConfirm }) {
               </Button>
               <p className="small-note">用完會顯示「今天的 AI 次數用完了」，隔天自動恢復。用來避免費用超出預期。</p>
             </section>
+            {view.models && (
+              <section>
+                <h2>AI 助手可以用的模型</h2>
+                <p className="small-note">老師在 AI 助手裡可以從開放的模型中選；沒選的時候用預設。讀履歷、上網找、建立網站精靈等其他 AI 功能固定用標準模型。</p>
+                {MODEL_KEYS.map((k) => {
+                  const m = ASSIST_MODELS[k];
+                  const on = view.models.allowed.includes(k);
+                  return (
+                    <div key={k} className="settings-check settings-model">
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={on}
+                          disabled={busy || (on && view.models.allowed.length === 1)}
+                          onChange={(e) => {
+                            const allowed = e.target.checked ? [...view.models.allowed, k] : view.models.allowed.filter((x) => x !== k);
+                            saveModels({ allowed, default: view.models.default === k && !e.target.checked ? allowed[0] : view.models.default });
+                          }}
+                        />
+                        <span>
+                          <strong>{m.name}</strong>（{m.model}）
+                        </span>
+                      </label>
+                      <span className="muted">
+                        {m.note}・每次{perCallTwd(k)}
+                      </span>
+                      <label className="settings-default">
+                        <input type="radio" name="ai-default-model" checked={view.models.default === k} disabled={busy || !on} onChange={() => saveModels({ allowed: view.models.allowed, default: k })} />
+                        預設
+                      </label>
+                    </div>
+                  );
+                })}
+              </section>
+            )}
             <section>
               <h2>哪些網站可以用 AI 助手</h2>
               {view.sites.length === 0 && <p className="small-note">還沒有網站。</p>}
