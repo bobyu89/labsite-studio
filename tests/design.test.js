@@ -155,6 +155,7 @@ test("member photos and roles: shapes from image headers, roles written two ways
   ]);
   assert.deepEqual(roleSpellings(["碩一", "碩二", "博士班三年級", "博三"]), ["博士寫成 2 種：博士班一年級／博一"]);
   assert.deepEqual(roleSpellings(["碩一", "碩二", "博士後研究員", "博二"]), []);
+  assert.deepEqual(roleSpellings(["碩士班研究生", "碩士班研究生（共同指導）", "助理教授", "研究助理"]), [], "notes in brackets and 助理教授 are not other spellings");
   const r = designSite({ members: { page: "members.html", roles: ["碩一", "碩士班二年級"], dims: [{ w: 400, h: 400 }, { w: 400, h: 400 }, { w: 400, h: 600 }] } });
   assert.deepEqual(r["AP-29"][0].examples, ["成員照片的長寬比從 0.67 到 1.00", "碩士寫成 2 種：碩一／碩士班一年級"]);
 });

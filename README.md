@@ -109,6 +109,9 @@ npm --prefix cloud run deploy
 | 設計規範指令（v4.28） | AI 助手 12 個按鈕；`/api/sites/:id/assistant` 接 `command`，只帶該指令的規則領域、伺服器端只保留它允許的修改種類；更沉穩／更醒目可提出 `set_theme`（編輯器先檢查對比） |
 | 研究室檔案（v4.28） | `src/site/labProfile.js`；`GET/PUT /api/sites/:id/lab`（老師可改），存在 `settings` 的 `lab:<siteId>`；精靈的回答自動成為第一版；所有 AI 請求帶入 |
 | 學術風格包（v4.28） | `src/site/stylePacks.js` 六包（版型＋色彩變數＋字體＋語氣）；精靈的風格步驟改成挑風格包，AI 依研究主題推薦（`aiSitePlan` 的 `pack`、`one_line`） |
+| 一鍵修正（v4.29） | `src/site/autofix.js`（中英間距與全形標點、PDF 連結標示、成員照片目標形狀與裁切框、圖片換新路徑、補替代文字）＋ `useProject` 的 `autoFix`（縮圖用 `prepareImage`、裁切用 canvas，新檔名寫進每一頁）；`AutoFix.jsx` 先列改前改後再套用 |
+| 老師邀請學生（v4.29） | `GET/POST /api/sites/:id/team`、`DELETE /team/:email`、`POST /team/:email/link`：老師只能加、移除「學生、助理」；登入連結只給只屬於這個網站的學生（避免冒用其他老師），每站每天 30 條、最多 40 位成員；`TeamDialog.jsx` |
+| 每月體檢（v4.29） | `PUT /api/sites/:id/health-report` 存 `settings` 的 `health:<siteId>`（分數、件數、前三件）；`/api/me` 帶回；超過 30 天開網站時自動跑（不用 AI）；開始畫面與「我的網站」顯示 |
 | 發布前檢查：無障礙與手機版（v4.25） | 缺 viewport（警示）、固定寬度超過 480px、缺 lang、h1 數量、標題層級跳過、沒有文字的連結、「點這裡」類連結、iframe 沒有 title |
 | 自動存草稿（v4.18，LabSite Cloud） | 停止輸入 20 秒後自動存成草稿，版本紀錄同一輪只留一筆；外觀的修改不自動保存。發布後可按「回到上一版」讓公開網站回到發布前的樣子 |
 | 並排預覽（v4.18） | 預覽可同時顯示電腦與手機尺寸（寬螢幕預設），兩邊都可以點選 |

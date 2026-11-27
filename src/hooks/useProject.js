@@ -32,6 +32,7 @@ import { readNews, writeNews, detachSheet } from "../site/news.js";
 import { moveOffSheets } from "../site/sheets.js";
 import { checkSite, externalLinks, resolveLink } from "../site/publishCheck.js";
 import { imageSize } from "../site/designCheck.js";
+import { typesetChanges, applyTypeset, pdfLinks, applyPdfLabels, targetShape, offShape, cropBox, replaceImageSrc, setMissingAlt } from "../site/autofix.js";
 import { memberLists } from "../site/semester.js";
 import { outOfSync } from "../site/pairSync.js";
 import { TEXT_FILE, planRelocation } from "../site/relocate.js";
@@ -1379,6 +1380,107 @@ export function useProject(notify) {
   // What the 設計規範 checks read besides the pages: the site's CSS (unsaved
   // theme edits included), file sizes, and the members page's roles and
   // photo shapes (read from the image headers, at most 24 photos).
+  /* ----------------------------------------------------------- 一鍵修正 */
+  // What the editor can fix on its own (autofix.js), found on every page:
+  // { typeset, pdf: [{ page, count, examples }], big: [{ path, size, pages }],
+  //   members: { page, shape, photos: [{ path, w, h }] } | null, noAlt: [{ path, pages }], sizes }
+  async function autoFixPlan() {
+    const source = project?.source;
+    if (!source) return null;
+    const listed = source.listFiles ? await source.listFiles("").catch(() => []) : [];
+    const sizes = new Map(listed.map((f) => [f.path, f.size]));
+    const pages = await Promise.all(project.pages.map(async (path) => ({ path, html: draftsRef.current[path]?.present ?? (await source.readText(path).catch(() => "")) })));
+    const typeset = [];
+    const pdf = [];
+    const uses = new Map(); // image path → { pages: Set, noAlt: Set }
+    for (const { path, html } of pages) {
+      if (!html) continue;
+      const doc = parsePage(html).doc;
+      if (!path.startsWith("en/")) {
+        const t = typesetChanges(doc);
+        if (t.length) typeset.push({ page: path, count: t.length, examples: t.slice(0, 3).map((x) => ({ before: x.before.trim().slice(0, 40), after: x.after.trim().slice(0, 40) })) });
+      }
+      const links = pdfLinks(doc, path, sizes);
+      if (links.length) pdf.push({ page: path, count: links.length, examples: links.slice(0, 3).map((x) => ({ before: x.before, after: x.after })) });
+      for (const img of doc.querySelectorAll("img[src]")) {
+        const src = img.getAttribute("src") || "";
+        if (/^(data:|https?:|\/\/)/.test(src)) continue;
+        const at = resolveLink(path, src);
+        if (!at) continue;
+        if (!uses.has(at)) uses.set(at, { pages: new Set(), noAlt: new Set() });
+        uses.get(at).pages.add(path);
+        if (img.getAttribute("alt") === null) uses.get(at).noAlt.add(path);
+      }
+    }
+    const big = [...uses]
+      .filter(([at]) => /\.(jpe?g|png|webp)$/i.test(at) && (sizes.get(at) || 0) > 800 * 1024)
+      .map(([at, u]) => ({ path: at, size: sizes.get(at), pages: [...u.pages] }));
+    const noAlt = [...uses].filter(([, u]) => u.noAlt.size).map(([at, u]) => ({ path: at, pages: [...u.noAlt] }));
+    let members = null;
+    const mp = pages.find((x) => !x.path.startsWith("en/") && /(^|\/)(members?|team|people)\.html?$/i.test(x.path));
+    if (mp?.html && source.readBlob) {
+      const doc = parsePage(mp.html).doc;
+      const srcs = [...new Set([...doc.querySelectorAll("section img[src]")].map((img) => resolveLink(mp.path, img.getAttribute("src") || "")).filter((x) => x && !/\.(svg|gif)$/i.test(x)))].slice(0, 40);
+      const photos = (await Promise.all(srcs.map(async (path) => ({ path, ...((await photoSize(source, path, sizes.get(path))) || {}) })))).filter((x) => x.w);
+      if (photos.length >= 3) {
+        const shape = targetShape(photos);
+        const off = photos.filter((x) => offShape(x, shape.ratio)).map((x) => ({ ...x, pages: [...(uses.get(x.path)?.pages || [mp.path])] }));
+        if (off.length) members = { page: mp.path, shape, photos: off };
+      }
+    }
+    return { typeset, pdf, big, members, noAlt, sizes };
+  }
+  async function photoSize(source, path, size) {
+    const key = path + ":" + (size ?? "");
+    if (imageDims.current.has(key)) return imageDims.current.get(key);
+    const blob = (staged[path]?.file || (await source.readBlob(path).catch(() => null))) ?? null;
+    const dims = blob && blob.slice ? imageSize(new Uint8Array(await blob.slice(0, 65536).arrayBuffer())) : null;
+    imageDims.current.set(key, dims);
+    return dims;
+  }
+  async function fixTypeset(pagesToFix) {
+    for (const page of pagesToFix) if ((await ensureLoaded(page)) !== null) edit(applyTypeset, undefined, page);
+  }
+  async function fixPdfLabels(pagesToFix, sizes) {
+    for (const page of pagesToFix) if ((await ensureLoaded(page)) !== null) edit(applyPdfLabels(page, sizes), undefined, page);
+  }
+  // A new version of a photo (smaller or cropped) replaces it on every page
+  // that shows it; the old file stays in the site's history.
+  async function swapPhoto(from, file, pagesShowing) {
+    const img = await prepareImage(file);
+    if (img.path === from) return null;
+    invalidatePreviewCache(cache.current, img.path);
+    setStaged((st) => ({ ...st, [img.path]: { file: img.blob, page: pagesShowing[0] } }));
+    for (const page of pagesShowing) if ((await ensureLoaded(page)) !== null) edit(replaceImageSrc(page, from, img.path), undefined, page);
+    return img;
+  }
+  async function readPhoto(path) {
+    const blob = staged[path]?.file || (await project.source.readBlob(path));
+    const name = path.split("/").pop();
+    return new File([blob], name, { type: blob.type || (/\.png$/i.test(name) ? "image/png" : /\.webp$/i.test(name) ? "image/webp" : "image/jpeg") });
+  }
+  async function shrinkPhoto(path, pagesShowing) {
+    return swapPhoto(path, await readPhoto(path), pagesShowing);
+  }
+  async function cropPhoto(path, ratio, pagesShowing) {
+    const file = await readPhoto(path);
+    const bitmap = await createImageBitmap(file);
+    const box = cropBox(bitmap.width, bitmap.height, ratio);
+    const canvas = Object.assign(document.createElement("canvas"), { width: box.w, height: box.h });
+    canvas.getContext("2d").drawImage(bitmap, box.x, box.y, box.w, box.h, 0, 0, box.w, box.h);
+    bitmap.close?.();
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
+    if (!blob) throw new Error("這張照片沒辦法裁切。");
+    return swapPhoto(path, new File([blob], file.name.replace(/\.[a-z0-9]+$/i, "") + ".jpg", { type: "image/jpeg" }), pagesShowing);
+  }
+  // AI alt text for one photo, written on every page that shows it without one
+  // (English pages get the English text).
+  async function altForPhoto(path, pagesShowing) {
+    const r = await describePhoto(path);
+    for (const page of pagesShowing) if ((await ensureLoaded(page)) !== null) edit(setMissingAlt(page, path, page.startsWith("en/") ? r.alt_en || r.alt : r.alt), undefined, page);
+    return r;
+  }
+
   const imageDims = useRef(new Map()); // path:size → { w, h } (photos do not change in place)
   async function designInputs(source, pages, listed) {
     const cssPaths = listed.filter((f) => /\.css$/i.test(f.path) && !/(^|\/)(vendor|lib|node_modules)\//.test(f.path)).map((f) => f.path).slice(0, 12);
@@ -1878,6 +1980,7 @@ export function useProject(notify) {
     setTextSize,
     skins: skin ? { list: skin.list, current: skin.current, pending: skin.pending } : null,
     ai: { available: aiAvailable, generate: generateAiThemes, ask: askAssistant, describePhoto, quickNews },
+    autoFix: { plan: autoFixPlan, typeset: fixTypeset, pdf: fixPdfLabels, shrink: shrinkPhoto, crop: cropPhoto, alt: altForPhoto },
     autosave: { ...autosave, on: autosaveOn, pending: autosaveOn && contentDirty },
     flushAutosave: () => flushRef.current(),
     previewSkin,

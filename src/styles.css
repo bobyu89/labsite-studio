@@ -8778,3 +8778,153 @@ mark.diff-out {
   gap: 12px;
   flex-wrap: wrap;
 }
+
+/* 一鍵修正 */
+.autofix {
+  display: grid;
+  gap: 10px;
+}
+.autofix-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  cursor: pointer;
+}
+.autofix-item.off {
+  opacity: 0.6;
+  cursor: default;
+}
+.autofix-item > input {
+  margin-top: 4px;
+}
+.autofix-item strong {
+  display: block;
+  margin-bottom: 2px;
+}
+.autofix-examples {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 3px;
+  font-size: 13px;
+}
+.autofix-examples li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: baseline;
+  min-width: 0;
+}
+.autofix-examples del {
+  color: var(--muted);
+}
+.autofix-examples ins {
+  text-decoration: none;
+  background: #e8f4ec;
+  padding: 0 3px;
+  border-radius: 3px;
+}
+.autofix-list {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+  word-break: break-all;
+}
+.autofix-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+.autofix-done {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+.autofix-done p {
+  margin: 0;
+}
+.health-fix {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fff7ef;
+  font-size: 14px;
+}
+
+/* 邀請學生與助理 */
+.team-add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.team-add .field {
+  flex: 1 1 240px;
+}
+.team-list {
+  display: grid;
+  gap: 8px;
+}
+.team-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.team-list li {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+}
+.team-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 6px 12px;
+  min-width: 0;
+  word-break: break-all;
+}
+.team-actions {
+  display: flex;
+  gap: 12px;
+}
+.team-link {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 8px;
+}
+.team-link input {
+  flex: 1 1 260px;
+  min-width: 0;
+  font-size: 12px;
+}
+.team-teachers li {
+  font-size: 14px;
+}
+.site-health {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: #9a3412;
+}
+.site-health.ok {
+  color: #8a5a00;
+}
+.site-health.good {
+  color: #1f6b3a;
+}
