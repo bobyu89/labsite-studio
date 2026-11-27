@@ -133,6 +133,32 @@ const mockFetch = async (url, init) => {
     const out = { summary: "（模擬）網站大致完整，先處理下面幾件事就更好了。", items: list.slice(0, 5).map((f) => ({ id: f.id, why: "（模擬）" + f.why })), english: [] };
     return new Response(JSON.stringify({ id: "msg_mock", type: "message", role: "assistant", model: "claude-opus-5-5", content: [{ type: "text", text: JSON.stringify(out) }], stop_reason: "end_turn", stop_sequence: null, usage: { input_tokens: 0, output_tokens: 0 } }), { headers: { "Content-Type": "application/json" } });
   }
+  // AI 上網找老師: a canned search that "finds" the live 宋老師 site (read for
+  // real afterwards), one page that is someone else, and one invented link
+  // that the server must drop.
+  if ((body.tools || []).some((t) => t.name === "web_search")) {
+    const site = "https://labsite-sites.shiftguard-navicare.workers.dev/sung-lab-website/";
+    const results = [
+      { type: "web_search_result", url: site, title: "護理創新及專科訓練研究室", encrypted_content: "x", page_age: null },
+      { type: "web_search_result", url: site + "pi.html", title: "主持人", encrypted_content: "x", page_age: null },
+      { type: "web_search_result", url: "https://www.example.edu.tw/other-person/", title: "同名的另一位老師", encrypted_content: "x", page_age: null },
+    ];
+    const result = {
+      candidates: [
+        { url: site + "pi.html", title: "主持人介紹", kind: "faculty", confidence: "high", why: "（模擬）研究室網站上的主持人頁，姓名與系所相符。" },
+        { url: site, title: "研究室網站", kind: "lab", confidence: "high", why: "（模擬）主持人自己的研究室網站。" },
+        { url: "https://www.example.edu.tw/other-person/", title: "同名的老師", kind: "faculty", confidence: "low", why: "（模擬）同名，但學校不同。" },
+        { url: "https://invented.example.org/made-up", title: "不存在", kind: "other", confidence: "high", why: "搜尋結果裡沒有這個網址" },
+      ],
+      orcid: "0000-0002-1825-0097",
+    };
+    const content = [
+      { type: "server_tool_use", id: "srvtoolu_1", name: "web_search", input: { query: "mock" } },
+      { type: "web_search_tool_result", tool_use_id: "srvtoolu_1", content: results },
+      { type: "text", text: "<result>" + JSON.stringify(result) + "</result>" },
+    ];
+    return new Response(JSON.stringify({ id: "msg_mock", type: "message", role: "assistant", model: "claude-opus-5-5", content, stop_reason: "end_turn", stop_sequence: null, usage: { input_tokens: 0, output_tokens: 0 } }), { headers: { "Content-Type": "application/json" } });
+  }
   if (body.output_config?.format?.schema?.properties?.positions) {
     const p = (zh, en) => ({ zh, en });
     const out = {

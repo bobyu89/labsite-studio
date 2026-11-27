@@ -115,6 +115,8 @@ npm --prefix cloud run deploy
 | 從我的資料帶入（v4.30） | `POST /api/sites/:id/import-profile`：履歷 PDF（以 document 送給 Claude）、Word（瀏覽器用 `src/site/docxText.js` 取出文字）或舊網站網址（`cloud/src/webText.js`：只抓公開 http(s)、同站最多 3 個論文／簡歷頁）→ `aiProfileImport` 結構化（簡介、學經歷、研究主題、計畫、獲獎、論文、聯絡）；`ProfileImport.jsx` 把文字交給 AI 助手提案、論文交給一次匯入（`start.entries`）；算一次 AI（`ai_import`） |
 | 第一次使用（v4.30） | 新使用者（沒看過導覽）在開始畫面看到三步驟：設定密碼、把資料放進網站、完成第一個修改並發布（第一次發布顯示「完成第一次發布！」）；只有一個網站的老師登入後直接進入；留言移到欄位下方 |
 | 新手畫面（v4.30） | 「今天想改什麼」前五次只顯示 6 個常用按鈕，其他收進「更多功能」；對話框的關閉鈕不再自動跳出提示，Esc 一次就關 |
+| 整站讀取（v4.31） | `cloud/src/webText.js` `crawlSite`：從給的網址（或勾選的多個網址）出發，同主機、同資料夾（`scopeOf`，例如 `/~wang/`）最多 20 頁，論文／簡歷頁優先，每批 4 頁並行；連到的履歷 PDF 最多 2 份一起交給 `aiProfileImport` |
+| AI 上網找老師（v4.31） | `POST /api/sites/:id/find-teacher`：`aiFindTeacher` 用 `web_search_20260209`＋`web_fetch_20260209`（各限 6、5 次，處理 `pause_turn`），只保留搜尋／讀取結果裡出現過的網址（`seenUrls`、`readFindResult`），附原因與可信度；老師勾選後交給整站讀取；找到 ORCID 時論文走一次匯入；算一次 AI（`ai_search`） |
 | 發布前檢查：無障礙與手機版（v4.25） | 缺 viewport（警示）、固定寬度超過 480px、缺 lang、h1 數量、標題層級跳過、沒有文字的連結、「點這裡」類連結、iframe 沒有 title |
 | 自動存草稿（v4.18，LabSite Cloud） | 停止輸入 20 秒後自動存成草稿，版本紀錄同一輪只留一筆；外觀的修改不自動保存。發布後可按「回到上一版」讓公開網站回到發布前的樣子 |
 | 並排預覽（v4.18） | 預覽可同時顯示電腦與手機尺寸（寬螢幕預設），兩邊都可以點選 |

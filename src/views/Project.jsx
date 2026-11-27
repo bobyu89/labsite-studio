@@ -817,7 +817,8 @@ export default function Project({ p, device, setDevice, setConfirm }) {
           onPapers={(entries, id) => {
             setImportOpen(false);
             if (id) setImportDone((x) => ({ ...x, [id]: true }));
-            setBulkPub(entries ? { entries, n: Date.now() } : { n: Date.now() });
+            // Papers read from a CV (entries), or an ORCID record ({ works, orcid }).
+            setBulkPub(Array.isArray(entries) ? { entries, n: Date.now() } : entries?.works ? { works: entries.works, orcid: entries.orcid, n: Date.now() } : { n: Date.now() });
           }}
         />
       )}

@@ -35,8 +35,8 @@ import { cleanProfile, profileText } from "../../src/site/labProfile.js";
 import { packById } from "../../src/site/stylePacks.js";
 import { enc as utf8enc, dec as utf8dec } from "./bytes.js";
 import { adminOverview } from "./overview.js";
-import { oldSiteText } from "./webText.js";
-import { aiProfileImport, aiThemes, aiAssist, aiDescribePhoto, aiQuickNews, aiSitePlan, aiHealth, aiUsage, aiConfig, aiEnabledFor, aiAdminView, saveAiSettings, removeAiKey, testAiKey } from "./ai.js";
+import { crawlSite } from "./webText.js";
+import { aiProfileImport, aiFindTeacher, aiThemes, aiAssist, aiDescribePhoto, aiQuickNews, aiSitePlan, aiHealth, aiUsage, aiConfig, aiEnabledFor, aiAdminView, saveAiSettings, removeAiKey, testAiKey } from "./ai.js";
 import {
   RepoError,
   isAdmin,
@@ -748,19 +748,33 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
     const body = await c.req.json().catch(() => ({}));
     let source;
     let pages = [];
+    let pdfs = [];
     if (body.pdf) source = { pdf: body.pdf };
-    else if (body.url) {
+    else if (body.url || Array.isArray(body.urls)) {
+      // 整站讀取: the old site (or the pages the teacher ticked after a web
+      // search), up to 20 pages, and the CV PDFs they link to.
       try {
-        const got = await oldSiteText(body.url, fetchImpl);
-        source = { text: got.text, kind: "web", url: body.url };
+        const got = await crawlSite(body.urls || [body.url], fetchImpl);
+        source = { text: got.text, kind: "web", url: (body.urls || [body.url])[0], pdfs: got.pdfs.map((x) => x.base64) };
         pages = got.pages;
+        pdfs = got.pdfs.map((x) => x.url);
       } catch (e) {
         throw new RepoError(e.status || 400, e.message);
       }
     } else source = { text: body.text, kind: "word" };
     const result = await aiProfileImport(c.env, source, fetchImpl, config.key, await labText(c.env, site));
     await logEvent(c.env, site.id, "ai_import", null, c.get("user").email, body.url ? String(body.url).slice(0, 200) : body.pdf ? "PDF" : "Word");
-    return c.json({ ...result, pages, remaining });
+    return c.json({ ...result, pages, pdfs, remaining });
+  });
+
+  // AI 上網找老師: name and school → candidate pages (web search). The teacher
+  // ticks theirs, which are then read by import-profile.
+  app.post("/api/sites/:id/find-teacher", async (c) => {
+    const { site, config, remaining } = await aiGate(c);
+    const body = await c.req.json().catch(() => ({}));
+    const result = await aiFindTeacher(c.env, body, fetchImpl, config.key);
+    await logEvent(c.env, site.id, "ai_search", null, c.get("user").email, `${String(body.name || "").slice(0, 40)} / ${String(body.school || "").slice(0, 80)}（搜尋 ${result.searches} 次）`);
+    return c.json({ ...result, remaining });
   });
 
   // 活動快報: a sentence (and a photo) → a news draft in both languages.

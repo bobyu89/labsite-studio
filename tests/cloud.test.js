@@ -1991,3 +1991,41 @@ test("從我的資料帶入: a CV PDF goes to the AI as a document, an old websi
   const logged = await env.DB.prepare("SELECT COUNT(*) AS n FROM events WHERE kind = 'ai_import'").first();
   assert.equal(logged.n, 2, "each read counts toward the daily AI limit");
 });
+
+test("AI 上網找老師: web search and fetch tools, pause_turn continued, results checked, counted as AI use", async () => {
+  const sent = [];
+  let turn = 0;
+  const fetchImpl = scriptedFetch([
+    [
+      "api.anthropic.com/v1/messages",
+      (u, init) => {
+        sent.push(JSON.parse(init.body));
+        turn++;
+        const content =
+          turn === 1
+            ? [
+                { type: "server_tool_use", id: "s1", name: "web_search", input: { query: "王小明 護理" } },
+                { type: "web_search_tool_result", tool_use_id: "s1", content: [{ type: "web_search_result", url: "https://u.edu.tw/~wang/", title: "王小明" }] },
+              ]
+            : [{ type: "text", text: '<result>{"candidates":[{"url":"https://u.edu.tw/~wang/","title":"王小明","kind":"lab","confidence":"high","why":"本人"},{"url":"https://invented.org/","kind":"cv","confidence":"high","why":"x"}],"orcid":""}</result>' }];
+        return { json: { id: "m" + turn, type: "message", role: "assistant", model: "claude-opus-5-5", content, stop_reason: turn === 1 ? "pause_turn" : "end_turn", stop_sequence: null, usage: { input_tokens: 1, output_tokens: 1 } } };
+      },
+    ],
+  ]);
+  const env = fakeEnv();
+  const site = await seed(env);
+  await addMember(env, site.id, "teacher@lab.tw", "admin@lab.tw");
+  const app = createApp({ fetchImpl });
+  const as = (email) => ({ ...env, DEV_USER_EMAIL: email });
+  await app.request("http://localhost/api/admin/ai", jsonReq("PUT", { key: TEST_KEY }), as("admin@lab.tw"));
+  const post = (body) => app.request(`http://localhost/api/sites/${site.id}/find-teacher`, jsonReq("POST", body), as("teacher@lab.tw"));
+  assert.equal((await post({ name: "王", school: "" })).status, 400);
+  const r = await (await post({ name: "王小明", school: "某某大學護理學系" })).json();
+  assert.deepEqual(sent[0].tools.map((t) => t.type), ["web_search_20260209", "web_fetch_20260209"]);
+  assert.match(sent[0].messages[0].content, /姓名：王小明\n學校／系所：某某大學護理學系/);
+  assert.equal(sent[1].messages.at(-1).role, "assistant", "a paused turn is sent back to continue");
+  assert.deepEqual(r.candidates.map((c) => c.url), ["https://u.edu.tw/~wang/"], "an address the search never returned is dropped");
+  assert.equal(r.searches, 1);
+  const logged = await env.DB.prepare("SELECT kind, detail FROM events WHERE kind = 'ai_search'").first();
+  assert.match(logged.detail, /王小明 \/ 某某大學護理學系（搜尋 1 次）/);
+});

@@ -5,7 +5,8 @@ import assert from "node:assert/strict";
 import { deflateRawSync } from "node:zlib";
 import "./dom.js";
 const { zipEntry, documentText, docxText } = await import("../src/site/docxText.js");
-const { htmlText, wantedLinks, checkUrl, oldSiteText } = await import("../cloud/src/webText.js");
+const { htmlText, wantedLinks, checkUrl, oldSiteText, crawlSite, scopeOf, siteLinks } = await import("../cloud/src/webText.js");
+const { seenUrls, readFindResult } = await import("../cloud/src/ai.js");
 const { importTargets, importRequest, paperEntries } = await import("../src/site/profileImport.js");
 
 // A minimal zip: entries [name, bytes, deflate?].
@@ -106,4 +107,55 @@ test("each part goes to the page that has it, as a request the assistant can act
   const [paper] = paperEntries([{ authors: ["Wang, X.-M.", "林雅婷"], year: 2025, title: "T", journal: "J", volume: "1", issue: "2", pages: "3-4", doi: "10.1111/jan.1" }]);
   assert.deepEqual(paper.meta.authors, [{ family: "Wang", given: "X.-M." }, { literal: "林雅婷" }]);
   assert.equal(paper.meta.doi, "10.1111/jan.1");
+});
+
+test("整站讀取: same host and folder only, papers and CV pages first, CV PDFs too, at most 20 pages", async () => {
+  assert.equal(scopeOf(new URL("https://u.edu.tw/~wang/index.html")), "u.edu.tw/~wang/");
+  assert.equal(scopeOf(new URL("https://wang-lab.org/")), "wang-lab.org/");
+  const base = new URL("https://u.edu.tw/~wang/");
+  const links = siteLinks('<a href="news.html">消息</a><a href="pub.html">論文</a><a href="/~chen/">陳老師</a><a href="https://other.org/x">外站</a><a href="cv.pdf">CV</a><a href="handout.pdf">講義</a><a href="photo.jpg">照片</a>', base, scopeOf(base));
+  assert.deepEqual(links.pages, ["https://u.edu.tw/~wang/pub.html", "https://u.edu.tw/~wang/news.html"]);
+  assert.deepEqual(links.pdfs, ["https://u.edu.tw/~wang/cv.pdf"]);
+
+  const pdf = "%PDF-1.4 " + "x".repeat(400);
+  const site = {
+    "https://u.edu.tw/~wang/": '<h1>王小明</h1><a href="pub.html">論文</a><a href="cv.pdf">履歷</a><a href="/~chen/">同事</a>' + Array.from({ length: 30 }, (_, i) => `<a href="p${i}.html">頁${i}</a>`).join(""),
+    "https://u.edu.tw/~wang/pub.html": "<li>Wang (2025). Paper.</li>",
+  };
+  const asked = [];
+  const fetchImpl = async (url) => {
+    asked.push(url);
+    if (url.endsWith(".pdf")) return new Response(pdf, { headers: { "Content-Type": "application/pdf" } });
+    if (site[url]) return new Response(site[url], { headers: { "Content-Type": "text/html" } });
+    if (/\/~wang\/p\d+\.html$/.test(url)) return new Response("<p>頁</p>", { headers: { "Content-Type": "text/html" } });
+    return new Response("no", { status: 404 });
+  };
+  const got = await crawlSite("https://u.edu.tw/~wang/", fetchImpl);
+  assert.equal(got.pages.length, 20);
+  assert.equal(got.pages[1], "https://u.edu.tw/~wang/pub.html", "the papers page comes first");
+  assert.ok(!asked.some((u) => u.includes("/~chen/")), "never leaves the teacher's folder");
+  assert.deepEqual(got.pdfs.map((x) => x.url), ["https://u.edu.tw/~wang/cv.pdf"]);
+  assert.equal(atob(got.pdfs[0].base64), pdf);
+  assert.match(got.text, /# https:\/\/u\.edu\.tw\/~wang\/\n王小明[\s\S]*Wang \(2025\)/);
+  // Several starting pages (ticked after a web search) share the budget; a CV PDF can be one of them.
+  const two = await crawlSite(["https://u.edu.tw/~wang/pub.html", "https://u.edu.tw/~wang/cv.pdf"], fetchImpl, { maxPages: 3 });
+  assert.deepEqual(two.pdfs.map((x) => x.url), ["https://u.edu.tw/~wang/cv.pdf"]);
+  await assert.rejects(crawlSite("https://u.edu.tw/~nobody/", fetchImpl), /讀不到這個網址/);
+  await assert.rejects(crawlSite(["http://localhost/"], fetchImpl), /完整的網址/);
+});
+
+test("AI 上網找老師: only addresses the search actually returned are kept", () => {
+  const content = [
+    { type: "server_tool_use", id: "a", name: "web_search", input: { query: "王小明" } },
+    { type: "web_search_tool_result", tool_use_id: "a", content: [{ type: "web_search_result", url: "https://u.edu.tw/~wang/", title: "王小明" }] },
+    { type: "web_fetch_tool_result", tool_use_id: "b", content: { type: "web_fetch_result", url: "https://orcid.org/0000-0002-1825-0097", content: {} } },
+    { type: "text", text: "前言" },
+  ];
+  const seen = seenUrls(content);
+  assert.deepEqual([...seen], ["https://u.edu.tw/~wang", "https://orcid.org/0000-0002-1825-0097"]);
+  const text = '找到了。<result>{"candidates":[{"url":"https://u.edu.tw/~wang/","title":"王小明","kind":"lab","confidence":"high","why":"本人"},{"url":"https://made.up/x","kind":"cv","confidence":"high"},{"url":"https://orcid.org/0000-0002-1825-0097","kind":"orcid","confidence":"weird"},{"url":"javascript:alert(1)"}],"orcid":"0000-0002-1825-0097"}</result>';
+  const r = readFindResult(text, seen);
+  assert.deepEqual(r.candidates.map((c) => [c.url, c.kind, c.confidence]), [["https://u.edu.tw/~wang/", "lab", "high"], ["https://orcid.org/0000-0002-1825-0097", "orcid", "low"]]);
+  assert.equal(r.orcid, "0000-0002-1825-0097");
+  assert.deepEqual(readFindResult("沒有結果", seen), { candidates: [], orcid: "" });
 });
