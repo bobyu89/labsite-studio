@@ -217,6 +217,7 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
       via: user.via,
       hasPassword: user.via === "session" ? await hasPassword(c.env, user.email) : false,
       ai: !!ai.key,
+      aiModels: ai.models,
       aiOff: sites.filter((s) => ai.off.has(s.id)).map((s) => s.id),
       sites: await (async () => {
         const keys = sites.flatMap((s) => ["review:" + s.id, "schedule:" + s.id, "health:" + s.id]);
@@ -292,7 +293,7 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
     const body = await c.req.json().catch(() => ({}));
     if (body.key !== undefined && c.env.ANTHROPIC_API_KEY)
       throw new RepoError(409, "金鑰目前由 Cloudflare 的 ANTHROPIC_API_KEY 設定提供，請到 Cloudflare 更換。");
-    await saveAiSettings(c.env, { key: body.key, dailyLimit: body.dailyLimit, off: body.off }, c.get("user").email);
+    await saveAiSettings(c.env, { key: body.key, dailyLimit: body.dailyLimit, off: body.off, models: body.models }, c.get("user").email);
     return c.json(await aiAdminView(c.env));
   });
   app.delete("/api/admin/ai", requireAdmin, async (c) => {
@@ -544,8 +545,8 @@ export function createApp({ fetchImpl = (...a) => fetch(...a) } = {}) {
   app.post("/api/sites/:id/assistant", async (c) => {
     const { site, config, remaining } = await aiGate(c);
     const body = await c.req.json().catch(() => ({}));
-    const result = await aiAssist(c.env, body, fetchImpl, config.key, Date.now(), await labText(c.env, site));
-    await logEvent(c.env, site.id, "ai_assist", null, c.get("user").email, (body.command ? "[" + String(body.command).slice(0, 20) + "] " : "") + String(body.message || "").slice(0, 300));
+    const result = await aiAssist(c.env, body, fetchImpl, config.key, Date.now(), await labText(c.env, site), config.models);
+    await logEvent(c.env, site.id, "ai_assist", null, c.get("user").email, `〔${result.model}〕` + (body.command ? "[" + String(body.command).slice(0, 20) + "] " : "") + String(body.message || "").slice(0, 300));
     return c.json({ ...result, remaining });
   });
 

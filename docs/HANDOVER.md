@@ -39,7 +39,7 @@ Cloudflare 帳號、GitHub 帳號、Anthropic 帳號都是管理者（bobyu89）
 | 預約發布沒有上線 | 「我的網站」與編輯器上方會顯示「預約發布沒有成功」和原因；預約存在 D1 `settings` 的 `schedule:<網站 id>`。Cloudflare 的 cron 要有 `*/10 * * * *`（`cloud/wrangler.api.toml`）。 |
 | 造訪數字怪怪的 | 只算網頁（.html）被打開的次數，同一人重新整理也算一次；機器人用 User-Agent 排除，不是百分之百。資料在 D1 `page_views`。 |
 | ORCID 新論文提醒沒出現 | 該網站要先用「一次匯入多篇 › ORCID」並勾「記住這個 ORCID」；每台瀏覽器每天最多查一次。ORCID 存在 D1 `settings` 的 `orcid:<網站 id>`。 |
-| AI 費用 | Anthropic Console 看用量；「平台設定」可調每站每日上限。 |
+| AI 費用 | Anthropic Console 看用量；「平台設定」可調每站每日上限，也可以把 AI 助手的預設模型改成「省錢」。 |
 | 備份失敗 | 「平台設定 › GitHub 備份」會列出每個網站的狀態與錯誤；常見原因是權杖過期或沒有該儲存庫的寫入權限。 |
 | 部署失敗 | GitHub → Actions → Deploy LabSite Cloud to Cloudflare，看失敗的步驟。測試沒過不會部署。 |
 
@@ -72,6 +72,12 @@ Cloudflare 帳號、GitHub 帳號、Anthropic 帳號都是管理者（bobyu89）
 
 - 「從我的資料帶入」讀履歷或舊網站一次算 1 次 AI（事件 `ai_import`），放進每一頁再各算 1 次助手。每日上限照「AI 助手設定」。
 - 第一次使用的三步驟記在瀏覽器（`labsite.firstrun.v1`），老師換新電腦會再看到一次，可以直接關掉。
+
+## 5.8 v4.32
+
+- AI 助手可以選模型：標準、省錢、最省。管理者在「平台設定 › AI 助手可以用的模型」決定開放哪些、預設哪一個（存在 `settings` 的 `ai_assist_models`）。想控制費用，可以把預設改成「省錢」，或只開放「省錢」「最省」。
+- 「總覽」的 AI 紀錄前面會標〔opus〕〔sonnet〕〔haiku〕，看得出各模型用了多少次。
+- 模型名稱與每次的估計費用在 `src/site/aiModels.js`；換新模型時改這裡，`npm test` 會檢查。
 
 ## 6. 定期檢查（建議每月一次）
 

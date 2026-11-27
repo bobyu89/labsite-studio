@@ -10,6 +10,7 @@ import { SITE_FIELDS } from "../../src/site/siteData.js";
 import { BLOCK_CATALOG } from "../../src/site/blockCatalog.js";
 import { designBrief, commandById, registerOf } from "../../src/site/design.js";
 import { STYLE_PACKS, PACK_IDS } from "../../src/site/stylePacks.js";
+import { ASSIST_MODELS, cleanModelChoice, pickModel } from "../../src/site/aiModels.js";
 
 const BLOCK_IDS = BLOCK_CATALOG.filter((b) => !b.image).map((b) => b.id);
 
@@ -22,7 +23,7 @@ const AI_KINDS = "('ai_theme', 'ai_assist', 'ai_photo', 'ai_news', 'ai_health', 
 // otherwise from the settings table (the admin's 「平台設定」 page). It is
 // only used here, to call the API: nothing returns it to a browser.
 export async function aiConfig(env) {
-  const rows = await getSettings(env, ["ai_key", "ai_daily_limit", "ai_sites_off"]);
+  const rows = await getSettings(env, ["ai_key", "ai_daily_limit", "ai_sites_off", "ai_assist_models"]);
   let off = [];
   try {
     off = JSON.parse(rows.ai_sites_off || "[]");
@@ -36,6 +37,13 @@ export async function aiConfig(env) {
     source: env.ANTHROPIC_API_KEY ? "env" : rows.ai_key ? "settings" : null,
     dailyLimit: Number.isFinite(limit) && limit >= 1 && limit <= 500 ? limit : AI_DAILY_LIMIT,
     off: new Set(Array.isArray(off) ? off.map(String) : []),
+    models: (() => {
+      try {
+        return cleanModelChoice(JSON.parse(rows.ai_assist_models || "null"));
+      } catch {
+        return cleanModelChoice(null);
+      }
+    })(),
   };
 }
 
@@ -70,18 +78,23 @@ export async function aiAdminView(env, now = Date.now()) {
     source: config.source,
     last4: config.key ? config.key.slice(-4) : null,
     dailyLimit: config.dailyLimit,
+    models: config.models,
     month: Number(month?.n || 0),
     sites: sites.map((s) => ({ id: s.id, slug: s.slug, name: s.name, enabled: !config.off.has(s.id), today: used.get(s.id) || 0 })),
   };
 }
 
-// patch: { key?, dailyLimit?, off? } — only what is present changes.
+// patch: { key?, dailyLimit?, off?, models? } — only what is present changes.
 export async function saveAiSettings(env, patch, actor, now = Date.now()) {
   if (patch.key !== undefined) await setSetting(env, "ai_key", cleanKey(patch.key), actor, now);
   if (patch.dailyLimit !== undefined) {
     const n = Number(patch.dailyLimit);
     if (!Number.isInteger(n) || n < 1 || n > 500) throw new RepoError(400, "每天次數請填 1 到 500 的整數。");
     await setSetting(env, "ai_daily_limit", String(n), actor, now);
+  }
+  if (patch.models !== undefined) {
+    if (!patch.models || !Array.isArray(patch.models.allowed) || !patch.models.allowed.length) throw new RepoError(400, "至少要開放一種模型。");
+    await setSetting(env, "ai_assist_models", JSON.stringify(cleanModelChoice(patch.models)), actor, now);
   }
   if (patch.off !== undefined) {
     if (!Array.isArray(patch.off)) throw new RepoError(400, "網站清單格式不正確。");
@@ -371,7 +384,8 @@ const taipeiDate = (now) => new Date(now + 8 * 3600 * 1000).toISOString().slice(
 // command: one of the 設計規範 commands (design.js COMMANDS) — its request
 // and rule domains are used, and only its kinds of change are kept.
 // lab: the lab profile as text (labProfile.js profileText).
-export async function aiAssist(env, { message, history = [], context, command }, fetchImpl, key, now = Date.now(), lab = "") {
+// model: a key of ASSIST_MODELS; choice: the admin's { allowed, default }.
+export async function aiAssist(env, { message, history = [], context, command, model }, fetchImpl, key, now = Date.now(), lab = "", choice = null) {
   if (!key) throw new RepoError(503, "AI 助手尚未設定（管理者需要在「平台設定」放入 API 金鑰）。");
   const cmd = command ? commandById(String(command)) : null;
   if (command && (!cmd || cmd.local)) throw new RepoError(400, "沒有這個指令。");
@@ -386,13 +400,14 @@ export async function aiAssist(env, { message, history = [], context, command },
     .slice(-8)
     .map((h) => ({ role: h.role, content: clip(h.text, 4000) }));
   while (turns.length && turns[0].role !== "user") turns.shift();
+  const used = choice ? pickModel(model, choice) : "opus";
+  const spec = ASSIST_MODELS[used];
   let response;
   try {
     response = await client(key, fetchImpl, 90_000).beta.messages.create({
-      model: AI_MODEL,
+      model: spec.id,
       max_tokens: 16000,
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
+      ...(spec.fallback ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" } : {}),
       output_config: { effort: "low", format: { type: "json_schema", schema: ASSIST_SCHEMA } },
       system: withDesign(ASSIST_SYSTEM, { domains: cmd ? cmd.domains : null, register: registerOf(context?.page?.path), lab, antiPatterns: true }),
       messages: [
@@ -420,7 +435,7 @@ export async function aiAssist(env, { message, history = [], context, command },
     .slice(0, 12);
   const reply = clip(data?.reply, 2000);
   if (!reply && !changes.length) throw new RepoError(502, "助手沒有回應，請再試一次。");
-  return { reply, changes };
+  return { reply, changes, model: used };
 }
 
 /* -------------------------------------------------------------- photos */

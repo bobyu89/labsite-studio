@@ -9149,3 +9149,73 @@ button.pi-source:hover:not(:disabled) {
   gap: 14px;
   flex-wrap: wrap;
 }
+
+/* AI 助手的模型 */
+.ai-model {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+.ai-model > span {
+  color: var(--muted);
+  margin-right: 2px;
+}
+.ai-model button {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  cursor: pointer;
+}
+.ai-model button small {
+  font-size: 11px;
+  color: var(--muted);
+}
+.ai-model button.on {
+  border-color: var(--accent);
+  background: #fff7ef;
+  font-weight: 700;
+}
+.ai-model-tag {
+  display: inline-block;
+  margin-top: 2px;
+  padding: 0 7px;
+  border-radius: 4px;
+  background: var(--soft);
+  color: var(--muted);
+  font-size: 11px;
+}
+.settings-model {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 12px;
+  align-items: center;
+  padding: 6px 0;
+}
+.settings-model > label:first-child {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.settings-model > .muted {
+  grid-column: 1;
+  font-size: 13px;
+  padding-left: 24px;
+}
+.settings-default {
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  font-size: 13px;
+}
