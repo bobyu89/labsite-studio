@@ -102,6 +102,7 @@ export function cloudApi(fetchImpl = (...a) => fetch(...a)) {
     quickNews: (id, body) => call("POST", site(id) + "/quick-news", body),
     health: (id, body) => call("POST", site(id) + "/health", body),
     saveHealthReport: (id, report) => call("PUT", site(id) + "/health-report", report),
+    importProfile: (id, body) => call("POST", site(id) + "/import-profile", body),
     aiSettings: () => call("GET", "/admin/ai"),
     saveAiSettings: (patch) => call("PUT", "/admin/ai", patch),
     removeAiKey: () => call("DELETE", "/admin/ai"),

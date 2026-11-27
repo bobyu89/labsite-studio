@@ -54,10 +54,12 @@ export function Modal({
       >
         <div className="modal-heading">
           <Dialog.Title>{title}</Dialog.Title>
+          {/* No tooltip here: the dialog focuses this button when it opens, and
+              an open tooltip would take the first Escape for itself. */}
           <Dialog.Close>
-            <IconButton label="關閉">
+            <button type="button" className="icon-button" aria-label="關閉">
               <X size={20} />
-            </IconButton>
+            </button>
           </Dialog.Close>
         </div>
         <Dialog.Description size="2" className="muted">

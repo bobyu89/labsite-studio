@@ -412,6 +412,19 @@ function CloudHome({ p, onSetPassword, setConfirm }) {
   const me = p.cloud.me;
   const [view, setView] = useState("sites");
   const [wizard, setWizard] = useState(false);
+  // A teacher with one site goes straight into it once per visit (the site
+  // list is one click away from the editor's back arrow).
+  useEffect(() => {
+    if (me.admin || me.sites.length !== 1 || p.busy) return;
+    try {
+      if (sessionStorage.getItem("labsite.autoopen") === "1") return;
+      sessionStorage.setItem("labsite.autoopen", "1");
+    } catch {
+      return;
+    }
+    p.openCloud(me.sites[0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me.sites.length]);
   if (me.admin && view === "ai") return <AiSettings p={p} onBack={() => setView("sites")} setConfirm={setConfirm} />;
   if (me.admin && view === "overview")
     return (

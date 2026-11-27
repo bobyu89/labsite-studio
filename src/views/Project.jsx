@@ -29,6 +29,7 @@ import {
   Heartbeat,
   IdentificationCard,
   MagicWand,
+  FileArrowUp,
   UserPlus,
 } from "@phosphor-icons/react";
 import { IconButton, Field, Modal, download } from "../components/ui";
@@ -60,7 +61,9 @@ import LabProfile from "../components/LabProfile";
 import AutoFix from "../components/AutoFix";
 import TeamDialog from "../components/TeamDialog";
 import GettingStarted from "../components/GettingStarted";
-import StartScreen, { startSkipped } from "../components/StartScreen";
+import StartScreen, { startSkipped, countStartOpen } from "../components/StartScreen";
+import ProfileImport from "../components/ProfileImport";
+import { PasswordDialog } from "../components/PasswordLogin";
 import Tour, { tourDone } from "../components/Tour";
 import OrcidReminder from "../components/OrcidReminder";
 import SyncNote from "../components/SyncNote";
@@ -115,6 +118,8 @@ function ErrorMessage({ text, onClose }) {
     </div>
   );
 }
+
+const FIRST_KEY = "labsite.firstrun.v1";
 
 export default function Project({ p, device, setDevice, setConfirm }) {
   const [tab, setTab] = useState("blocks");
@@ -199,6 +204,21 @@ export default function Project({ p, device, setDevice, setConfirm }) {
   // site is opened (unless turned off).
   const [tour, setTour] = useState(false);
   const [start, setStart] = useState(false);
+  // 第一次使用: someone new to LabSite (no tour seen, steps not finished)
+  // gets three steps on the start screen instead of the tour.
+  const [firstOn, setFirstOn] = useState(() => {
+    try {
+      return localStorage.getItem(FIRST_KEY) !== "done" && !tourDone();
+    } catch {
+      return false;
+    }
+  });
+  const [firstLook, setFirstLook] = useState(false);
+  const [firstPublished, setFirstPublished] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importData, setImportData] = useState(null);
+  const [importDone, setImportDone] = useState({});
   const openedSite = p.project?.source.kind === "cloud" && p.project.source.writable ? p.project.source.site.id : null;
   useEffect(() => {
     if (!openedSite) return;
@@ -206,7 +226,9 @@ export default function Project({ p, device, setDevice, setConfirm }) {
     // three-step card (still under 使用說明).
     setGuide(false);
     const t = setTimeout(() => {
-      if (!tourDone()) setTour(true);
+      countStartOpen();
+      if (firstOn) setStart(true);
+      else if (!tourDone()) setTour(true);
       else if (!startSkipped()) setStart(true);
     }, 1200);
     return () => clearTimeout(t);
@@ -351,7 +373,19 @@ export default function Project({ p, device, setDevice, setConfirm }) {
       </>
     );
     const previous = p.cloudSite?.published || null;
-    const done = (ok) => ok && setPublished({ previous });
+    const done = (ok) => {
+      if (!ok) return;
+      setPublished({ previous, first: firstOn });
+      if (firstOn) {
+        setFirstPublished(true);
+        setFirstOn(false);
+        try {
+          localStorage.setItem(FIRST_KEY, "done");
+        } catch {
+          /* private window */
+        }
+      }
+    };
     setConfirm(
       p.anyDirty
         ? {
@@ -502,6 +536,7 @@ export default function Project({ p, device, setDevice, setConfirm }) {
   };
   const homePage = p.pages.includes("index.html") ? "index.html" : p.pages[0];
   const startTiles = [
+    aiOn && { id: "import", icon: <FileArrowUp size={30} />, title: "從我的資料帶入", text: "履歷或舊網站，AI 整理好放進網站", run: go(() => setImportOpen(true)), tone: "ai" },
     { id: "health", icon: <Heartbeat size={30} />, title: "網站體檢", text: "看一遍全站，列出最該先處理的事", run: go(() => setHealth(true)), tone: "ai" },
     p.project?.source.writable && { id: "autofix", icon: <MagicWand size={30} />, title: "一鍵修正", text: "間距、標點、太大的照片，平台直接改", run: go(() => setFixOpen(true)) },
     hasNews && p.news?.ok && !p.news.sheetId && { id: "news", icon: <Newspaper size={30} />, title: "加一則最新消息", text: "公告、獲獎、活動，日期自動排序", run: go(() => setTab("news")) },
@@ -519,6 +554,75 @@ export default function Project({ p, device, setDevice, setConfirm }) {
     { id: "history", icon: <ClockCounterClockwise size={30} />, title: "找回舊版本", text: "看改了什麼，或還原成之前的樣子", run: go(() => setTab("history")) },
   ].filter(Boolean);
   const startStatus = p.cloudSite?.unpublished ? "有修改還沒發布，訪客看到的還是舊的網站。" : "網站是最新的。";
+  const me = p.cloud?.me;
+  const firstSteps =
+    firstOn && isCloud
+      ? {
+          steps: [
+            {
+              id: "password",
+              title: "設定密碼",
+              text: "設好之後，換電腦或用手機，輸入 Email 和密碼就能進來，不用再找人要連結。",
+              doneText: "已經設定好，下次用 Email 和密碼登入。",
+              done: !me || me.via !== "session" || me.hasPassword,
+              actions: [{ label: "設定密碼", primary: true, run: go(() => setPasswordOpen(true)) }],
+            },
+            {
+              id: "look",
+              title: "把你的資料放進網站",
+              text: aiOn ? "手上有履歷或舊網站嗎？AI 會整理好，你勾選要放的，就不用一格一格打字。" : "先看看網站現在的樣子：標著「範例」的地方，都要換成你們的資料。",
+              doneText: "很好，接下來改一個地方，再發布看看。",
+              done: firstLook,
+              actions: [
+                aiOn && {
+                  label: "從我的履歷或舊網站帶入",
+                  primary: true,
+                  run: go(() => {
+                    setFirstLook(true);
+                    setImportOpen(true);
+                  }),
+                },
+                {
+                  label: aiOn ? "我先自己看看" : "看看網站",
+                  primary: !aiOn,
+                  run: go(() => {
+                    setFirstLook(true);
+                    if (homePage) enter("blocks", homePage);
+                  }),
+                },
+              ].filter(Boolean),
+            },
+            {
+              id: "publish",
+              title: "完成第一個修改，按「發布」",
+              text: "改首頁的一句話，按右上角的「發布」，訪客看到的網站就更新了。改錯了也能找回來。",
+              done: firstPublished,
+              actions: [
+                {
+                  label: "改首頁的一句話",
+                  primary: true,
+                  run: go(() => {
+                    if (homePage) enter("blocks", homePage);
+                    setTimeout(() => p.setSelected(0), 400);
+                    // The sentence that introduces the lab: the longest Chinese text in the first block.
+                    setTimeout(() => {
+                      const boxes = [...document.querySelectorAll(".studio-right .field-inspector textarea")].slice(0, 4);
+                      const zh = (t) => /[\u4e00-\u9fff]/.test(t.value);
+                      const box = boxes.sort((a, b) => zh(b) - zh(a) || b.value.length - a.value.length)[0];
+                      if (box) {
+                        box.scrollIntoView({ block: "center" });
+                        box.focus();
+                        box.select();
+                      }
+                    }, 1100);
+                    p.notify("右邊反白的就是首頁那一句，直接改成你們研究室的介紹。改好後按右上角的「發布」。");
+                  }),
+                },
+              ],
+            },
+          ],
+        }
+      : null;
   const monthly = healthReport && Date.now() - healthReport.at < HEALTH_EVERY ? healthReport : null;
   const startNotices = [
     monthly &&
@@ -693,12 +797,47 @@ export default function Project({ p, device, setDevice, setConfirm }) {
           }}
         />
       )}
+      {isCloud && (
+        <ProfileImport
+          p={p}
+          open={importOpen}
+          onClose={() => setImportOpen(false)}
+          data={importData}
+          setData={(d) => {
+            setImportData(d);
+            if (d) setFirstLook(true);
+          }}
+          done={importDone}
+          onAsk={(page, text, id) => {
+            setImportOpen(false);
+            setImportDone((x) => ({ ...x, [id]: true }));
+            enter("blocks", page);
+            setPendingAsk({ page, text });
+          }}
+          onPapers={(entries, id) => {
+            setImportOpen(false);
+            if (id) setImportDone((x) => ({ ...x, [id]: true }));
+            setBulkPub(entries ? { entries, n: Date.now() } : { n: Date.now() });
+          }}
+        />
+      )}
+      {isCloud && (
+        <PasswordDialog
+          p={p}
+          open={passwordOpen}
+          onClose={() => {
+            setPasswordOpen(false);
+            if (firstOn) setStart(true);
+          }}
+        />
+      )}
       {start && !tour && isCloud && (
         <StartScreen
           siteName={p.cloudSite?.name}
           status={startStatus}
           notices={startNotices}
           tiles={startTiles}
+          first={firstSteps}
           onClose={() => setStart(false)}
           onTour={() => {
             setStart(false);
@@ -784,8 +923,8 @@ export default function Project({ p, device, setDevice, setConfirm }) {
       <Modal
         open={!!published}
         onClose={() => setPublished(null)}
-        title="已經發布"
-        description="訪客現在看到的是最新的網站（幾秒內更新）。"
+        title={published?.first ? "完成第一次發布！" : "已經發布"}
+        description={published?.first ? "訪客現在看到的是你剛改好的網站。之後每次想改什麼，打開網站就會看到「今天想改什麼」。" : "訪客現在看到的是最新的網站（幾秒內更新）。"}
       >
         <div className="published-actions">
           {p.cloudSite?.url && (
@@ -1145,7 +1284,6 @@ export default function Project({ p, device, setDevice, setConfirm }) {
                   {sections[selected]?.title}
                   <span className="muted">{sections[selected]?.kind}</span>
                 </h3>
-                {isCloud && <Comments p={p} page={p.current} sections={sections} selected={selected} me={p.cloud.me?.email} teacher={!contributor} />}
                 {writable && <SyncNote items={syncHere} onAsk={askAi} onDismiss={p.dismissSync} onOpenPage={(path) => enter("blocks", path)} aiOn={aiOn} inEnglish={!!p.current?.startsWith("en/")} />}
                 {!p.theme?.vars["--motion"] && parsed && sections[selected] && (
                   <EntrancePicker section={sectionElements(parsed.doc)[selected]} disabled={!writable} onChange={(v) => p.setEntrance(selected, v)} />
@@ -1192,6 +1330,8 @@ export default function Project({ p, device, setDevice, setConfirm }) {
                   moveItem={p.moveItem}
                   setConfirm={setConfirm}
                 />
+                {/* Below the fields: someone new looks for the text to change first. */}
+                {isCloud && <Comments p={p} page={p.current} sections={sections} selected={selected} me={p.cloud.me?.email} teacher={!contributor} />}
               </div>
             </>
           )}

@@ -333,7 +333,7 @@ export default function FieldInspector({ html, index, focus, grabFocus = true, s
   if (!section) return null;
   const ctx = { index, focus, setFocus, setText, setAttr, setFx, describe, lang, replaceImage, openLibrary, writable, busy, addItem, removeItem, moveItem, setConfirm };
   return (
-    <div ref={ref}>
+    <div ref={ref} className="field-inspector">
       <Node node={node} section={section} ctx={ctx} open={open} toggle={toggle} focusPath={focusPath} />
     </div>
   );

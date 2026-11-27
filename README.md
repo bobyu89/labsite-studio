@@ -112,6 +112,9 @@ npm --prefix cloud run deploy
 | 一鍵修正（v4.29） | `src/site/autofix.js`（中英間距與全形標點、PDF 連結標示、成員照片目標形狀與裁切框、圖片換新路徑、補替代文字）＋ `useProject` 的 `autoFix`（縮圖用 `prepareImage`、裁切用 canvas，新檔名寫進每一頁）；`AutoFix.jsx` 先列改前改後再套用 |
 | 老師邀請學生（v4.29） | `GET/POST /api/sites/:id/team`、`DELETE /team/:email`、`POST /team/:email/link`：老師只能加、移除「學生、助理」；登入連結只給只屬於這個網站的學生（避免冒用其他老師），每站每天 30 條、最多 40 位成員；`TeamDialog.jsx` |
 | 每月體檢（v4.29） | `PUT /api/sites/:id/health-report` 存 `settings` 的 `health:<siteId>`（分數、件數、前三件）；`/api/me` 帶回；超過 30 天開網站時自動跑（不用 AI）；開始畫面與「我的網站」顯示 |
+| 從我的資料帶入（v4.30） | `POST /api/sites/:id/import-profile`：履歷 PDF（以 document 送給 Claude）、Word（瀏覽器用 `src/site/docxText.js` 取出文字）或舊網站網址（`cloud/src/webText.js`：只抓公開 http(s)、同站最多 3 個論文／簡歷頁）→ `aiProfileImport` 結構化（簡介、學經歷、研究主題、計畫、獲獎、論文、聯絡）；`ProfileImport.jsx` 把文字交給 AI 助手提案、論文交給一次匯入（`start.entries`）；算一次 AI（`ai_import`） |
+| 第一次使用（v4.30） | 新使用者（沒看過導覽）在開始畫面看到三步驟：設定密碼、把資料放進網站、完成第一個修改並發布（第一次發布顯示「完成第一次發布！」）；只有一個網站的老師登入後直接進入；留言移到欄位下方 |
+| 新手畫面（v4.30） | 「今天想改什麼」前五次只顯示 6 個常用按鈕，其他收進「更多功能」；對話框的關閉鈕不再自動跳出提示，Esc 一次就關 |
 | 發布前檢查：無障礙與手機版（v4.25） | 缺 viewport（警示）、固定寬度超過 480px、缺 lang、h1 數量、標題層級跳過、沒有文字的連結、「點這裡」類連結、iframe 沒有 title |
 | 自動存草稿（v4.18，LabSite Cloud） | 停止輸入 20 秒後自動存成草稿，版本紀錄同一輪只留一筆；外觀的修改不自動保存。發布後可按「回到上一版」讓公開網站回到發布前的樣子 |
 | 並排預覽（v4.18） | 預覽可同時顯示電腦與手機尺寸（寬螢幕預設），兩邊都可以點選 |
